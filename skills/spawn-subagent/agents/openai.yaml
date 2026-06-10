@@ -1,0 +1,7 @@
+interface:
+  display_name: "Spawn Subagent"
+  short_description: "Launch a subagent with explicit defaults"
+  default_prompt: "Use $spawn-subagent to delegate a bounded task to a fresh subagent with the latest model, xhigh reasoning, and empty default context."
+
+policy:
+  allow_implicit_invocation: false

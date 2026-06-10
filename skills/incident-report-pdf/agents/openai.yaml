@@ -1,0 +1,4 @@
+interface:
+  display_name: "Incident Report PDF"
+  short_description: "Generate standard incident PDF reports"
+  default_prompt: "Use $incident-report-pdf to generate a standard PDF incident report from Linear ticket UIB-1234."

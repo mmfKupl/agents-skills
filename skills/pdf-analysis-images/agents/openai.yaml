@@ -1,0 +1,4 @@
+interface:
+  display_name: "PDF Analysis Images"
+  short_description: "Render PDF analysis files into images"
+  default_prompt: "Use $pdf-analysis-images to render missing PDF page images and previews for this analysis folder."

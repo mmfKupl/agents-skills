@@ -1,0 +1,4 @@
+interface:
+  display_name: "Diff Review"
+  short_description: "Fresh review of local diffs."
+  default_prompt: "Use $diff-review to review the current diff with minimal context and report risks, simpler alternatives, and missing tests."

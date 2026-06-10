@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>[[doc_title]]</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 12mm;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      color: #111;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .page {
+      width: 100%;
+      min-height: 260mm;
+      box-sizing: border-box;
+      padding: 6mm 4mm 16mm;
+      position: relative;
+      page-break-after: always;
+    }
+
+    .page:last-child {
+      page-break-after: auto;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: 20px;
+      font-weight: 500;
+      text-align: center;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 8px 0;
+      table-layout: fixed;
+    }
+
+    td {
+      border: 1px solid #6f6f6f;
+      padding: 6px 8px;
+      vertical-align: top;
+      word-wrap: break-word;
+    }
+
+    .left {
+      width: 31%;
+      font-weight: 500;
+    }
+
+    .section {
+      font-weight: 700;
+      background: #fafafa;
+    }
+
+    .footer {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 2mm;
+      text-align: center;
+      font-size: 12px;
+      color: #333;
+    }
+
+    ul {
+      margin: 0;
+      padding-left: 18px;
+    }
+  </style>
+</head>
+<body>
+  <section class="page">
+    <h1>[[report_title]]</h1>
+
+    <table>
+      <tr><td class="section" colspan="2">1.0 Reported by</td></tr>
+      <tr><td class="left">1.1 Last Name:</td><td>[[reporter_last_name]]</td></tr>
+      <tr><td class="left">1.2 First Name:</td><td>[[reporter_first_name]]</td></tr>
+      <tr><td class="left">1.3 Position:</td><td>[[reporter_position]]</td></tr>
+      <tr><td class="left">1.4 Company/Org Name:</td><td>[[reporter_company]]</td></tr>
+      <tr><td class="left">1.5 Telephone No:</td><td>[[reporter_phone]]</td></tr>
+      <tr><td class="left">1.6 E-mail:</td><td>[[reporter_email]]</td></tr>
+    </table>
+
+    <table>
+      <tr><td class="section" colspan="2">2.0 Organization Details</td></tr>
+      <tr><td class="left">2.1 Name of organization:</td><td>[[organization_name]]</td></tr>
+      <tr><td class="left">2.2 Type of organization:</td><td>[[organization_type]]</td></tr>
+      <tr><td class="left">2.3 Street Address:</td><td>[[street_address]]</td></tr>
+      <tr>
+        <td class="left">2.4 At this time, is it known that other organizations are affected by this incident? (If so, list names, addresses, telephone number, email addresses &amp; contact persons):</td>
+        <td>[[other_organizations]]</td>
+      </tr>
+    </table>
+
+    <table>
+      <tr><td class="section" colspan="2">3.0 Incident Details Including Injury and Impact Level</td></tr>
+      <tr><td class="left">3.1 Date:</td><td>[[incident_date]]</td></tr>
+      <tr><td class="left">3.2 Time:</td><td>[[incident_time]]</td></tr>
+      <tr><td class="left">3.3 Location of affected site:</td><td>[[affected_location]]</td></tr>
+    </table>
+
+    <div class="footer">[[report_title]] 1</div>
+  </section>
+
+  <section class="page">
+    <table>
+      <tr><td class="left">3.4 Brief summary of the incident (what has happened, where did it happen, when did it happen):</td><td>[[brief_summary]]</td></tr>
+      <tr><td class="left">3.5 Description of the project/program and information involved, and, if applicable, the name of the specific program:</td><td>[[project_program]]</td></tr>
+      <tr><td class="left">3.6 Classification level of the information involved:</td><td>[[classification_level]]</td></tr>
+      <tr><td class="left">3.7 System compromise (detail):</td><td>[[system_compromise]]</td></tr>
+      <tr><td class="left">3.8 Data compromise (detail):</td><td>[[data_compromise]]</td></tr>
+      <tr><td class="left">3.9 Originator and/or Official Classification Authority of the information involved? (List name, address, telephone no., email and contact person):</td><td>[[originator_authority]]</td></tr>
+      <tr><td class="left">3.10 Is Foreign Government Information involved? Originating country or International organization?</td><td>[[foreign_government]]</td></tr>
+      <tr><td class="left">3.11 Did the incident occur on an accredited system authorized to process and store the information in question?</td><td>[[accredited_system]]</td></tr>
+      <tr><td class="left">3.12 Estimated injury level/sector:</td><td>[[estimated_injury]]</td></tr>
+      <tr><td class="left">3.13 Estimated impact level (any compromise or disruption to service?):</td><td>[[estimated_impact]]</td></tr>
+    </table>
+
+    <div class="footer">[[report_title]] 2</div>
+  </section>
+
+  <section class="page">
+    <table>
+      <tr><td class="left">3.14 Incident duration:</td><td>[[incident_duration]]</td></tr>
+      <tr><td class="left">3.15 Estimated number of systems affected:</td><td>[[systems_affected_count]]</td></tr>
+      <tr><td class="left">3.16 Percentage of organization systems affected:</td><td>[[systems_affected_percentage]]</td></tr>
+      <tr>
+        <td class="left">3.17 Action taken:</td>
+        <td>[[action_taken]]</td>
+      </tr>
+      <tr><td class="left">3.18 Supporting documents attached (describe if any):</td><td>[[supporting_documents]]</td></tr>
+      <tr><td class="left">3.19 Multiple occurrences or first time this type of incident occurs within this location?</td><td>[[multiple_occurrences]]</td></tr>
+      <tr><td class="left">3.20 Incident Status (resolved or unresolved):</td><td>[[incident_status]]</td></tr>
+      <tr><td class="left">3.21 Has the matter been reported to other authorities? If so, list names, addresses, telephone no., email and contact person.</td><td>[[reported_to_authorities]]</td></tr>
+      <tr><td class="section" colspan="2">4.0 Status of Mitigation Actions</td></tr>
+      <tr>
+        <td class="left">4.1 Mitigation details to date (List any actions that have been taken to mitigate incident and by whom):</td>
+        <td>[[mitigation_details]]</td>
+      </tr>
+    </table>
+
+    <div class="footer">[[report_title]] 3</div>
+  </section>
+
+  <section class="page">
+    <table>
+      <tr><td class="left">4.2 Results of mitigation:</td><td>[[mitigation_results]]</td></tr>
+      <tr><td class="left">4.3 Additional assistance required?</td><td>[[additional_assistance]]</td></tr>
+      <tr><td class="section" colspan="2">5.0 Computer Network Defense Incident Type (if applicable)</td></tr>
+      <tr><td class="left">5.1 Malicious code (Worm, virus, trojan, backdoor, rootkit, etc.):</td><td>[[malicious_code]]</td></tr>
+      <tr><td class="left">5.2 Known vulnerability exploit (List the Common Vulnerabilities and Exposures (CVE) number for known vulnerability):</td><td>[[known_vulnerability]]</td></tr>
+      <tr><td class="left">5.3 Disruption of service:</td><td>[[disruption_of_service]]</td></tr>
+      <tr><td class="left">5.4 Access violation (Unauthorized access attempt, successful unauthorized access, password cracking, etc.):</td><td>[[access_violation]]</td></tr>
+      <tr><td class="left">5.5 Accident or error (Equipment failure, operator error, user error, natural or accidental causes):</td><td>[[accident_or_error]]</td></tr>
+      <tr><td class="left">5.6 If the incident resulted from user error or malfeasance, reasons (training, disregard for policy, other) and responsible parties:</td><td>[[user_error_details]]</td></tr>
+      <tr><td class="left">5.7 Additional details:</td><td>[[additional_details]]</td></tr>
+    </table>
+
+    <div class="footer">[[report_title]] 4</div>
+  </section>
+
+  <section class="page">
+    <table>
+      <tr>
+        <td class="left">5.8 Apparent Origin of Incident or Attack:<br/>Source IP and port:<br/>URL:<br/>Protocol:<br/>Malware:<br/>Additional details:</td>
+        <td>[[apparent_origin_details]]</td>
+      </tr>
+      <tr><td class="section" colspan="2">6.0 Systems Affected</td></tr>
+      <tr><td class="left">6.1 Network zone affected (Internet, administration, internal, etc.):</td><td>[[network_zone]]</td></tr>
+      <tr><td class="left">6.2 Type of system affected (File server, Web server, mail server, database, workstation (mobile or desktop), etc.):</td><td>[[system_type]]</td></tr>
+      <tr><td class="left">6.3 Operating system (specify version):</td><td>[[operating_system]]</td></tr>
+      <tr><td class="left">6.4 Protocols or services:</td><td>[[protocols_services]]</td></tr>
+      <tr><td class="left">6.5 Application (specify version):</td><td>[[application_version]]</td></tr>
+      <tr><td class="section" colspan="2">7.0 Post Incident Activities</td></tr>
+      <tr><td class="left">7.1 Has information contained in this report been provided to the authorities? When?</td><td>[[authorities_info]]</td></tr>
+      <tr><td class="left">7.2 Complete a root cause analysis to determine the reason for the incident and steps to prevent re-occurrence.</td><td>[[root_cause_analysis]]</td></tr>
+    </table>
+
+    <div class="footer">[[report_title]] 5</div>
+  </section>
+</body>
+</html>

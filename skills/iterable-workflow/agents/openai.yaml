@@ -1,7 +1,0 @@
-interface:
-  display_name: "Iterable Workflow"
-  short_description: "Staged, approval-driven dev flow"
-  default_prompt: "Use $iterable-workflow to handle this task with staged approvals, one question at a time, and no e2e runs."
-
-policy:
-  allow_implicit_invocation: false

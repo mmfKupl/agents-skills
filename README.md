@@ -35,3 +35,4 @@ git push
 ```
 
 `backup-local-skills.sh` copies only immediate local skill directories that contain `SKILL.md`. It skips `.system`.
+It also skips Codex-managed skills that should not be backed up here, currently `linear`.

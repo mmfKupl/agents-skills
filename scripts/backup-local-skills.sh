@@ -13,12 +13,23 @@ fi
 
 mkdir -p "${target_dir}"
 
+is_excluded_skill() {
+  case "$1" in
+    linear)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 shopt -s nullglob
 for skill_file in "${source_dir}"/*/SKILL.md; do
   skill_dir="$(dirname "${skill_file}")"
   skill_name="$(basename "${skill_dir}")"
 
-  if [[ "${skill_name}" == .* ]]; then
+  if [[ "${skill_name}" == .* ]] || is_excluded_skill "${skill_name}"; then
     continue
   fi
 

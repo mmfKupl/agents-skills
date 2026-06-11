@@ -3,15 +3,23 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 codex_home="${CODEX_HOME:-${HOME}/.codex}"
-source_dir="${codex_home}/skills"
-target_dir="${repo_root}/skills"
+skills_source_dir="${codex_home}/skills"
+skills_target_dir="${repo_root}/skills"
+agents_source_dir="${codex_home}/agents"
+agents_target_dir="${repo_root}/agents"
 
-if [[ ! -d "${source_dir}" ]]; then
-  echo "Local Codex skills directory not found: ${source_dir}" >&2
-  exit 1
-fi
+copy_dir_contents() {
+  local source_dir="$1"
+  local target_dir="$2"
 
-mkdir -p "${target_dir}"
+  mkdir -p "${target_dir}"
+
+  if command -v rsync >/dev/null 2>&1; then
+    rsync -a --exclude=".DS_Store" "${source_dir}/" "${target_dir}/"
+  else
+    cp -R "${source_dir}/." "${target_dir}/"
+  fi
+}
 
 is_excluded_skill() {
   case "$1" in
@@ -24,8 +32,15 @@ is_excluded_skill() {
   esac
 }
 
+if [[ ! -d "${skills_source_dir}" ]]; then
+  echo "Local Codex skills directory not found: ${skills_source_dir}" >&2
+  exit 1
+fi
+
+mkdir -p "${skills_target_dir}"
+
 shopt -s nullglob
-for skill_file in "${source_dir}"/*/SKILL.md; do
+for skill_file in "${skills_source_dir}"/*/SKILL.md; do
   skill_dir="$(dirname "${skill_file}")"
   skill_name="$(basename "${skill_dir}")"
 
@@ -33,16 +48,18 @@ for skill_file in "${source_dir}"/*/SKILL.md; do
     continue
   fi
 
-  destination="${target_dir}/${skill_name}"
-  mkdir -p "${destination}"
-
-  if command -v rsync >/dev/null 2>&1; then
-    rsync -a --exclude=".DS_Store" "${skill_dir}/" "${destination}/"
-  else
-    cp -R "${skill_dir}/." "${destination}/"
-  fi
-
-  echo "Backed up ${skill_name}"
+  copy_dir_contents "${skill_dir}" "${skills_target_dir}/${skill_name}"
+  echo "Backed up skill ${skill_name}"
 done
 
-echo "Backed up local skills from ${source_dir} to ${target_dir}"
+if [[ -d "${agents_source_dir}" ]]; then
+  mkdir -p "${agents_target_dir}"
+  for agent_file in "${agents_source_dir}"/*.toml; do
+    cp "${agent_file}" "${agents_target_dir}/"
+    echo "Backed up agent $(basename "${agent_file}")"
+  done
+else
+  echo "Local Codex agents directory not found, skipping: ${agents_source_dir}"
+fi
+
+echo "Backed up local Codex config from ${codex_home} to ${repo_root}"

@@ -1,12 +1,13 @@
 # Agents Skills
 
-Personal Codex skills backup and sync repository.
+Personal Codex skills and custom agents backup and sync repository.
 
 ## Layout
 
 - `skills/` - skill folders that can be copied into `${CODEX_HOME:-$HOME/.codex}/skills`
-- `scripts/install-skills.sh` - install skills from this repository into local Codex
-- `scripts/backup-local-skills.sh` - copy local non-system skills back into this repository
+- `agents/` - custom agent TOML files that can be copied into `${CODEX_HOME:-$HOME/.codex}/agents`
+- `scripts/install-skills.sh` - install skills and custom agents from this repository into local Codex
+- `scripts/backup-local-skills.sh` - copy local non-system skills and custom agents back into this repository
 
 System skills from `.system` are intentionally not stored here.
 
@@ -36,3 +37,4 @@ git push
 
 `backup-local-skills.sh` copies only immediate local skill directories that contain `SKILL.md`. It skips `.system`.
 It also skips Codex-managed skills that should not be backed up here, currently `linear`.
+It also copies custom agents from `${CODEX_HOME:-$HOME/.codex}/agents/*.toml`.

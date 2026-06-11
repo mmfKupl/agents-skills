@@ -36,5 +36,7 @@ git push
 ```
 
 `backup-local-skills.sh` copies only immediate local skill directories that contain `SKILL.md`. It skips `.system`.
-It also skips Codex-managed skills that should not be backed up here, currently `linear`.
+It also skips Codex-managed or superseded skills that should not be backed up here, currently `linear` and `develop-loop`.
 It also copies custom agents from `${CODEX_HOME:-$HOME/.codex}/agents/*.toml`.
+
+`install-skills.sh` removes the superseded local `develop-loop` skill before installing, because `develop-task` fully replaces it.

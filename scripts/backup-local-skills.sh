@@ -23,7 +23,7 @@ copy_dir_contents() {
 
 is_excluded_skill() {
   case "$1" in
-    linear)
+    linear | develop-loop)
       return 0
       ;;
     *)

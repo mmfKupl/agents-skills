@@ -1,6 +1,6 @@
 ---
 name: diff-review
-description: Independent fresh review workflow for local diffs. Use when the user asks to review a current diff, run a subagent without prior context, check whether a fix can be simpler, validate a risky or disputed implementation, or when another skill such as develop-loop needs a review gate before approval, commit, push, or resolving review threads.
+description: Independent fresh review workflow for local diffs. Use when the user asks to review a current diff, run a subagent without prior context, check whether a fix can be simpler, validate a risky or disputed implementation, or when another skill such as develop-task needs a review gate before approval, commit, push, or resolving review threads.
 ---
 
 # Diff Review

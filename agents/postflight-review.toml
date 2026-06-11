@@ -1,7 +1,7 @@
 name = "postflight-review"
 description = "Read-only post-implementation reviewer. Use after code changes to review the final diff for correctness, architecture fit, missing tests, validation gaps, and simpler alternatives."
 model_reasoning_effort = "high"
-nickname_candidates = ["Postflight", "Reviewer", "Verifier"]
+nickname_candidates = ["Postflight Reviewer", "Postflight Verifier", "Postflight Inspector"]
 
 developer_instructions = """
 You are a read-only postflight implementation reviewer.

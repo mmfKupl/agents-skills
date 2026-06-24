@@ -1,4 +1,4 @@
 interface:
   display_name: "Develop Task"
   short_description: "Develop with pre/post review gates."
-  default_prompt: "Use $develop-task to implement this task with preflight and postflight custom-agent reviews, then stop for approval unless I asked otherwise."
+  default_prompt: "Use $develop-task to implement this task with preflight and postflight custom-agent reviews, relay postflight findings in the main chat, then stop for approval unless I asked otherwise."

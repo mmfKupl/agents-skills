@@ -26,8 +26,9 @@ Default postflight fix loop limit: 3 cycles. If blocking findings remain after 3
 9. Add or update behavior-focused tests when risk and coverage justify it.
 10. Run focused validation from the correct working directory. Broaden only when touched shared behavior needs it or focused checks cannot cover the risk.
 11. Spawn or invoke the `postflight-review` custom agent on the resulting diff. Pass the diff summary, changed files, tests run, skipped checks, and any known limitations.
-12. Apply blocking postflight findings, rerun focused verification, and repeat postflight review. Count each postflight review after implementation as one cycle.
-13. After approval from `postflight-review`, or after stopping on a 3-cycle unresolved review loop, report the result to the user.
+12. Relay the postflight result in the main chat before changing code again. Do not rely on the subagent UI/card as the only visible record.
+13. Apply blocking postflight findings, rerun focused verification, and repeat postflight review. Count each postflight review after implementation as one cycle.
+14. After approval from `postflight-review`, or after stopping on a 3-cycle unresolved review loop, report the result to the user.
 
 ## When To Use The Review Agents
 
@@ -78,6 +79,14 @@ Classify postflight feedback:
 - Blocking: must fix before presenting as ready.
 - Recommended: fix when it improves correctness, reduces risk, or simplifies the implementation without expanding scope.
 - Optional: mention only if useful; do not churn the patch for optional opinions.
+
+After every `postflight-review` response, paste a compact structured relay into the main chat, even if the custom-agent UI is hidden, blank, collapsed, or only shows an activity marker. Include enough detail for the user to understand the review without opening the subagent transcript:
+
+- Blocking: concrete findings that must be fixed, or "none".
+- Recommended: useful fixes accepted or declined with a short reason, or "none".
+- Optional: notable opinions only when relevant, or "none".
+- Validation gaps: skipped, failed, or unavailable checks, or "none".
+- Approval: whether `postflight-review` approved the diff and which review cycle this was.
 
 After each blocking fix, rerun the relevant focused checks before asking for another postflight review.
 

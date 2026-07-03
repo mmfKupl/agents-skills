@@ -15,7 +15,7 @@ Do not own business-requirements discovery. If behavior, acceptance criteria, or
 
 Default postflight fix loop limit: 3 cycles. Default core-gate challenge loop limit: 5 iterations per disputed gate decision. If either loop does not converge, stop and ask the user for a decision.
 
-For implementation work in a git repository, the normal final state is logical commits and a draft PR unless the user explicitly asks to keep the work local.
+For standalone implementation work in a git repository, the normal final state is logical commits and a draft PR unless the user explicitly asks to keep the work local. When embedded under another explicitly invoked workflow, defer lifecycle ownership to that outer workflow.
 
 ## Roles
 
@@ -29,7 +29,7 @@ Do:
 - technically spawn requested specialists when a core gate cannot do nested delegation;
 - edit product code and tests;
 - run validation;
-- make logical commits and create or update a draft PR when the work is approved.
+- make logical commits and create or update a draft PR when standalone work is approved.
 
 Do not:
 - invent business requirements;
@@ -54,6 +54,23 @@ Core gates may ask for:
 
 Generalist specialists are read-only and must not recursively delegate to other agents.
 
+## Integration Rules
+
+When the user invokes `develop-task` together with another workflow skill, treat the other workflow as the outer controller unless the user says otherwise.
+
+For `$develop-please`, the outer controller owns UI Bakery lifecycle behavior: Linear issue handling, branch source/base/name policy, PR target/title/body/draft-or-ready state, GitHub checks, Hetzner preview/e2e, review-thread handling, terminal Ready/No-op/Blocked outcome, and final reporting channel.
+
+In embedded mode, `develop-task` is the engineering gate layer:
+- run or request preflight and postflight review gates;
+- coordinate specialist reasoning and return evidence through the requesting core gate;
+- use `openspec-steward` read-only, or read-write only when OpenSpec is warranted or explicitly delegated;
+- advise on task boundary, implementation risk, validation, logical change slices, and scope control;
+- report gate conclusions back to the outer workflow without independently reinterpreting lifecycle rules.
+
+Do not commit, push, open or edit a PR, update Linear, wait on CI or preview environments, or resolve review threads in embedded mode unless the outer workflow explicitly delegates that exact action.
+
+If `develop-task` guidance conflicts with the outer workflow's lifecycle rules, follow the outer workflow and treat the gate result as engineering evidence. Explicit combined prompts such as "use `develop-task` and `develop-please`" are permission to use `develop-task` review delegation even if the outer workflow normally limits subagent use.
+
 ## Workflow
 
 1. Understand the request and identify one current task. If the user provides a list, work only on the current item.
@@ -74,7 +91,7 @@ Generalist specialists are read-only and must not recursively delegate to other 
 16. If `postflight-review` requests specialists, spawn them only as requested and return their results to `postflight-review` for the updated decision.
 17. Relay postflight findings in the main chat before changing code again.
 18. Apply blocking findings, rerun focused validation, and repeat postflight review. Stop after 3 unresolved postflight cycles unless the user directs otherwise.
-19. After approval, create logical commits and a draft PR for repository work unless the user asked to keep changes local.
+19. After approval, create logical commits and a draft PR for standalone repository work unless the user asked to keep changes local. In embedded mode, return approval, validation, and change-slice guidance to the outer workflow unless it delegated finalization.
 20. Report the final state.
 
 ## Delegation Rules
@@ -107,7 +124,9 @@ When initializing local OpenSpec, prefer adding `/openspec/` to `.git/info/exclu
 
 ## Commit And PR Policy
 
-For implementation work in a git repository, normally finish with a branch, logical commits, push, and draft PR.
+This policy applies to standalone `develop-task` runs. In embedded mode, return gate and validation results to the outer workflow; commit, push, or PR work only when that workflow explicitly delegates the exact action.
+
+For standalone implementation work in a git repository, normally finish with a branch, logical commits, push, and draft PR.
 
 Before committing:
 - ensure implementation is complete;

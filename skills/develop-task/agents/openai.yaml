@@ -1,4 +1,4 @@
 interface:
   display_name: "Develop Task"
-  short_description: "Implement with reviewed gates, validation, commits, and a draft PR."
-  default_prompt: "Use $develop-task to implement this repository task with OpenSpec when warranted, preflight/postflight review gates, focused validation, logical commits, and a draft PR. If this is analysis-only, do not edit files or run side-effecting actions."
+  short_description: "Run reviewed implementation gates and specialist delegation."
+  default_prompt: "Use $develop-task for this repository task. In standalone mode, use OpenSpec when warranted, preflight/postflight review gates, focused validation, logical commits, and a draft PR. When combined with another workflow such as $develop-please, act as its engineering review/delegation layer. If this is analysis-only, do not edit files or run side-effecting actions."

@@ -48,6 +48,7 @@ Skills:
 - `develop-task` - main repository implementation workflow with OpenSpec when warranted, preflight/postflight review gates, focused validation, logical commits, and draft PR creation.
 - `openspec-workflow` - local OpenSpec setup, change artifact, validation, and sync workflow.
 - `diff-review` - independent fresh diff review for local changes.
+- `review-task` - deep audit workflow for already implemented tasks, with specialist review, validation reuse, focused checks, and runtime/preview probes when useful.
 
 Custom agents:
 

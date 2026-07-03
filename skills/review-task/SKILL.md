@@ -13,7 +13,7 @@ Do not fix product code, update tests permanently, commit, push, edit PRs, updat
 
 Treat an explicit `$review-task` invocation as explicit user authorization to use read-only review delegation. This includes `$diff-review` and specialist agents listed below. Do not skip those agents merely because the user did not separately say "subagent", "delegate", or "parallel agents".
 
-You may run read-only inspection commands and focused validation. Avoid persistent repository edits. If a probe needs code, prefer temporary files outside the repository, one-off command snippets, Browser/Playwright automation, or an existing test harness in dry-run form. Ask before any expensive, destructive, or externally mutating action.
+You may run read-only inspection commands and focused validation. Avoid persistent repository edits. If a probe needs code, prefer temporary files outside the repository, one-off command snippets, Browser/Playwright automation, or an existing test harness in dry-run form. Ask before any expensive, destructive, or externally mutating action, except for narrow repository-approved validation triggers explicitly needed to satisfy the review target's stated validation bar.
 
 ## Review Depth
 
@@ -30,17 +30,18 @@ Use the user's wording to choose depth:
 4. Map the implementation: changed files, touched subsystems, contracts, state flow, persistence, UI/runtime paths, validation surface, and likely failure modes.
 5. Collect existing validation evidence before running anything new.
 6. Reuse fresh passed checks when they already cover the current risk. Do not rerun tests just to duplicate credible evidence.
-7. Run only missing focused validation that can materially change confidence. Prefer narrow tests, type/lint checks, targeted integration tests, preview smoke checks, or temporary probes over broad suites.
-8. Use supporting skills or agents when available and useful:
+7. If the ticket, PR, OpenSpec, or review target states a concrete validation bar, satisfy that bar when technically available.
+8. Run only missing focused validation that can materially change confidence. Prefer narrow tests, type/lint checks, targeted integration tests, preview smoke checks, or temporary probes over broad suites.
+9. Use supporting skills or agents when available and useful:
    - `$diff-review`: independent fresh diff pass.
    - `repo-practice-review`: repository conventions, helpers, ownership, and local patterns.
    - `best-practice-review`: general engineering risks and weak precedent challenges.
    - `test-review`: test adequacy, missing regression coverage, and e2e/smoke strategy.
    - `code-simplicity-review`: scope creep, unnecessary code, simpler approaches, helper/library reuse.
    - `openspec-steward`: read-only OpenSpec drift or requirement artifact check.
-9. If supporting agents are technically unavailable, perform the same checks manually and say that delegation was not available. Do not call delegation unavailable only because the user did not repeat the delegation request outside `$review-task`.
-10. Correlate all evidence yourself. Specialist output is evidence, not the final verdict.
-11. Report findings first, ordered by severity. Include validation evidence and remaining gaps.
+10. If supporting agents are technically unavailable, perform the same checks manually and say that delegation was not available. Do not call delegation unavailable only because the user did not repeat the delegation request outside `$review-task`.
+11. Correlate all evidence yourself. Specialist output is evidence, not the final verdict.
+12. Report findings first, ordered by severity. Include validation evidence and remaining gaps.
 
 ## Passed Check Reuse
 
@@ -59,6 +60,19 @@ Rerun or supplement validation when:
 - it does not cover the behavior, subsystem, browser path, migration, permission boundary, or integration risk under review;
 - the review introduced a new hypothesis that the existing check cannot prove;
 - the user explicitly asks to rerun it.
+
+## Stated Validation Bars
+
+When requirements specify a concrete validation bar, treat it as part of the implementation contract, not as an optional confidence note. Examples include `10/10 focused reruns`, `N consecutive e2e passes`, `no failures across repeated preview runs`, or a named flaky-test reproduction/fix bar.
+
+For stated bars:
+- count fresh existing passes toward the bar only when they match the same commit, test target, environment, and command intent;
+- run the missing repetitions yourself when the target command, CI trigger, preview URL, or local environment is available and safe enough for review validation;
+- stop early and report a confirmed finding if any required repetition fails;
+- if a bar requires a repository-approved external test trigger, such as a PR comment that starts focused e2e, keep the action limited to that validation trigger and do not edit PR metadata or lifecycle state;
+- if the bar cannot be executed because credentials, environment, runner access, time, or safety constraints block it, report that as a validation gap with the exact blocker and do not phrase it as merely "weaker evidence".
+
+Do not replace a stated repeated-run bar with a single green run unless the requirement owner explicitly relaxed the bar.
 
 ## Runtime And Preview Verification
 

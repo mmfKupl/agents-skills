@@ -9,6 +9,8 @@ description: Independent fresh review workflow for local diffs. Use when the use
 
 Review the current local diff as independently as possible. Find correctness risks, missing tests, overengineering, scope creep, and simpler approaches before the change is committed or used to resolve a review thread.
 
+An explicit `$diff-review` request, or a parent workflow such as `$review-task` or `$develop-task` that invokes `$diff-review`, counts as explicit user authorization for a read-only independent subagent review when subagent tools are available. Do not use the manual fallback solely because the user did not separately say "subagent", "delegation", or "parallel agents".
+
 ## Preferred Workflow
 
 1. Collect the current diff and the smallest necessary surrounding context.

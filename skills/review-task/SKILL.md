@@ -1,6 +1,6 @@
 ---
 name: review-task
-description: Explicitly invoked deep audit workflow for already implemented repository tasks, local diffs, branches, pull requests, or ticket implementations. Use when the user writes `$review-task` or asks to deeply review an implementation, verify whether a ticket was implemented correctly, find all credible risks, inspect tests, use preview/local runtime, run focused read-only validation, or create temporary probes such as Playwright checks. Do not use for implementing fixes.
+description: Explicitly invoked deep audit workflow for already implemented repository tasks, local diffs, branches, pull requests, or ticket implementations. Use when the user writes `$review-task` or asks to deeply review an implementation, verify whether a ticket was implemented correctly, find all credible risks, inspect tests, use preview/local runtime, run focused read-only validation, or create temporary probes such as Playwright checks. Invocation is an explicit request for read-only specialist delegation when useful. Do not use for implementing fixes.
 ---
 
 # Review Task
@@ -10,6 +10,8 @@ description: Explicitly invoked deep audit workflow for already implemented repo
 Audit one already implemented task. Find credible correctness, requirement, testing, runtime, simplicity, and repository-practice issues. `review-task` owns review orchestration, evidence collection, validation selection, and the final risk report.
 
 Do not fix product code, update tests permanently, commit, push, edit PRs, update Linear, or manage lifecycle state. If the review finds issues, report them clearly so the user can delegate fixes to the right workflow.
+
+Treat an explicit `$review-task` invocation as explicit user authorization to use read-only review delegation. This includes `$diff-review` and specialist agents listed below. Do not skip those agents merely because the user did not separately say "subagent", "delegate", or "parallel agents".
 
 You may run read-only inspection commands and focused validation. Avoid persistent repository edits. If a probe needs code, prefer temporary files outside the repository, one-off command snippets, Browser/Playwright automation, or an existing test harness in dry-run form. Ask before any expensive, destructive, or externally mutating action.
 
@@ -36,7 +38,7 @@ Use the user's wording to choose depth:
    - `test-review`: test adequacy, missing regression coverage, and e2e/smoke strategy.
    - `code-simplicity-review`: scope creep, unnecessary code, simpler approaches, helper/library reuse.
    - `openspec-steward`: read-only OpenSpec drift or requirement artifact check.
-9. If supporting agents are unavailable, perform the same checks manually and say that delegation was not available.
+9. If supporting agents are technically unavailable, perform the same checks manually and say that delegation was not available. Do not call delegation unavailable only because the user did not repeat the delegation request outside `$review-task`.
 10. Correlate all evidence yourself. Specialist output is evidence, not the final verdict.
 11. Report findings first, ordered by severity. Include validation evidence and remaining gaps.
 

@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenSpec Workflow"
+  short_description: "Use local OpenSpec artifacts for complex code tasks."
+  default_prompt: "Use $openspec-workflow to inspect, initialize, create, update, or validate local OpenSpec artifacts for this repository task."

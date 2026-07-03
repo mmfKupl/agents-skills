@@ -40,3 +40,21 @@ It also skips Codex-managed or superseded skills that should not be backed up he
 It also copies custom agents from `${CODEX_HOME:-$HOME/.codex}/agents/*.toml`.
 
 `install-skills.sh` removes the superseded local `develop-loop` skill before installing, because `develop-task` fully replaces it.
+
+## Current development workflow bundle
+
+Skills:
+
+- `develop-task` - main repository implementation workflow with OpenSpec when warranted, preflight/postflight review gates, focused validation, logical commits, and draft PR creation.
+- `openspec-workflow` - local OpenSpec setup, change artifact, validation, and sync workflow.
+- `diff-review` - independent fresh diff review for local changes.
+
+Custom agents:
+
+- `preflight-review` - read-only pre-implementation gate.
+- `postflight-review` - read-only post-implementation gate.
+- `openspec-steward` - OpenSpec inspection and scoped OpenSpec artifact updates.
+- `repo-practice-review` - repository practice and local pattern review.
+- `best-practice-review` - general engineering best-practice review.
+- `test-review` - focused test strategy and validation review.
+- `code-simplicity-review` - scope, simplicity, reuse, and code-quality review.

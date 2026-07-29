@@ -115,6 +115,17 @@ Separate:
 
 Do not bury important issues in a long summary. Do not present optional style opinions as blocking defects.
 
+## Report Mode
+
+Select `standalone` only when all of the following are true:
+- the end user's active request directly invokes `$review-task` or asks for the review as the deliverable;
+- this agent owns the final user-facing review response;
+- the review is not an internal implementation step, self-review, validation gate, or input to another agent or workflow.
+
+Otherwise select `embedded`. Do not ask the user to choose a mode. An explicit mode requested by the user or calling workflow overrides automatic selection.
+
+Use `standalone` for the full user-facing report. Use `embedded` for only actionable findings, validation evidence, validation gaps, delegation, and the verdict; omit the explanatory task brief.
+
 ## Output
 
 Lead with findings:
@@ -134,3 +145,11 @@ Then report:
 - Verdict: `blocked`, `risky`, `mostly-ready`, or `no-findings`, with residual risk.
 
 If no issues are found, say that clearly and still list reused checks, newly run checks, and remaining risk.
+
+In `standalone` mode, append a concise `Task brief` after the verdict:
+- Task: what problem or requested behavior the change addresses.
+- Key points: the essential requirements, constraints, and affected behavior.
+- Implemented solution: the approach the implementation ultimately takes.
+- Why this solution: the documented rationale and tradeoffs. If the rationale is not documented, clearly label the explanation as an inference from the diff, requirements, and repository patterns.
+
+Keep the brief evidence-based and avoid repeating findings or inventing missing product intent. In `embedded` mode, stop after the verdict and residual risk.

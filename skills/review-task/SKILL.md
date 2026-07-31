@@ -22,6 +22,25 @@ Use the user's wording to choose depth:
 - `deep`: use when the user asks for a very detailed review, mentions preview/runtime verification, or the change is risky; include runtime smoke checks and temporary probes when useful.
 - `audit`: use when explicitly requested; be maximally thorough, but ask before long-running suites, environment setup, or broad CI-equivalent work.
 
+## Specialist Model Routing
+
+The shared review-agent TOML files intentionally do not pin a model or
+reasoning effort. For every specialist agent spawned by this workflow, pass one
+explicit callable model ID and effort and use `fork_turns: "none"` or a
+positive bounded history with a self-contained review packet.
+
+- `standard`: `gpt-5.6-terra` high;
+- `deep`: `gpt-5.6-sol` high;
+- `audit`: `gpt-5.6-sol` xhigh by default;
+- use `gpt-5.6-sol` max only when several critical risks combine, failure is
+  especially costly or hard to validate, or a lower Sol tier made a conceptual
+  mistake.
+
+Raise the route when repository evidence is riskier than the user's depth word.
+Do not silently downgrade when a selected route is unavailable. Use an
+equivalent-or-stronger available route, or perform the check manually and report
+the delegation gap.
+
 ## Workflow
 
 1. Identify the review target: local diff, branch, commits, PR, ticket, or provided patch. If ambiguous, infer the current repository diff; ask only when multiple targets are equally plausible.

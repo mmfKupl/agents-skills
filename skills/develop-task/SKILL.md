@@ -1,229 +1,393 @@
 ---
 name: develop-task
-description: Explicitly invoked engineering workflow for repository implementation tasks with OpenSpec support, preflight/postflight review gates, specialist delegation, focused validation, logical commits, and draft PR creation. Use only when the user explicitly writes `$develop-task` or explicitly asks to run the develop-task workflow; otherwise do not select this skill.
+description: Explicitly invoked engineering workflow for repository implementation tasks with mandatory preflight/postflight review gates, adaptive gpt-5.6-terra/gpt-5.6-sol routing, single-writer implementation delegation, OpenSpec support, focused validation, and standalone lifecycle handling. Use only when the user explicitly writes `$develop-task` or explicitly asks to run the develop-task workflow; otherwise do not select this skill.
 ---
 
 # Develop Task
 
 ## Core Contract
 
-Implement one coherent repository task at a time. `develop-task` owns phase orchestration and product-code edits. Core review gates own review decisions. Specialist agents provide narrow evidence. `openspec-steward` owns OpenSpec artifact work when OpenSpec is used.
+Implement one coherent repository task at a time. Own task framing, model and
+agent routing, integration, validation evidence, review coordination, and final
+lifecycle actions. Do not invent business requirements.
 
-If the active user request is analysis-only, such as asking to think through an approach, assess options, explain code, review feasibility, or propose a plan, do not make file edits, run mutating commands, spawn review agents, or start implementation. Answer with analysis only and ask for explicit approval before side effects.
+For every implementation task, including a Fast change:
 
-Do not own business-requirements discovery. If behavior, acceptance criteria, or product intent is unclear enough that implementation would invent business behavior, stop and report that requirements discovery is needed.
+1. Obtain `preflight-review` approval before the first implementation edit.
+   That approval covers one unchanged implementation contract. Repeat preflight
+   only when a replan trigger changes or invalidates that contract or its
+   Execution Profile.
+2. Run `postflight-review` on the resulting diff before accepting, committing,
+   pushing, or submitting the work.
 
-Default postflight fix loop limit: 3 cycles. Default core-gate challenge loop limit: 5 iterations per disputed gate decision. If either loop does not converge, stop and ask the user for a decision.
+If either mandatory gate is unavailable, fail closed: stop and report the
+unavailable component. A run without both gates is not an approved
+`develop-task` implementation.
 
-For standalone implementation work in a git repository, the normal final state is logical commits and a draft PR unless the user explicitly asks to keep the work local. When embedded under another explicitly invoked workflow, defer lifecycle ownership to that outer workflow.
+If the request is analysis-only, do not edit files, run mutating commands,
+spawn review agents, or begin this implementation workflow. Answer with
+analysis and ask for explicit implementation approval.
+
+Default limits:
+
+- three unresolved postflight cycles;
+- five evidence-based challenge iterations per disputed gate decision.
+
+Stop for a user decision when a bounded loop does not converge.
+
+## Ownership Invariants
+
+- Let the main agent own orchestration, gate challenges, integration, and
+  lifecycle actions.
+- Let the main agent write product code only for a confirmed Fast profile.
+- Use the generic `implementation-worker` role for Standard and Deep work.
+- Allow at most one authorized worktree mutator at a time. A replacement worker
+  is allowed only after the current writer stops and ownership is transferred.
+- Keep explorers, review gates, and generalist specialists read-only.
+- Run write-mode `openspec-steward` and the implementation writer
+  sequentially, never concurrently.
+- Stop the current writer before transferring ownership to another writer.
+- Do not let `implementation-worker` commit, push, open a PR, update external
+  systems, resolve review threads, or edit OpenSpec artifacts.
+
+## Repository Context
+
+Read applicable `AGENTS.md` files and inspect
+`git status --short --untracked-files=all` before routing the task. Stop before
+carrying unrelated or overlapping user changes into the implementation when
+task isolation is unsafe.
+
+If the repository root contains `front/projects/bakery` plus either
+`front/projects/chat` or `back/projects/bakery`, read
+`references/ui-bakery.md` before preflight. Otherwise do not load that
+reference. Pass only relevant repository guidance into child-agent packets.
+
+## Execution Profiles
+
+Build a preliminary profile after minimal repository inspection. Treat Deep as
+Critical when the task combines costly, difficult-to-reverse, or
+difficult-to-validate risks.
+
+| Profile | Use when | Preflight | Implementation | Postflight |
+| --- | --- | --- | --- | --- |
+| Fast | Clear local behavior, established pattern, low blast radius, narrow validation | `gpt-5.6-terra` medium | Main or worker on `gpt-5.6-terra` medium | `gpt-5.6-terra` medium |
+| Standard | Clear requirements with non-trivial but bounded implementation | `gpt-5.6-terra` high | Worker on `gpt-5.6-terra` medium by default | `gpt-5.6-terra` high |
+| Deep | Cross-layer, novel, ambiguous, high-risk, or difficult to validate | `gpt-5.6-sol` high by default | Worker on `gpt-5.6-sol` high by default | `gpt-5.6-sol` high by default |
+| Deep + Critical | Multiple critical risks, costly failure, low reversibility, or failed lower-tier reasoning | `gpt-5.6-sol` xhigh by default | Worker on `gpt-5.6-sol` xhigh by default | `gpt-5.6-sol` xhigh by default |
+
+Critical indicators include security, authentication, permissions, billing,
+persistence, migrations, destructive behavior, concurrency, public contracts,
+and low-validatability changes.
+
+For Standard implementation, raise `gpt-5.6-terra` from medium to high only
+when preflight names concrete reasoning uncertainty, unfamiliar repository
+patterns, or difficult validation. For Deep, raise `gpt-5.6-sol` from high to
+xhigh for novel architecture, multiple coupled layers, or substantial
+uncertainty.
+
+Use `gpt-5.6-sol` max when several critical indicators combine, depth matters more than
+speed or usage, failure is especially costly, or a lower Sol tier has already
+made a conceptual mistake. Do not use max automatically for every change in a
+critical domain.
+
+Every preflight result must name one exact implementation model/effort and one
+exact postflight floor, never a range. Use `gpt-5.6-terra` medium by default for
+read-heavy specialists in Fast/Standard work, the requesting gate's exact tier
+for questions that determine its decision, and the Deep/Critical tier for
+questions carrying that risk.
+
+Always pass an explicit model and reasoning effort for agents spawned by this
+workflow. Do not rely on inherited defaults. Every such spawn must use
+`fork_turns: "none"` or a positive bounded history and receive a compact,
+self-contained packet. This is required even when the selected model matches
+the parent.
+
+If an approved model or agent role is unavailable, do not silently downgrade or
+substitute a weaker route. Use an available equivalent-or-stronger approved
+route, repeating preflight if the profile changes materially, or stop with the
+unavailable component and required decision.
 
 ## Roles
 
-### develop-task
+### Main Orchestrator
 
 Do:
-- identify task boundary and repository state;
-- read repository instructions;
-- coordinate OpenSpec for complex work;
-- invoke core gates;
-- technically spawn requested specialists when a core gate cannot do nested delegation;
-- edit product code and tests;
-- run validation;
-- make logical commits and create or update a draft PR when standalone work is approved.
+
+- identify the task boundary, acceptance criteria, likely owner, and initial
+  technical hypothesis;
+- build the preliminary Execution Profile;
+- choose the model and reasoning effort for each spawn;
+- sequence every write-capable agent;
+- provide self-contained review and implementation packets;
+- inspect actual status, diff, and validation evidence rather than trusting
+  summaries;
+- challenge gate decisions only with concrete evidence;
+- own commits, push, PR, and final reporting when standalone.
 
 Do not:
-- invent business requirements;
-- silently override core-gate decisions;
-- interpret specialist output as the final review decision;
-- encode detailed specialist routing directly in this skill;
-- commit, push, or open a PR for blocked work unless the user explicitly decides to proceed.
 
-### Core gates
+- silently override a core-gate decision;
+- interpret specialist output as the final gate decision;
+- edit concurrently with an active implementation worker;
+- keep a task on a cheap tier after evidence requires promotion.
 
-Use `preflight-review` before implementation and `postflight-review` after implementation. They are read-only review controllers. They may request specialist delegation and must resolve specialist conflicts.
+### Core Gates
 
-Use `openspec-steward` as a core-level OpenSpec agent. It may be read-only when called by a core gate for inspection or drift checks. It may write OpenSpec artifacts only when this workflow has established that the task uses OpenSpec or the user explicitly requested OpenSpec changes.
+Use `preflight-review` once before implementation under each approved contract,
+and repeat it after any replan-triggering contract or profile change. Use
+`postflight-review` after every resulting implementation diff. Let the gates
+own review decisions and resolve specialist conflicts.
 
-### Generalist specialists
+Require preflight to confirm or upgrade:
 
-Core gates may ask for:
-- `repo-practice-review`: repository patterns, ownership, helpers, naming, local conventions.
-- `best-practice-review`: general engineering practice and when to challenge weak repository precedent.
-- `test-review`: focused test strategy, validation depth, test simplicity, and frontend e2e/smoke needs.
-- `code-simplicity-review`: scope control, unnecessary code, simpler approaches, helper/library reuse, and quality tools.
+- lane and critical flags;
+- writer;
+- implementation model/effort;
+- postflight minimum model/effort;
+- replan triggers.
 
-Generalist specialists are read-only and must not recursively delegate to other agents.
+Implementation may start only when preflight returns both `Decision: proceed`
+and `Routing status: confirmed`, with no unresolved Blocking specialist
+request. `upgrade required` implies `Decision: revise first`; rerun preflight at
+the upgraded tier before editing.
 
-## Integration Rules
+### Implementation Worker
 
-When the user invokes `develop-task` together with another workflow skill, treat the other workflow as the outer controller unless the user says otherwise.
+Use the single generic `implementation-worker` for Standard and Deep tasks and
+for a Fast task when handoff adds useful separation. Assign exact paths or
+responsibility and remind it that other user or agent changes may exist.
 
-For `$develop-please`, the outer controller owns UI Bakery lifecycle behavior: Linear issue handling, branch source/base/name policy, PR target/title/body/draft-or-ready state, GitHub checks, Hetzner preview/e2e, review-thread handling, terminal Ready/No-op/Blocked outcome, and final reporting channel.
+Return all first local postflight fixes to the same writer. Use a new stronger
+worker only after stopping the current writer and explicitly transferring
+ownership.
 
-In embedded mode, `develop-task` is the engineering gate layer:
-- run or request preflight and postflight review gates;
-- coordinate specialist reasoning and return evidence through the requesting core gate;
-- use `openspec-steward` read-only, or read-write only when OpenSpec is warranted or explicitly delegated;
-- advise on task boundary, implementation risk, validation, logical change slices, and scope control;
-- report gate conclusions back to the outer workflow without independently reinterpreting lifecycle rules.
+### Generalist Specialists
 
-Do not commit, push, open or edit a PR, update Linear, wait on CI or preview environments, or resolve review threads in embedded mode unless the outer workflow explicitly delegates that exact action.
+Let a core gate request these agents only for a concrete question:
 
-If `develop-task` guidance conflicts with the outer workflow's lifecycle rules, follow the outer workflow and treat the gate result as engineering evidence. Explicit combined prompts such as "use `develop-task` and `develop-please`" are permission to use `develop-task` review delegation even if the outer workflow normally limits subagent use.
+- `repo-practice-review` for repository evidence and local precedent;
+- `best-practice-review` for general engineering practice;
+- `test-review` for focused validation and test quality;
+- `code-simplicity-review` for scope, reuse, and unnecessary complexity;
+- read-only `openspec-steward` for OpenSpec inspection or drift.
+
+Do not add language-specific implementation workers. Reconsider specialization
+only after repeated real tasks demonstrate a distinct responsibility or tool
+surface.
 
 ## Workflow
 
-1. Understand the request and identify one current task. If the user provides a list, work only on the current item.
-2. If the request is analysis-only, answer without side effects.
-3. Read `AGENTS.md` and inspect `git status --short --untracked-files=all`.
-4. Stop and ask before carrying unrelated staged or unstaged user changes into the task. Ignore unrelated changes when safe.
-5. Gather minimal context: likely owner, files, nearby patterns, tests, reproduction path, and current branch.
-6. Decide whether OpenSpec is warranted. Use OpenSpec by default for large, complex, ambiguous, cross-layer, high-risk, or durable behavior changes. Skip it for small obvious local work where code, tests, and commit message are enough.
-7. If OpenSpec is warranted, invoke `openspec-steward` or use `$openspec-workflow` to inspect or create local OpenSpec artifacts before implementation.
-8. Invoke `preflight-review` with the user request, task boundary, dirty-tree notes, OpenSpec status, likely files/subsystems, constraints, expected behavior, and initial technical hypothesis.
-9. If `preflight-review` requests specialists, spawn them only as requested and pass the request without changing its substance. Return their results to `preflight-review` for the updated decision.
-10. If you disagree with a core-gate decision, challenge it with concrete evidence. The same gate owns the updated decision. Stop after 5 unresolved challenge iterations.
-11. Implement only after `preflight-review` returns `proceed` or the user explicitly decides to proceed.
-12. Keep edits within the task boundary. If implementation reveals new business ambiguity or requires a materially different approach, return to preflight or stop for the user.
-13. Add or update behavior-focused tests when justified. Avoid tests for everything; keep tests simple and proportional.
-14. Run focused validation from the correct working directory. Broaden only when touched shared behavior needs it or focused checks cannot cover the risk.
-15. Invoke `postflight-review` with the original request, preflight decision, changed files, diff, tests run, skipped checks, known limitations, OpenSpec status, review cycle number, and previous postflight findings/fixes.
-16. If `postflight-review` requests specialists, spawn them only as requested and return their results to `postflight-review` for the updated decision.
-17. Relay postflight findings in the main chat before changing code again.
-18. Apply blocking findings, rerun focused validation, and repeat postflight review. Stop after 3 unresolved postflight cycles unless the user directs otherwise.
-19. After approval, create logical commits and a draft PR for standalone repository work unless the user asked to keep changes local. In embedded mode, return approval, validation, and change-slice guidance to the outer workflow unless it delegated finalization.
+1. Confirm one current task. If the user provides a list, work only on the
+   current coherent item.
+2. Stop for requirements discovery when expected product behavior or acceptance
+   criteria are too unclear to implement without invention.
+3. Read repository instructions, inspect the dirty tree and current branch,
+   gather minimal ownership, nearby-pattern, reproduction, and validation
+   context, and conditionally load repository-specific guidance.
+4. Decide whether OpenSpec is warranted and build the preliminary Execution
+   Profile.
+5. Run mandatory `preflight-review` with the user request, preliminary profile,
+   current preflight model/effort, task boundary, dirty-tree notes, OpenSpec
+   status, likely files, constraints, expected behavior, and initial technical
+   hypothesis.
+6. If preflight requests specialists, spawn only the requested read-only agents
+   with explicit model/effort and return their raw results to the same gate for
+   its updated decision.
+7. If preflight requires a stronger tier, rerun preflight before editing. If it
+   returns `revise first` or `blocked`, resolve that state before continuing.
+8. If OpenSpec is used, complete authorized write-mode OpenSpec work before
+   assigning the implementation writer.
+9. Build the implementation contract defined below.
+10. Let main write only when preflight confirms Fast and main already holds the
+    required context inside one local ownership boundary. Otherwise start one
+    `implementation-worker` with the approved model/effort.
+11. Handle the writer result: `implemented`, `replan_required`, or `blocked`.
+    Do not materially expand the task without returning to preflight.
+12. Inspect actual repository status and diff. Run or verify focused validation
+    and record failed, unavailable, and skipped checks. The worker should run
+    potentially write-producing checks before returning. The main may run a
+    worktree-preserving check after the worker stops; transfer authorized-mutator
+    ownership explicitly before any check that may update snapshots, generated
+    files, lockfiles, caches inside the repository, or other artifacts, then
+    inspect the resulting diff.
+13. Recalculate the effective postflight floor from the original request,
+    preflight profile, actual diff, worker deviations, and validation gaps.
+14. Run mandatory independent `postflight-review` with the task packet,
+    preflight decision, writer result, changed files, diff, validation, OpenSpec
+    status, current cycle, and prior findings/fixes.
+15. If postflight requests specialists, return their raw results to the same
+    gate for its final classification. Approval is impossible while a Blocking
+    specialist request remains unresolved.
+16. Relay postflight findings in the main chat before any writer resumes.
+17. Return first local blocking fixes to the same writer, rerun focused
+    validation, and repeat postflight. If postflight reports OpenSpec drift,
+    stop the code writer, transfer mutation ownership to write-mode
+    `openspec-steward`, synchronize the artifacts, and repeat validation and
+    postflight.
+18. Promote or replan after a repeated conceptual failure, low confidence, or
+    unexpected scope/risk growth.
+19. After approval, create logical commits and a draft PR for standalone work
+    unless the user asked to keep changes local. In embedded mode, defer
+    lifecycle actions to the outer workflow.
 20. Report the final state.
+
+## Implementation Contract
+
+Provide the writer a compact self-contained packet:
+
+```text
+Goal:
+Acceptance criteria:
+Owned paths/responsibility:
+Out of scope:
+Relevant repository evidence:
+Contracts to preserve:
+Implementation hypothesis:
+Dirty-tree constraints:
+Validation commands/expectations:
+Replan triggers:
+Expected return:
+```
+
+Keep goal, acceptance criteria, ownership, out-of-scope boundary, preserved
+contracts, validation expectations, and replan triggers strict. Keep the
+implementation hypothesis flexible. Allow the writer to adjust local code
+shape, naming, helper usage, and test structure within the approved contract.
+
+Require this response:
+
+```text
+Status:
+- implemented | replan_required | blocked
+
+Changes:
+Decisions:
+Validation:
+Deviations from hypothesis:
+Replan reason:
+Remaining risks:
+```
+
+Treat these as replan triggers:
+
+Any implementation need that is beyond or different from the approved task
+packet, including:
+
+- changing user-visible behavior or acceptance criteria beyond the approved goal;
+- moving to an owner, subsystem, or layer outside approved responsibility;
+- adding an unapproved dependency or architecture;
+- changing schema, migration, public API, auth, permissions, billing,
+  security, persistence, concurrency, or another critical contract not named in
+  the approved packet;
+- materially expanding files or responsibility beyond approved ownership;
+- removing, weakening, or intentionally skipping approved validation;
+- making an unsupported product assumption.
+
+Inability to run an approved validation command because tooling or access is
+unavailable is `blocked`, not `replan_required`.
+
+When a worker returns `replan_required`, preserve its evidence and current diff,
+stop further expansion, and return to preflight if owner, boundary, behavior,
+risk tier, or contracts changed. Update only the task packet for a local
+technical adjustment that stays inside the approved contract.
+
+## Promotion Policy
+
+- First local blocking finding: use the same writer and same tier.
+- Repeated conceptual finding, low confidence, or unexpected risk/scope growth:
+  stop the current writer, return to preflight when the approved profile is
+  invalid, promote the model/effort, and give the new writer a fresh packet with
+  current diff and findings.
+- A different small finding in a later cycle does not automatically require
+  promotion.
+- Stop after three unresolved postflight cycles and ask the user for a decision.
 
 ## Delegation Rules
 
-Core gates own specialist routing. `develop-task` may technically spawn a requested specialist when nested spawning is unavailable, but must not become the reviewer/router.
+Let core gates decide which specialist to use, the exact question, required
+artifacts, and whether the result is blocking or advisory. Do not let gates
+spawn specialists directly. Let the main agent select the concrete model/effort
+from the Execution Profile and technically spawn every specialist on behalf of
+the requesting gate.
 
-For each specialist request, preserve:
-- requested agent;
-- blocking vs advisory status;
-- mode or phase;
-- exact task/question;
-- required artifacts such as paths, diff snippets, OpenSpec change id, validation logs, or prior findings.
+Do not expand, narrow, rewrite, or independently adjudicate a specialist
+request. Return its result to the requesting gate and act only on the gate's
+updated decision.
 
-Do not expand, narrow, rewrite, or independently adjudicate the specialist request. Return specialist results to the requesting core gate. Act only on the core gate's final recommendation.
-
-When specialist outputs conflict, the requesting core gate must explicitly decide whether to follow repository practice, depart from it, take a transitional local fix, or stop for user input.
+When specialist outputs conflict, require the gate to decide explicitly whether
+to follow repository practice, depart from it, take a transitional local fix,
+or stop for user input.
 
 ## OpenSpec Policy
 
-Use OpenSpec by default for:
-- large, complex, ambiguous, cross-layer, high-risk, or durable behavior changes;
-- tasks where intent may be lost across chat context, review cycles, or follow-up sessions;
-- tasks explicitly asking for OpenSpec.
+Use OpenSpec by default for large, complex, ambiguous, cross-layer, high-risk,
+or durable behavior changes and when the user asks for it. Skip it for small
+obvious local work where code, tests, and commit message carry enough intent.
 
-Skip OpenSpec for small, obvious, local changes where code, tests, and commit message carry enough intent.
+Let `openspec-steward` edit only OpenSpec artifacts and local git-exclude files.
+Complete OpenSpec writes, product-code writes, and later OpenSpec synchronization
+sequentially under the single-writer invariant.
 
-When initializing local OpenSpec, prefer adding `/openspec/` to `.git/info/exclude` so pilot artifacts stay local unless the user explicitly wants repository-tracked OpenSpec.
+When postflight finds OpenSpec drift, stop the current implementation writer,
+transfer mutation ownership to write-mode `openspec-steward`, synchronize the
+artifacts, inspect the resulting diff, rerun affected validation, and obtain a
+fresh postflight decision.
 
-`openspec-steward` may edit only OpenSpec artifacts and local git exclude files. It must not edit product code or normal tests.
+When initializing local OpenSpec, prefer adding `/openspec/` to
+`.git/info/exclude` unless the user wants repository-tracked artifacts.
 
-## Commit And PR Policy
+## Embedded And Lifecycle Policy
 
-This policy applies to standalone `develop-task` runs. In embedded mode, return gate and validation results to the outer workflow; commit, push, or PR work only when that workflow explicitly delegates the exact action.
+When another explicitly invoked workflow wraps `develop-task`, treat it as the
+outer lifecycle controller unless the user says otherwise. Keep engineering
+gates, model routing, implementation ownership, validation evidence, and
+approval state inside `develop-task`. Do not independently commit, push, edit a
+PR, update external trackers, wait on CI, or resolve review threads unless the
+outer workflow delegates that exact action.
 
-For standalone implementation work in a git repository, normally finish with a branch, logical commits, push, and draft PR.
+For approved standalone repository work, normally finish with a branch when
+needed, logical commits, push, and a draft PR. Do not create a PR for
+analysis-only, no-op, blocked, unsafe dirty-tree, or unapproved work, or when the
+user asks to keep changes local.
 
 Before committing:
+
 - ensure implementation is complete;
 - run focused validation or document skipped checks;
-- obtain `postflight-review` approval, or get the user's explicit decision to proceed despite findings;
-- ensure dirty-tree conflicts do not make task isolation unsafe.
+- obtain postflight approval; an explicit request to proceed after
+  `Approval: no` terminates this workflow as unapproved and must not trigger
+  commit, push, or PR actions inside `develop-task`;
+- ensure task changes can be isolated safely.
 
-When committing:
-- split changes into logical commits instead of one broad commit;
-- keep commits independently understandable and reviewable;
-- avoid mixing OpenSpec/setup artifacts, product implementation, tests, and mechanical cleanup when they can be cleanly separated;
-- follow configured Codex commit-message rules.
+Any implementation-affecting mutation after postflight approval, including a
+rebase resolution, generated-file update, OpenSpec synchronization, formatter
+rewrite, or test-produced tracked artifact, invalidates that approval. Inspect
+the new diff, rerun affected validation, and obtain fresh postflight approval
+before lifecycle actions continue.
 
-When opening the PR:
-- create a branch with the configured Codex branch prefix when needed;
-- push the branch;
-- open a draft PR by default unless the user asks for a ready PR;
-- include problem, fix summary, validation, review-gate results, OpenSpec reference when relevant, and known limitations.
+## Postflight Relay
 
-Do not create a PR when:
-- the request is analysis-only;
-- no repository files changed;
-- the task is blocked;
-- postflight has unresolved blocking findings and the user did not decide to proceed;
-- dirty-tree conflicts make it unsafe to isolate the task changes;
-- the user asks to keep work local.
+After every postflight response, report in the main chat:
 
-## UI Bakery Owner Map
-
-Use this as a starting point, then verify with code:
-
-- Custom Apps AI agent runtime: `front/projects/chat/app/agent`
-- Custom App renderer/runtime: `front/projects/components/src/lib/custom-react-app`
-- AI builder UI in Bakery: `front/projects/bakery/src/app/tools/builder/module-chat`
-- User-facing bottom-tab assistant, unrelated to Custom Apps: `front/projects/bakery/src/app/tools/layout/bottom-tabs/chat-dialog`
-- Bakery Angular shell and workspace/account UI: `front/projects/bakery`
-- Workbench builder canvas and preview host: `front/projects/workbench`
-- Oven renderer library: `front/projects/oven`
-- Low-code component definitions and schemas: `front/projects/components`
-- Datasource runtime and connectors: `front/projects/datasource`
-- Automations frontend/server: `front/projects/automation`
-- Chat backend service: `front/projects/chat`
-- Docker sandbox service: `front/projects/docker-sandbox`
-- Java backend: `back/projects/bakery` and `back/projects/bakery-cloud`
-
-## Validation Hints
-
-Choose the narrowest check that proves the behavior:
-
-- Angular project changes: affected `front` test target, focused lint/typecheck when available.
-- Chat backend or Custom Apps agent changes: focused Jest tests in `front/projects/chat`, plus evals for generated-app, tool, planning, datasource sync, screenshot, file operation, or sandbox behavior changes.
-- Datasource changes: `front/projects/datasource` tests.
-- Docker sandbox changes: `front/projects/docker-sandbox` tests.
-- Java backend changes: narrow Maven test from `back/projects` or compile check when Testcontainers/Docker blocks integration tests.
-- Duplication-sensitive broad frontend changes: `cd front && npm run jscpd`.
-- User-visible UI changes: consider screenshot or Browser/Playwright smoke when runtime layout matters.
-
-Do not run known expensive commands such as `npm run -s build bakery` unless the user explicitly asks or there is no smaller useful validation.
-
-## Postflight Loop
-
-Classify postflight feedback:
-
-- Blocking: must fix before presenting as ready.
-- Recommended: fix when it improves correctness, reduces risk, or simplifies the implementation without expanding scope.
-- Optional: mention only if useful; do not churn the patch for optional opinions.
-
-After every `postflight-review` response, paste a compact structured relay into the main chat, even if the custom-agent UI is hidden, blank, collapsed, or only shows an activity marker. Include enough detail for the user to understand the review without opening the subagent transcript:
-
-- Blocking: concrete findings that must be fixed, or "none".
-- Recommended: useful fixes accepted or declined with a short reason, or "none".
-- Optional: notable opinions only when relevant, or "none".
-- Validation gaps: skipped, failed, or unavailable checks, or "none".
-- Approval: whether `postflight-review` approved the diff and which review cycle this was.
-
-After each blocking fix, rerun the relevant focused checks before asking for another postflight review.
-
-Stop after 3 postflight cycles if blocking findings remain, and report:
-
-- current implementation state;
-- remaining disputed findings;
-- checks run;
-- why the loop did not converge;
-- the decision needed from the user.
-
-Each postflight call after the first must receive the cycle number and prior findings/fixes so it does not repeat optional feedback or lose track of unresolved blocking issues.
+- Blocking findings, or `none`;
+- Recommended findings accepted or declined with a reason, or `none`;
+- notable Optional findings, or `none`;
+- Validation gaps, or `none`;
+- Failure class and routing recommendation;
+- Approval and review cycle.
 
 ## Report Format
 
 When done, report:
 
-- Problem: what was broken or requested.
-- Cause: why the issue existed, when applicable.
-- Fix: what changed.
-- Validation: commands/checks run and results; skipped checks with reasons.
-- Review gates: preflight result, postflight result, and number of review cycles.
-- PR: URL and draft/ready state when created, or why no PR was created.
-- State: branch, staged/uncommitted/committed/pushed status and whether approval is needed.
+- Problem and cause, when applicable;
+- Execution Profile and writer;
+- Fix;
+- Validation and skipped checks;
+- Preflight and postflight results and cycle count;
+- Replans or promotions, or `none`;
+- PR URL/state, or why no PR was created;
+- branch and uncommitted/committed/pushed state;
+- whether user approval or another decision remains.
 
-Keep the final response concise. Use concrete reproduction examples when the user asks for explanation or challenges the bug.
+Keep the final response concise and concrete.

@@ -30,7 +30,7 @@ CODEX_HOME=/path/to/.codex ./scripts/install-skills.sh
 ```bash
 ./scripts/backup-local-skills.sh
 git status
-git add README.md scripts skills
+git add README.md agents planning scripts skills
 git commit -m "chore: update personal skills"
 git push
 ```
@@ -45,13 +45,14 @@ It also copies custom agents from `${CODEX_HOME:-$HOME/.codex}/agents/*.toml`.
 
 Skills:
 
-- `develop-task` - main repository implementation workflow with OpenSpec when warranted, preflight/postflight review gates, focused validation, logical commits, and draft PR creation.
+- `develop-task` - adaptive single-writer repository implementation workflow with mandatory preflight/postflight gates, OpenSpec when warranted, focused validation, logical commits, and draft PR creation.
 - `openspec-workflow` - local OpenSpec setup, change artifact, validation, and sync workflow.
 - `diff-review` - independent fresh diff review for local changes.
 - `review-task` - deep audit workflow for already implemented tasks, with specialist review, validation reuse, focused checks, and runtime/preview probes when useful.
 
 Custom agents:
 
+- `implementation-worker` - single-writer product-code and test implementation agent selected after preflight.
 - `preflight-review` - read-only pre-implementation gate.
 - `postflight-review` - read-only post-implementation gate.
 - `openspec-steward` - OpenSpec inspection and scoped OpenSpec artifact updates.

@@ -1,84 +1,74 @@
 ---
 name: delegation-prompt
-description: Prepare a markdown block with copyable task text for another chat. Use when the user wants delegation help but prefers a ready-to-paste task description instead of launching an agent directly.
+description: Prepare a compact copyable task prompt for another chat that names the requested workflow skills, such as `$develop-task` followed by `$review-task`, and summarizes only the task requirements and essential context. Use when the user wants ready-to-paste delegation text instead of launching an agent.
 ---
 
 # Delegation Prompt
 
-Use this skill only on explicit request.
-
 ## Goal
 
-Produce a compact markdown block that the user can copy into another chat as a ready task description.
+Produce one compact prompt that the user can paste into another chat. Carry the
+task intent and necessary context; let the named workflow skills own execution,
+validation, review, and lifecycle policy.
 
-Do not call `spawn_agent` yourself when using this skill.
-
-## Defaults
-
-Default to a self-contained task description with no tool-specific execution settings.
-
-Do not include model, reasoning, context inheritance, agent type, waiting mode, or parallel-work instructions in the generated text unless the user explicitly asks to include them.
+Do not launch an agent.
 
 ## Workflow
 
-1. Confirm the user explicitly wants a copyable delegation prompt. If not, do not use this skill.
-2. Extract or infer the delegated task and any constraints that the recipient actually needs to execute it.
-3. Build a concise self-contained task prompt for the recipient, including any required approval gates for code and test changes.
-4. Return only a short intro plus one markdown code block that the user can paste into chat.
-5. Do not launch any agent.
-
-## Context Handling
-
-Generate a self-contained prompt by default.
-
-If the user says `minimal`, include only the smallest required facts.
-If the user says `current` or `same context`, convert that into a short factual summary instead of mentioning thread inheritance mechanics.
-
-## Override Rules
-
-Honor explicit user requests about what should appear in the generated text.
-
-By default, omit execution metadata that the user can choose manually in the destination chat.
-
-## Code Change Gates
-
-When the delegated task may result in code or test edits, include these rules in the generated prompt:
-
-- Before making any code changes, write in Russian a brief summary of what needs to be changed and wait for explicit user confirmation.
-- Do not change tests before the code changes are approved.
-- Only after the code changes are approved may the subagent update or add tests.
+1. Identify the task, ticket, or requested outcome and any workflows the user
+   wants the recipient to use.
+2. For repository implementation work, default to `$develop-task` followed by
+   `$review-task`. Use different workflows when the user requests them.
+3. Extract the concrete requirements, acceptance criteria, important factual
+   context, and explicit non-goals from the conversation. Do not invent missing
+   requirements.
+4. Compress that information into a short natural-language task brief in the
+   user's language.
+5. Return one fenced markdown block that can be pasted as-is.
 
 ## Prompt Construction
 
-Write the generated prompt in imperative form and keep it bounded.
-
-Include:
-
-- the exact task
-- the expected output
-- relevant file paths, issue IDs, URLs, or artifacts
-- whether the recipient should edit files or only investigate
-- any approval gates that must be followed before editing code or tests
-- ownership boundaries if multiple subagents are involved
-
-Do not assume the recipient can see the prior thread.
-
-Do not leak full thread context by default.
-
-## Output Format
-
-Return a short lead-in and one fenced markdown block that the user can paste as-is into another chat.
-
-The generated text should contain only the delegated task, expected output, necessary context, and approval gates in natural language. Do not include execution metadata unless the user explicitly asks for it. Do not include meta-instructions such as asking the recipient to use `$spawn-subagent`.
-
-## Example
+Start by naming the workflows and task, then list what needs to change. For
+example:
 
 ```md
-Inspect failing auth tests in `front/projects/chat`.
+Используй `$develop-task` для реализации, затем `$review-task` для итоговой проверки задачи UIB-2652.
 
-Expected output: identify the root cause and propose the minimal fix.
-
-Before making any code changes, write in Russian a brief summary of what needs to be changed and wait for explicit user confirmation.
-Do not change tests before the code changes are approved.
-Only after the code changes are approved may you update or add tests.
+Нужно:
+- <требование или изменение>
+- <критерий готовности или важное ограничение>
 ```
+
+Include only information that helps the recipient understand the task:
+
+- task or ticket identifier and title, when known;
+- requested behavior and concrete changes;
+- acceptance criteria and task-specific constraints stated by the user;
+- essential links, artifacts, or factual context that cannot be recovered from
+  the task itself.
+
+Assume the destination chat is already opened in the intended repository. Do
+not add a repository, worktree, or current-directory path unless the user asks
+for it or the path is itself part of the task.
+
+Omit generic execution mechanics already owned by the named workflows,
+including:
+
+- approval gates or instructions to wait for confirmation before editing;
+- model, reasoning, agent, delegation, or context-inheritance settings;
+- generic test commands, validation checklists, or report templates;
+- commit, push, PR, or issue-tracker restrictions;
+- boilerplate such as `Доработай <ticket> в репозитории <path>`.
+
+Preserve a task-specific validation requirement, lifecycle constraint, or file
+path only when the user explicitly makes it part of the task.
+
+## Output Rules
+
+Keep the generated prompt concise and self-contained. Prefer a workflow sentence
+and a short `Нужно:` list over a detailed execution contract. Return no
+surrounding explanation unless the user asks for it, and do not explain the
+skill itself inside the generated prompt.
+
+Honor explicit user requests about wording, included context, workflows, and
+level of detail over these defaults.

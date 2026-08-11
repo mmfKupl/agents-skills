@@ -1,4 +1,7 @@
 interface:
   display_name: "Review Task"
-  short_description: "Deep audit of implemented tasks."
-  default_prompt: "Use $review-task to deeply review this implemented repository task, inspect the diff and requirements, use read-only specialist delegation when useful, satisfy stated validation bars, reuse already-passed checks when valid, run focused validation when useful, and report all credible risks."
+  short_description: "Deep indexed audit of implemented tasks"
+  default_prompt: "Use $review-task to deeply audit this implemented repository task, assign stable issue-local review and finding identities, verify lifecycle against current code, and return the complete read-only review protocol."
+
+policy:
+  allow_implicit_invocation: false

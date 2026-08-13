@@ -1,6 +1,6 @@
 ---
 name: develop-task
-description: Explicitly invoked engineering workflow for repository implementation tasks with mandatory preflight/postflight review gates, adaptive gpt-5.6-terra/gpt-5.6-sol routing, single-writer implementation delegation, OpenSpec support, focused validation, and standalone lifecycle handling. Use only when the user explicitly writes `$develop-task` or explicitly asks to run the develop-task workflow; otherwise do not select this skill.
+description: Explicitly invoked engineering workflow for repository implementation tasks with mandatory preflight/postflight review gates, adaptive gpt-5.6-terra/gpt-5.6-sol routing, single-writer implementation delegation, focused validation, and standalone lifecycle handling. Use only when the user explicitly writes `$develop-task` or explicitly asks to run the develop-task workflow; otherwise do not select this skill.
 ---
 
 # Develop Task
@@ -44,11 +44,9 @@ Stop for a user decision when a bounded loop does not converge.
 - Allow at most one authorized worktree mutator at a time. A replacement worker
   is allowed only after the current writer stops and ownership is transferred.
 - Keep explorers, review gates, and generalist specialists read-only.
-- Run write-mode `openspec-steward` and the implementation writer
-  sequentially, never concurrently.
 - Stop the current writer before transferring ownership to another writer.
 - Do not let `implementation-worker` commit, push, open a PR, update external
-  systems, resolve review threads, or edit OpenSpec artifacts.
+  systems, or resolve review threads.
 
 ## Repository Context
 
@@ -169,7 +167,6 @@ Let a core gate request these agents only for a concrete question:
 - `best-practice-review` for general engineering practice;
 - `test-review` for focused validation and test quality;
 - `code-simplicity-review` for scope, reuse, and unnecessary complexity;
-- read-only `openspec-steward` for OpenSpec inspection or drift.
 
 Do not add language-specific implementation workers. Reconsider specialization
 only after repeated real tasks demonstrate a distinct responsibility or tool
@@ -184,52 +181,45 @@ surface.
 3. Read repository instructions, inspect the dirty tree and current branch,
    gather minimal ownership, nearby-pattern, reproduction, and validation
    context, and conditionally load repository-specific guidance.
-4. Decide whether OpenSpec is warranted and build the preliminary Execution
-   Profile.
+4. Build the preliminary Execution Profile.
 5. Run mandatory `preflight-review` with the user request, preliminary profile,
-   current preflight model/effort, task boundary, dirty-tree notes, OpenSpec
-   status, likely files, constraints, expected behavior, and initial technical
-   hypothesis.
+   current preflight model/effort, task boundary, dirty-tree notes, likely
+   files, constraints, expected behavior, and initial technical hypothesis.
 6. If preflight requests specialists, spawn only the requested read-only agents
    with explicit model/effort and return their raw results to the same gate for
    its updated decision.
 7. If preflight requires a stronger tier, rerun preflight before editing. If it
    returns `revise first` or `blocked`, resolve that state before continuing.
-8. If OpenSpec is used, complete authorized write-mode OpenSpec work before
-   assigning the implementation writer.
-9. Build the implementation contract defined below.
-10. Let main write only when preflight confirms Fast and main already holds the
+8. Build the implementation contract defined below.
+9. Let main write only when preflight confirms Fast and main already holds the
     required context inside one local ownership boundary. Otherwise start one
     `implementation-worker` with the approved model/effort.
-11. Handle the writer result: `implemented`, `replan_required`, or `blocked`.
+10. Handle the writer result: `implemented`, `replan_required`, or `blocked`.
     Do not materially expand the task without returning to preflight.
-12. Inspect actual repository status and diff. Run or verify focused validation
+11. Inspect actual repository status and diff. Run or verify focused validation
     and record failed, unavailable, and skipped checks. The worker should run
     potentially write-producing checks before returning. The main may run a
     worktree-preserving check after the worker stops; transfer authorized-mutator
     ownership explicitly before any check that may update snapshots, generated
     files, lockfiles, caches inside the repository, or other artifacts, then
     inspect the resulting diff.
-13. Recalculate the effective postflight floor from the original request,
+12. Recalculate the effective postflight floor from the original request,
     preflight profile, actual diff, worker deviations, and validation gaps.
-14. Run mandatory independent `postflight-review` with the task packet,
-    preflight decision, writer result, changed files, diff, validation, OpenSpec
-    status, current cycle, and prior findings/fixes.
-15. If postflight requests specialists, return their raw results to the same
+13. Run mandatory independent `postflight-review` with the task packet,
+    preflight decision, writer result, changed files, diff, validation, current
+    cycle, and prior findings/fixes.
+14. If postflight requests specialists, return their raw results to the same
     gate for its final classification. Approval is impossible while a Blocking
     specialist request remains unresolved.
-16. Relay postflight findings in the main chat before any writer resumes.
-17. Return first local blocking fixes to the same writer, rerun focused
-    validation, and repeat postflight. If postflight reports OpenSpec drift,
-    stop the code writer, transfer mutation ownership to write-mode
-    `openspec-steward`, synchronize the artifacts, and repeat validation and
-    postflight.
-18. Promote or replan after a repeated conceptual failure, low confidence, or
+15. Relay postflight findings in the main chat before any writer resumes.
+16. Return first local blocking fixes to the same writer, rerun focused
+    validation, and repeat postflight.
+17. Promote or replan after a repeated conceptual failure, low confidence, or
     unexpected scope/risk growth.
-19. After approval, create logical commits and a draft PR for standalone work
+18. After approval, create logical commits and a draft PR for standalone work
     unless the user asked to keep changes local. In embedded mode, defer
     lifecycle actions to the outer workflow.
-20. Report the final state.
+19. Report the final state.
 
 ## Implementation Contract
 
@@ -318,24 +308,6 @@ When specialist outputs conflict, require the gate to decide explicitly whether
 to follow repository practice, depart from it, take a transitional local fix,
 or stop for user input.
 
-## OpenSpec Policy
-
-Use OpenSpec by default for large, complex, ambiguous, cross-layer, high-risk,
-or durable behavior changes and when the user asks for it. Skip it for small
-obvious local work where code, tests, and commit message carry enough intent.
-
-Let `openspec-steward` edit only OpenSpec artifacts and local git-exclude files.
-Complete OpenSpec writes, product-code writes, and later OpenSpec synchronization
-sequentially under the single-writer invariant.
-
-When postflight finds OpenSpec drift, stop the current implementation writer,
-transfer mutation ownership to write-mode `openspec-steward`, synchronize the
-artifacts, inspect the resulting diff, rerun affected validation, and obtain a
-fresh postflight decision.
-
-When initializing local OpenSpec, prefer adding `/openspec/` to
-`.git/info/exclude` unless the user wants repository-tracked artifacts.
-
 ## Embedded And Lifecycle Policy
 
 When another explicitly invoked workflow wraps `develop-task`, treat it as the
@@ -360,8 +332,8 @@ Before committing:
 - ensure task changes can be isolated safely.
 
 Any implementation-affecting mutation after postflight approval, including a
-rebase resolution, generated-file update, OpenSpec synchronization, formatter
-rewrite, or test-produced tracked artifact, invalidates that approval. Inspect
+rebase resolution, generated-file update, formatter rewrite, or test-produced
+tracked artifact, invalidates that approval. Inspect
 the new diff, rerun affected validation, and obtain fresh postflight approval
 before lifecycle actions continue.
 

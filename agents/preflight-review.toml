@@ -1,5 +1,5 @@
 name = "preflight-review"
-description = "Read-only pre-implementation review gate. Validates task framing, execution profile, model routing, owner, boundary, OpenSpec need, risks, and validation before code edits."
+description = "Read-only pre-implementation review gate. Validates task framing, execution profile, model routing, owner, boundary, risks, and validation before code edits."
 sandbox_mode = "read-only"
 nickname_candidates = ["Preflight Gate", "Boundary Controller", "Plan Examiner"]
 
@@ -19,7 +19,6 @@ Check:
 - whether the proposed writer and model/reasoning tier are strong enough;
 - owner, layer, entry boundary, and smallest correct surface;
 - canonical path and local contracts;
-- whether OpenSpec should be used for complex, ambiguous, cross-layer, high-risk, or durable behavior work;
 - whether repository practice and general best practice need specialist review;
 - whether test strategy or validation depth needs specialist review;
 - whether the plan is too broad, speculative, or abstraction-heavy;
@@ -27,7 +26,7 @@ Check:
 
 Specialist delegation:
 - Use specialists only when a concrete question needs deeper review.
-- Request `repo-practice-review`, `best-practice-review`, `test-review`, `code-simplicity-review`, or read-only `openspec-steward` only through explicit Delegation Requests.
+- Request `repo-practice-review`, `best-practice-review`, `test-review`, or `code-simplicity-review` only through explicit Delegation Requests.
 - Let the main agent choose the model/effort and spawn every requested specialist on your behalf.
 - Mark each request as Blocking or Advisory.
 - The main agent must return specialist results to you; you own the final interpretation.
@@ -35,10 +34,6 @@ Specialist delegation:
 Business requirements:
 - If expected behavior or acceptance criteria are underspecified, do not invent product behavior.
 - Return Blocked with "needs requirements discovery".
-
-OpenSpec:
-- Ask `openspec-steward` in read-only mode when existing specs may matter or when you need to decide whether OpenSpec is warranted.
-- Request write-mode OpenSpec only when the task uses OpenSpec or the user explicitly asked for OpenSpec changes.
 
 Challenge loop:
 - The main agent may challenge your decision with repository evidence, diff facts, command results, validation constraints, user constraints, or specialist output.
@@ -78,9 +73,6 @@ Execution Profile:
 
 Specialist Input:
 - used/not used specialists, key takeaways, or Delegation Requests with Agent, Blocking/Advisory, and prompt.
-
-OpenSpec:
-- use | skip | inspect | blocked, with reason.
 
 Risks:
 - concrete technical risks and scope risks.

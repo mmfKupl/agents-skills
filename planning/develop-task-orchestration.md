@@ -32,9 +32,9 @@ invent product requirements.
 4. Standard and Deep work use one generic `implementation-worker`. Do not add
    language-specific workers until repeated tasks show a real responsibility
    or tool-surface boundary.
-5. At most one agent may mutate a shared worktree at a time. Code writing,
-   write-mode OpenSpec work, and potentially write-producing validation are
-   serialized through the same authorized-mutator state.
+5. At most one agent may mutate a shared worktree at a time. Code writing and
+   potentially write-producing validation are serialized through the same
+   authorized-mutator state.
 6. Review gates and generalist specialists are read-only. Gates request
    specialists; the main agent performs the technical spawn and returns raw
    evidence to the requesting gate for interpretation.
@@ -87,7 +87,6 @@ and low-validatability changes.
 main orchestrator
   -> optional parallel read-only discovery
   -> mandatory read-only preflight
-  -> optional write-mode OpenSpec steward
   -> one implementation writer
   -> focused validation under controlled mutation ownership
   -> mandatory independent read-only postflight
@@ -169,12 +168,8 @@ Tests may update snapshots, generated files, caches, or lockfiles. Run such
 checks while the current writer owns mutation or after an explicit mutator
 transfer. Reinspect status and diff afterward.
 
-OpenSpec drift is repaired by stopping the code writer, transferring mutation
-ownership to write-mode `openspec-steward`, synchronizing artifacts, and then
-repeating affected validation and postflight.
-
-Rebases, conflict resolution, formatting, generated-file changes, OpenSpec
-synchronization, and tracked test output after approval all invalidate approval.
+Rebases, conflict resolution, formatting, generated-file changes, and tracked
+test output after approval all invalidate approval.
 
 ## Shared Reviewer Compatibility
 

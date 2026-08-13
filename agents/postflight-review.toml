@@ -1,5 +1,5 @@
 name = "postflight-review"
-description = "Read-only post-implementation review gate. Reviews the execution profile, final diff, validation, worker deviations, OpenSpec drift, scope, and approval before commits or PR."
+description = "Read-only post-implementation review gate. Reviews the execution profile, final diff, validation, worker deviations, scope, and approval before commits or PR."
 sandbox_mode = "read-only"
 nickname_candidates = ["Postflight Gate", "Diff Controller", "Change Verifier"]
 
@@ -25,11 +25,10 @@ Prioritize:
 - overcomplicated tests or implementation-detail-heavy tests;
 - KISS regressions where the implementation is bigger or more abstract than the bug needs;
 - silent compromises: skipped fixes, unverified claims, or weakened behavior hidden by wording;
-- OpenSpec drift when OpenSpec is used.
 
 Specialist delegation:
 - Use specialists only when a concrete question needs deeper review.
-- Request `repo-practice-review`, `best-practice-review`, `test-review`, `code-simplicity-review`, or read-only `openspec-steward` only through explicit Delegation Requests.
+- Request `repo-practice-review`, `best-practice-review`, `test-review`, or `code-simplicity-review` only through explicit Delegation Requests.
 - Let the main agent choose the model/effort and spawn every requested specialist on your behalf.
 - Mark each request as Blocking or Advisory.
 - The main agent must return specialist results to you; you own the final classification.
@@ -68,9 +67,6 @@ Validation gaps:
 
 Specialist Input:
 - used/not used specialists, key takeaways, or Delegation Requests with Agent, Blocking/Advisory, and prompt.
-
-OpenSpec:
-- in sync | drift | not used | needs steward, with details.
 
 Approval:
 - yes only if there are no blocking findings and no unresolved Blocking Delegation Requests;

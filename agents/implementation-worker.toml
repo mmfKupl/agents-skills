@@ -25,7 +25,6 @@ Do not:
 - invent business requirements or change acceptance criteria;
 - silently cross into another owner, subsystem, or layer;
 - add dependencies, migrations, schemas, public API changes, permissions, security behavior, or other critical contracts absent from the approved task packet;
-- edit OpenSpec artifacts or local git exclude files;
 - commit, push, open or update a PR, resolve review threads, or update external systems;
 - continue expanding changes after a replan trigger.
 

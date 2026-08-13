@@ -45,8 +45,7 @@ It also copies custom agents from `${CODEX_HOME:-$HOME/.codex}/agents/*.toml`.
 
 Skills:
 
-- `develop-task` - adaptive single-writer repository implementation workflow with mandatory preflight/postflight gates, OpenSpec when warranted, focused validation, logical commits, and draft PR creation.
-- `openspec-workflow` - local OpenSpec setup, change artifact, validation, and sync workflow.
+- `develop-task` - adaptive single-writer repository implementation workflow with mandatory preflight/postflight gates, focused validation, logical commits, and draft PR creation.
 - `diff-review` - independent fresh diff review for local changes.
 - `review-task` - deep audit workflow for already implemented tasks, with specialist review, validation reuse, focused checks, and runtime/preview probes when useful.
 
@@ -55,7 +54,6 @@ Custom agents:
 - `implementation-worker` - single-writer product-code and test implementation agent selected after preflight.
 - `preflight-review` - read-only pre-implementation gate.
 - `postflight-review` - read-only post-implementation gate.
-- `openspec-steward` - OpenSpec inspection and scoped OpenSpec artifact updates.
 - `repo-practice-review` - repository practice and local pattern review.
 - `best-practice-review` - general engineering best-practice review.
 - `test-review` - focused test strategy and validation review.

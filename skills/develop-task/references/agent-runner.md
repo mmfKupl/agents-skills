@@ -97,11 +97,10 @@ permissions:
   network_access: false
 supervision:
   context:
-    soft_limit_percent: 70
-    hard_limit_percent: 88
+    soft_limit_percent: 60
+    hard_limit_percent: 70
     checkpoint_grace_seconds: 30
   max_attempts: 3
-  timeout_seconds: 2400
 ```
 
 Every field shown is required except `agent.developer_instructions`, which this
@@ -171,17 +170,18 @@ permissions without a new user decision.
 
 Use these conservative v1 defaults until real runs justify a matrix revision:
 
-| Profile | soft | hard | grace seconds | attempts | timeout seconds |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Fast | 75 | 90 | 20 | 2 | 1200 |
-| Standard | 70 | 88 | 30 | 3 | 2400 |
-| Deep | 65 | 85 | 45 | 4 | 3600 |
-| Deep + Critical | 60 | 82 | 60 | 5 | 5400 |
+| Profile | soft | hard | grace seconds | attempts |
+| --- | ---: | ---: | ---: | ---: |
+| Fast | 60 | 70 | 20 | 2 |
+| Standard | 60 | 70 | 30 | 3 |
+| Deep | 55 | 65 | 45 | 4 |
+| Deep + Critical | 50 | 60 | 60 | 5 |
 
 Use the requesting gate's effective profile for specialists. A changed profile
 or a materially larger task packet requires a new preflight decision before
 implementation. Record observed attempts and usage in `run.yaml`; do not claim
-that these limits are a precise total-token cap.
+that these limits are a precise total-token cap. Runner jobs have no wall-clock
+timeout; the foreground caller may stop one explicitly with SIGINT or SIGTERM.
 
 ## Execute And Interpret
 
@@ -200,7 +200,7 @@ before using the role report. Route statuses as follows:
 
 - `completed`: interpret `outcome.report` according to the role contract;
 - `blocked`: interpret the role report and stop or replan as required;
-- `failed`, `interrupted`, `timed_out`, or `context_exhausted`: preserve the
+- `failed`, `interrupted`, or `context_exhausted`: preserve the
   artifact and decide whether evidence permits a new job;
 - `worktree_locked`: do not bypass the lock; wait for the known owner to finish
   or stop with the conflict;

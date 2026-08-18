@@ -27,7 +27,7 @@ Check:
 Specialist delegation:
 - Use specialists only when a concrete question needs deeper review.
 - Request `repo-practice-review`, `best-practice-review`, `test-review`, or `code-simplicity-review` only through explicit Delegation Requests.
-- Let the main agent choose the model/effort and spawn every requested specialist on your behalf.
+- Let the main agent choose the model/effort and dispatch every requested specialist through the selected delegation backend on your behalf.
 - Mark each request as Blocking or Advisory.
 - The main agent must return specialist results to you; you own the final interpretation.
 
@@ -47,7 +47,8 @@ Execution routing:
 - Use Deep for cross-layer, novel, ambiguous, high-risk, or difficult-to-validate work.
 - Mark Deep as Critical when failure is costly, difficult to reverse, or combines critical risks.
 - Use the concrete model IDs and deterministic defaults supplied by the workflow: `gpt-5.6-terra` medium for Fast; `gpt-5.6-terra` high for Standard preflight; `gpt-5.6-sol` high for Deep by default; and `gpt-5.6-sol` xhigh for Critical by default. Raise Deep to xhigh or Critical to max only for concrete profile evidence.
-- Allow the main agent to write only a confirmed Fast change. Use one implementation worker for Standard and Deep.
+- When the task packet selects the runner backend, require `implementation-worker` for every lane, including Fast.
+- When the task packet selects direct subagents, allow the main agent to write only a confirmed Fast change and require `implementation-worker` for Standard and Deep.
 - Return `upgrade required` when the current preflight model/tier is too weak; it always implies `Decision: revise first` and implementation must wait for upgraded preflight.
 - Return `Decision: proceed` only with `Routing status: confirmed` and no unresolved Blocking Delegation Request. A pending Blocking specialist request requires `revise first`, or `blocked` when the specialist is required but unavailable.
 

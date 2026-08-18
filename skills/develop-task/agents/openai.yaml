@@ -1,6 +1,6 @@
 interface:
   display_name: "Develop Task"
-  short_description: "Route reviewed implementation through one writer."
-  default_prompt: "Use $develop-task to implement this repository change with mandatory review gates, adaptive model routing, one writer at a time, focused validation, and standalone lifecycle handling when applicable."
+  short_description: "Run reviewed work through supervised agents."
+  default_prompt: "Use $develop-task to implement this repository change with runner-supervised fresh-context review and implementation jobs; use direct subagents only when I explicitly opt out of the runner."
 policy:
   allow_implicit_invocation: false

@@ -1,6 +1,6 @@
 ---
 name: develop-task
-description: Explicitly invoked engineering workflow for repository implementation tasks with mandatory preflight/postflight review gates, adaptive gpt-5.6-terra/gpt-5.6-sol routing, single-writer implementation delegation, focused validation, and standalone lifecycle handling. Use only when the user explicitly writes `$develop-task` or explicitly asks to run the develop-task workflow; otherwise do not select this skill.
+description: Explicitly invoked engineering workflow for repository implementation tasks with mandatory preflight/postflight review gates, adaptive gpt-5.6-terra/gpt-5.6-sol routing, runner-supervised fresh-context delegation by default, an explicit direct-subagent fallback, focused validation, and standalone lifecycle handling. Use only when the user explicitly writes `$develop-task` or explicitly asks to run the develop-task workflow; otherwise do not select this skill.
 ---
 
 # Develop Task
@@ -25,7 +25,7 @@ unavailable component. A run without both gates is not an approved
 `develop-task` implementation.
 
 If the request is analysis-only, do not edit files, run mutating commands,
-spawn review agents, or begin this implementation workflow. Answer with
+dispatch review roles, or begin this implementation workflow. Answer with
 analysis and ask for explicit implementation approval.
 
 Default limits:
@@ -35,12 +35,51 @@ Default limits:
 
 Stop for a user decision when a bounded loop does not converge.
 
+## Delegation Backend
+
+Select one delegation backend at the start of the run and report it in the
+first progress update:
+
+- use `runner` by default;
+- use `subagents` only when the user explicitly says not to use the runner or
+  explicitly asks to use subagents, including phrases such as "не используй
+  runner", "не используй ранер", or "используй сабагентов";
+- let a later explicit user instruction change the backend only after every
+  active delegated job stops; record the switch and preserve completed
+  evidence.
+
+Do not infer the fallback from runner unavailability, a failed job, task
+difficulty, or convenience. Fail the runner path closed unless the user chooses
+the fallback.
+
+For `runner`, read `references/agent-runner.md` completely before the first
+preflight job. Dispatch every preflight gate, implementation worker,
+postflight gate, and requested specialist through one foreground
+`agent-runner` process and YAML artifacts. Do not use collaboration subagent
+tools for those roles. The main thread remains the semantic orchestrator and
+never delegates orchestration itself.
+
+For `subagents`, preserve the direct custom-agent workflow: spawn roles with
+explicit model/effort, `fork_turns: "none"` or bounded history, and compact
+self-contained packets; use follow-up turns for the same live gate or writer
+when applicable. Do not create runner artifacts or invoke `agent-runner`.
+
+All later instructions to "dispatch", "run", "return to", or "ask" a role use
+the selected backend. Core gate semantics, evidence requirements, review
+independence, bounded loops, and lifecycle rules are identical across both
+backends.
+
 ## Ownership Invariants
 
 - Let the main agent own orchestration, gate challenges, integration, and
   lifecycle actions.
-- Let the main agent write product code only for a confirmed Fast profile.
-- Use the generic `implementation-worker` role for Standard and Deep work.
+- In runner mode, route every implementation, including Fast, through an
+  `implementation-worker` runner job.
+- In direct-subagent mode, let the main agent write product code only for a
+  confirmed Fast profile; otherwise use `implementation-worker`.
+- Use the generic `implementation-worker` role for every delegated
+  implementation; do not add language-specific workers without a demonstrated
+  responsibility or tool-surface boundary.
 - Allow at most one authorized worktree mutator at a time. A replacement worker
   is allowed only after the current writer stops and ownership is transferred.
 - Keep explorers, review gates, and generalist specialists read-only.
@@ -68,7 +107,7 @@ difficult-to-validate risks.
 
 | Profile | Use when | Preflight | Implementation | Postflight |
 | --- | --- | --- | --- | --- |
-| Fast | Clear local behavior, established pattern, low blast radius, narrow validation | `gpt-5.6-terra` medium | Main or worker on `gpt-5.6-terra` medium | `gpt-5.6-terra` medium |
+| Fast | Clear local behavior, established pattern, low blast radius, narrow validation | `gpt-5.6-terra` medium | Runner worker by default; main or direct worker fallback on `gpt-5.6-terra` medium | `gpt-5.6-terra` medium |
 | Standard | Clear requirements with non-trivial but bounded implementation | `gpt-5.6-terra` high | Worker on `gpt-5.6-terra` medium by default | `gpt-5.6-terra` high |
 | Deep | Cross-layer, novel, ambiguous, high-risk, or difficult to validate | `gpt-5.6-sol` high by default | Worker on `gpt-5.6-sol` high by default | `gpt-5.6-sol` high by default |
 | Deep + Critical | Multiple critical risks, costly failure, low reversibility, or failed lower-tier reasoning | `gpt-5.6-sol` xhigh by default | Worker on `gpt-5.6-sol` xhigh by default | `gpt-5.6-sol` xhigh by default |
@@ -94,11 +133,11 @@ read-heavy specialists in Fast/Standard work, the requesting gate's exact tier
 for questions that determine its decision, and the Deep/Critical tier for
 questions carrying that risk.
 
-Always pass an explicit model and reasoning effort for agents spawned by this
-workflow. Do not rely on inherited defaults. Every such spawn must use
-`fork_turns: "none"` or a positive bounded history and receive a compact,
-self-contained packet. This is required even when the selected model matches
-the parent.
+Always pass an explicit model and reasoning effort for every delegated job. Do
+not rely on inherited defaults. Runner tasks record both values in YAML and
+start fresh ephemeral workers. Direct-subagent spawns must use
+`fork_turns: "none"` or a positive bounded history. Every backend receives a
+compact self-contained packet even when the selected model matches the parent.
 
 If an approved model or agent role is unavailable, do not silently downgrade or
 substitute a weaker route. Use an available equivalent-or-stronger approved
@@ -114,7 +153,8 @@ Do:
 - identify the task boundary, acceptance criteria, likely owner, and initial
   technical hypothesis;
 - build the preliminary Execution Profile;
-- choose the model and reasoning effort for each spawn;
+- choose the model and reasoning effort for each delegated job;
+- select and enforce one delegation backend;
 - sequence every write-capable agent;
 - provide self-contained review and implementation packets;
 - inspect actual status, diff, and validation evidence rather than trusting
@@ -131,10 +171,10 @@ Do not:
 
 ### Core Gates
 
-Use `preflight-review` once before implementation under each approved contract,
-and repeat it after any replan-triggering contract or profile change. Use
-`postflight-review` after every resulting implementation diff. Let the gates
-own review decisions and resolve specialist conflicts.
+Dispatch `preflight-review` once before implementation under each approved
+contract, and dispatch it again after any replan-triggering contract or profile
+change. Dispatch `postflight-review` after every resulting implementation diff.
+Let the gates own review decisions and resolve specialist conflicts.
 
 Require preflight to confirm or upgrade:
 
@@ -151,13 +191,16 @@ the upgraded tier before editing.
 
 ### Implementation Worker
 
-Use the single generic `implementation-worker` for Standard and Deep tasks and
-for a Fast task when handoff adds useful separation. Assign exact paths or
-responsibility and remind it that other user or agent changes may exist.
+Use the single generic `implementation-worker` for every runner-mode task, for
+Standard and Deep direct-subagent tasks, and for a Fast direct-subagent task
+when handoff adds useful separation. Assign exact paths or responsibility and
+remind it that other user or agent changes may exist.
 
-Return all first local postflight fixes to the same writer. Use a new stronger
-worker only after stopping the current writer and explicitly transferring
-ownership.
+Return all first local postflight fixes to the same writer responsibility and
+tier. Runner mode creates a fresh implementation job with the prior result,
+diff, validation, and findings; direct-subagent mode follows up with the same
+live writer. Use a new stronger route only after stopping the current writer
+and explicitly transferring ownership.
 
 ### Generalist Specialists
 
@@ -182,18 +225,21 @@ surface.
    gather minimal ownership, nearby-pattern, reproduction, and validation
    context, and conditionally load repository-specific guidance.
 4. Build the preliminary Execution Profile.
-5. Run mandatory `preflight-review` with the user request, preliminary profile,
-   current preflight model/effort, task boundary, dirty-tree notes, likely
-   files, constraints, expected behavior, and initial technical hypothesis.
-6. If preflight requests specialists, spawn only the requested read-only agents
-   with explicit model/effort and return their raw results to the same gate for
-   its updated decision.
+5. Dispatch mandatory `preflight-review` with the user request, preliminary
+   profile, current preflight model/effort, task boundary, dirty-tree notes,
+   likely files, constraints, expected behavior, selected backend and its writer
+   invariant, and initial technical hypothesis.
+6. If preflight requests specialists, dispatch only the requested read-only
+   roles with explicit model/effort and return their raw reports to the same
+   gate responsibility for its updated decision.
 7. If preflight requires a stronger tier, rerun preflight before editing. If it
    returns `revise first` or `blocked`, resolve that state before continuing.
 8. Build the implementation contract defined below.
-9. Let main write only when preflight confirms Fast and main already holds the
-    required context inside one local ownership boundary. Otherwise start one
-    `implementation-worker` with the approved model/effort.
+9. In runner mode, dispatch one `implementation-worker` with the approved
+    model/effort for every profile. In direct-subagent mode, let main write only
+    when preflight confirms Fast and main already holds the required context
+    inside one local ownership boundary; otherwise dispatch one
+    `implementation-worker`.
 10. Handle the writer result: `implemented`, `replan_required`, or `blocked`.
     Do not materially expand the task without returning to preflight.
 11. Inspect actual repository status and diff. Run or verify focused validation
@@ -205,15 +251,15 @@ surface.
     inspect the resulting diff.
 12. Recalculate the effective postflight floor from the original request,
     preflight profile, actual diff, worker deviations, and validation gaps.
-13. Run mandatory independent `postflight-review` with the task packet,
+13. Dispatch mandatory independent `postflight-review` with the task packet,
     preflight decision, writer result, changed files, diff, validation, current
     cycle, and prior findings/fixes.
 14. If postflight requests specialists, return their raw results to the same
     gate for its final classification. Approval is impossible while a Blocking
     specialist request remains unresolved.
 15. Relay postflight findings in the main chat before any writer resumes.
-16. Return first local blocking fixes to the same writer, rerun focused
-    validation, and repeat postflight.
+16. Return first local blocking fixes to the same writer responsibility using
+    the selected backend, rerun focused validation, and repeat postflight.
 17. Promote or replan after a repeated conceptual failure, low confidence, or
     unexpected scope/risk growth.
 18. After approval, create logical commits and a draft PR for standalone work
@@ -283,7 +329,9 @@ technical adjustment that stays inside the approved contract.
 
 ## Promotion Policy
 
-- First local blocking finding: use the same writer and same tier.
+- First local blocking finding: use the same writer responsibility and same
+  tier. Start a fresh runner job in runner mode; follow up with the live worker
+  in direct-subagent mode.
 - Repeated conceptual finding, low confidence, or unexpected risk/scope growth:
   stop the current writer, return to preflight when the approved profile is
   invalid, promote the model/effort, and give the new writer a fresh packet with
@@ -296,13 +344,20 @@ technical adjustment that stays inside the approved contract.
 
 Let core gates decide which specialist to use, the exact question, required
 artifacts, and whether the result is blocking or advisory. Do not let gates
-spawn specialists directly. Let the main agent select the concrete model/effort
-from the Execution Profile and technically spawn every specialist on behalf of
-the requesting gate.
+delegate recursively. Let the main agent select the concrete model/effort from
+the Execution Profile and technically dispatch every specialist on behalf of
+the requesting gate through the selected backend.
 
 Do not expand, narrow, rewrite, or independently adjudicate a specialist
-request. Return its result to the requesting gate and act only on the gate's
-updated decision.
+request. Return its raw report to a fresh runner gate job with the complete
+prior gate report in runner mode, or to the same live gate in direct-subagent
+mode. Act only on the gate's updated decision.
+
+In runner mode, use separate immutable job directories for every gate follow-up,
+specialist, implementation fix, and postflight cycle. A completed runner
+process has no resumable conversation; continuity comes only from task packets,
+result artifacts, repository state, and explicit handoffs. In direct-subagent
+mode, use the existing agent mailbox and follow-up mechanisms.
 
 When specialist outputs conflict, require the gate to decide explicitly whether
 to follow repository practice, depart from it, take a transitional local fix,
@@ -358,6 +413,7 @@ When done, report:
 - Validation and skipped checks;
 - Preflight and postflight results and cycle count;
 - Replans or promotions, or `none`;
+- delegation backend and, for runner mode, the `run.yaml` path;
 - PR URL/state, or why no PR was created;
 - branch and uncommitted/committed/pushed state;
 - whether user approval or another decision remains.

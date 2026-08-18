@@ -218,12 +218,11 @@ class RunnerTestCase(unittest.TestCase):
             },
             "supervision": {
                 "context": {
-                    "soft_limit_percent": 70,
-                    "hard_limit_percent": 90,
+                    "soft_limit_percent": 60,
+                    "hard_limit_percent": 70,
                     "checkpoint_grace_seconds": 1,
                 },
                 "max_attempts": 2,
-                "timeout_seconds": 5,
             },
         }
         value.update(updates)
@@ -250,6 +249,20 @@ class ValidationTests(RunnerTestCase):
         with self.assertRaisesRegex(runner.TaskValidationError, "duplicate YAML key"):
             runner.parse_task(b"kind: one\nkind: two\n", path)
 
+    def test_supported_context_threshold_pairs(self) -> None:
+        for soft, hard in ((60, 70), (55, 65), (50, 60)):
+            value = self.task_value()
+            value["supervision"]["context"].update(  # type: ignore[index,union-attr]
+                {"soft_limit_percent": soft, "hard_limit_percent": hard}
+            )
+            with self.subTest(soft=soft, hard=hard):
+                parsed = runner.parse_task(
+                    yaml.safe_dump(value).encode(), self.root / "task.yaml"
+                )
+                self.assertEqual(
+                    parsed["supervision"]["context"]["hard_limit_percent"], hard
+                )
+
     def test_unknown_keys_are_rejected_at_each_level(self) -> None:
         cases = []
         root = self.task_value()
@@ -261,6 +274,9 @@ class ValidationTests(RunnerTestCase):
         context = self.task_value()
         context["supervision"]["context"]["extra"] = True  # type: ignore[index]
         cases.append(context)
+        removed_timeout = self.task_value()
+        removed_timeout["supervision"]["timeout_seconds"] = 5  # type: ignore[index]
+        cases.append(removed_timeout)
         for value in cases:
             with self.subTest(value=value):
                 raw = yaml.safe_dump(value).encode()
@@ -280,16 +296,16 @@ class ValidationTests(RunnerTestCase):
                 "never",
             ),
             (
-                lambda value: value["supervision"]["context"].__setitem__("soft_limit_percent", 95),  # type: ignore[index,union-attr]
+                lambda value: value["supervision"]["context"].__setitem__("hard_limit_percent", 71),  # type: ignore[index,union-attr]
                 "0 < soft",
+            ),
+            (
+                lambda value: value["supervision"]["context"].__setitem__("soft_limit_percent", 65),  # type: ignore[index,union-attr]
+                "10 to 15",
             ),
             (
                 lambda value: value["supervision"].__setitem__("max_attempts", True),  # type: ignore[union-attr]
                 "positive integer",
-            ),
-            (
-                lambda value: value["supervision"].__setitem__("timeout_seconds", 0),  # type: ignore[union-attr]
-                "positive",
             ),
         ]
         for mutation, expected in mutations:
@@ -428,7 +444,7 @@ class SupervisionTests(RunnerTestCase):
         scenarios = [
             {
                 "events": [
-                    usage_event(60, accumulated_total=95),
+                    usage_event(50, accumulated_total=95),
                     message_event(worker_output()),
                     completed_event(),
                 ]
@@ -436,7 +452,7 @@ class SupervisionTests(RunnerTestCase):
         ]
         invocation, result, codex, _ = self.run_with(scenarios)
         self.assertEqual(invocation.status, "completed")
-        self.assertEqual(result["attempts"][0]["context_peak_percent"], 60.0)
+        self.assertEqual(result["attempts"][0]["context_peak_percent"], 50.0)
         self.assertEqual(codex.turns[0].steer_inputs, [])
         self.assertEqual(codex.turns[0].interrupt_count, 0)
 
@@ -558,7 +574,7 @@ class SupervisionTests(RunnerTestCase):
         task = self.task_value()
         task["supervision"]["context"]["checkpoint_grace_seconds"] = 0.02  # type: ignore[index]
         scenarios = [
-            {"events": [usage_event(75)], "complete_on_interrupt": True},
+            {"events": [usage_event(65)], "complete_on_interrupt": True},
             {"events": [message_event(worker_output()), completed_event()]},
         ]
         invocation, result, codex, _ = self.run_with(scenarios, task=task)
@@ -568,16 +584,14 @@ class SupervisionTests(RunnerTestCase):
         self.assertEqual(len(codex.thread_calls), 2)
 
     def test_nonterminal_context_interrupt_does_not_start_next_attempt(self) -> None:
-        task = self.task_value()
-        task["supervision"]["timeout_seconds"] = 0.06  # type: ignore[index]
         scenarios = [
-            {"events": [usage_event(95)], "stall": True},
+            {"events": [usage_event(95)]},
             {"events": [message_event(worker_output()), completed_event()]},
         ]
-        invocation, result, codex, _ = self.run_with(scenarios, task=task)
-        self.assertEqual(invocation.status, "timed_out")
+        invocation, result, codex, _ = self.run_with(scenarios)
+        self.assertEqual(invocation.status, "failed")
         self.assertEqual(len(codex.thread_calls), 1)
-        self.assertEqual(result["attempts"][0]["status"], "timed_out")
+        self.assertEqual(result["attempts"][0]["status"], "failed")
 
     def test_max_attempts_yields_context_exhausted(self) -> None:
         task = self.task_value()
@@ -602,15 +616,6 @@ class SupervisionTests(RunnerTestCase):
         self.assertEqual(result["usage"]["input_tokens"], 70)
         self.assertEqual(result["usage"]["total_tokens"], 70)
         self.assertEqual(result["attempts"][0]["context_peak_percent"], 40.0)
-
-    def test_timeout_interrupts_active_turn_and_closes_sdk(self) -> None:
-        task = self.task_value()
-        task["supervision"]["timeout_seconds"] = 0.05  # type: ignore[index]
-        invocation, result, codex, _ = self.run_with([{"events": [], "stall": True}], task=task)
-        self.assertEqual(invocation.status, "timed_out")
-        self.assertEqual(result["execution"]["status"], "timed_out")
-        self.assertEqual(codex.turns[0].interrupt_count, 1)
-        self.assertTrue(codex.closed)
 
     def test_signal_interrupts_active_turn_and_closes_sdk(self) -> None:
         state = runner.SignalState()

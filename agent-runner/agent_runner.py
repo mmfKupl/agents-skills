@@ -33,7 +33,7 @@ from openai_codex import (
 )
 
 
-RUNNER_VERSION = "1.0.0"
+RUNNER_VERSION = "1.1.0"
 CLEANUP_GRACE_SECONDS = 5.0
 SIGNAL_POLL_SECONDS = 0.1
 HEARTBEAT_INTERVAL_SECONDS = 5.0
@@ -101,7 +101,6 @@ TERMINAL_STATUSES = {
     "needs_approval",
     "failed",
     "interrupted",
-    "timed_out",
     "worktree_locked",
     "invalid_task",
     "context_exhausted",
@@ -110,10 +109,6 @@ TERMINAL_STATUSES = {
 
 class TaskValidationError(ValueError):
     """Raised when a task is not a strict agent-task v1 document."""
-
-
-class RunnerTimedOut(Exception):
-    pass
 
 
 class RunnerInterrupted(Exception):
@@ -283,7 +278,7 @@ def parse_task(raw: bytes, task_path: Path) -> dict[str, Any]:
     supervision = _require_mapping(
         root["supervision"],
         "supervision",
-        {"context", "max_attempts", "timeout_seconds"},
+        {"context", "max_attempts"},
     )
     context = _require_mapping(
         supervision["context"],
@@ -293,10 +288,13 @@ def parse_task(raw: bytes, task_path: Path) -> dict[str, Any]:
     soft = _positive_number(context["soft_limit_percent"], "soft_limit_percent")
     hard = _positive_number(context["hard_limit_percent"], "hard_limit_percent")
     _positive_number(context["checkpoint_grace_seconds"], "checkpoint_grace_seconds")
-    if not 0 < soft < hard < 100:
-        raise TaskValidationError("context limits must satisfy 0 < soft < hard < 100")
+    if not 0 < soft < hard <= 70:
+        raise TaskValidationError("context limits must satisfy 0 < soft < hard <= 70")
+    if not 10 <= hard - soft <= 15:
+        raise TaskValidationError(
+            "soft context limit must be 10 to 15 percentage points below hard"
+        )
     _strict_positive_int(supervision["max_attempts"], "supervision.max_attempts")
-    _positive_number(supervision["timeout_seconds"], "supervision.timeout_seconds")
 
     # Preserve the validated task values exactly; task_path is accepted for a stable API
     # and intentionally is not reread or rewritten.
@@ -598,9 +596,7 @@ def _capture_signals(state: SignalState) -> Iterator[None]:
             signal.signal(sig, old_handler)
 
 
-async def _await_controlled(
-    awaitable: Awaitable[Any], deadline: float, signals: SignalState
-) -> Any:
+async def _await_controlled(awaitable: Awaitable[Any], signals: SignalState) -> Any:
     task = asyncio.ensure_future(awaitable)
     try:
         while not task.done():
@@ -609,13 +605,7 @@ async def _await_controlled(
                 with contextlib.suppress(asyncio.CancelledError, Exception):
                     await task
                 raise RunnerInterrupted(signals.triggered)
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                task.cancel()
-                with contextlib.suppress(asyncio.CancelledError, Exception):
-                    await task
-                raise RunnerTimedOut
-            await asyncio.wait({task}, timeout=min(SIGNAL_POLL_SECONDS, remaining))
+            await asyncio.wait({task}, timeout=SIGNAL_POLL_SECONDS)
         return await task
     except BaseException:
         if not task.done():
@@ -642,7 +632,6 @@ async def _run_attempt(
     writer: AtomicResultWriter,
     attempt_number: int,
     carry: dict[str, Any] | None,
-    deadline: float,
     signals: SignalState,
 ) -> AttemptResult:
     sandbox = _sandbox(task)
@@ -673,7 +662,6 @@ async def _run_attempt(
                 model=model,
                 sandbox=sandbox,
             ),
-            deadline,
             signals,
         )
         attempt["thread_id"] = thread.id
@@ -687,13 +675,8 @@ async def _run_attempt(
                 output_schema=WORKER_OUTPUT_SCHEMA,
                 sandbox=sandbox,
             ),
-            deadline,
             signals,
         )
-    except RunnerTimedOut:
-        attempt.update({"finished_at": _utc_now(), "status": "timed_out"})
-        _touch(result, writer)
-        raise
     except RunnerInterrupted:
         attempt.update({"finished_at": _utc_now(), "status": "interrupted"})
         _touch(result, writer)
@@ -731,12 +714,12 @@ async def _run_attempt(
     async def request_interrupt(reason: str) -> None:
         nonlocal interrupt_reason, cleanup_deadline
         if interrupt_reason is not None:
-            if reason in {"signal", "timeout"} and interrupt_reason == "context":
+            if reason == "signal" and interrupt_reason == "context":
                 interrupt_reason = reason
                 cleanup_deadline = time.monotonic() + CLEANUP_GRACE_SECONDS
             return
         interrupt_reason = reason
-        if reason in {"signal", "timeout"}:
+        if reason == "signal":
             cleanup_deadline = time.monotonic() + CLEANUP_GRACE_SECONDS
         with contextlib.suppress(Exception):
             await _bounded_call(turn.interrupt())
@@ -746,8 +729,6 @@ async def _run_attempt(
             now = time.monotonic()
             if signals.triggered:
                 await request_interrupt("signal")
-            elif now >= deadline:
-                await request_interrupt("timeout")
             elif soft_steered_at is not None and now - soft_steered_at >= checkpoint_grace:
                 await request_interrupt("context")
 
@@ -757,12 +738,16 @@ async def _run_attempt(
             if next_event is None:
                 next_event = asyncio.create_task(anext(stream))
 
-            wake_at = deadline
+            wait_seconds = SIGNAL_POLL_SECONDS
             if soft_steered_at is not None and interrupt_reason is None:
-                wake_at = min(wake_at, soft_steered_at + checkpoint_grace)
+                wait_seconds = min(
+                    wait_seconds,
+                    max(0.0, soft_steered_at + checkpoint_grace - time.monotonic()),
+                )
             if cleanup_deadline is not None:
-                wake_at = min(wake_at, cleanup_deadline)
-            wait_seconds = max(0.0, min(SIGNAL_POLL_SECONDS, wake_at - time.monotonic()))
+                wait_seconds = min(
+                    wait_seconds, max(0.0, cleanup_deadline - time.monotonic())
+                )
             done, _ = await asyncio.wait({next_event}, timeout=wait_seconds)
             if not done:
                 continue
@@ -838,12 +823,6 @@ async def _run_attempt(
             "interrupted",
             error=_error("signal", f"received {signals.triggered or 'termination signal'}"),
         )
-    if interrupt_reason == "timeout":
-        attempt["status"] = "timed_out"
-        _aggregate_usage(result)
-        _touch(result, writer)
-        return AttemptResult("timed_out", error=_error("timeout", "overall deadline expired"))
-
     parsed_output: dict[str, Any] | None = None
     output_error: Exception | None = None
     if final_response is not None:
@@ -926,7 +905,6 @@ async def _execute_sdk(
     task: dict[str, Any],
     result: dict[str, Any],
     writer: AtomicResultWriter,
-    deadline: float,
     signals: SignalState,
     sdk_factory: Callable[[CodexConfig], Any],
 ) -> AttemptResult:
@@ -938,7 +916,7 @@ async def _execute_sdk(
             config_overrides=_config_overrides(task), cwd=task["workspace"]["cwd"]
         )
         codex = sdk_factory(config)
-        await _await_controlled(codex.__aenter__(), deadline, signals)
+        await _await_controlled(codex.__aenter__(), signals)
         entered = True
         for attempt_number in range(1, task["supervision"]["max_attempts"] + 1):
             attempt_result = await _run_attempt(
@@ -948,7 +926,6 @@ async def _execute_sdk(
                 writer,
                 attempt_number,
                 carry,
-                deadline,
                 signals,
             )
             if attempt_result.action != "rotate":
@@ -958,8 +935,6 @@ async def _execute_sdk(
             "context_exhausted",
             error=_error("context_exhausted", "maximum fresh-context attempts exhausted"),
         )
-    except RunnerTimedOut:
-        return AttemptResult("timed_out", error=_error("timeout", "overall deadline expired"))
     except RunnerInterrupted as exc:
         return AttemptResult("interrupted", error=_error("signal", f"received {exc}"))
     except Exception as exc:
@@ -1081,7 +1056,6 @@ def _continue_invocation(
     }
     _touch(result, writer)
 
-    deadline = time.monotonic() + float(task["supervision"]["timeout_seconds"])
     lock: WorktreeLock | None = None
     if task["permissions"]["sandbox_mode"] != "read_only":
         lock = WorktreeLock(task["workspace"]["cwd"])
@@ -1104,7 +1078,7 @@ def _continue_invocation(
     try:
         try:
             terminal = asyncio.run(
-                _execute_sdk(task, result, writer, deadline, signal_state, sdk_factory)
+                _execute_sdk(task, result, writer, signal_state, sdk_factory)
             )
         except KeyboardInterrupt:
             terminal = AttemptResult(

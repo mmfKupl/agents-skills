@@ -18,7 +18,7 @@ The main agent or caller must place the task and its derived `results/` director
 
 ## Task contract
 
-Tasks are strict `agent-task` schema v1 YAML. Every shown field is required except `developer_instructions`. Unknown and duplicate keys are rejected. Strings marked nonempty may not contain only whitespace. Numeric limits must be finite; attempts must be a positive integer.
+Tasks are strict `agent-task` schema v1 YAML. Every shown field is required except `developer_instructions`. Unknown and duplicate keys are rejected. Strings marked nonempty may not contain only whitespace. Numeric limits must be finite; attempts must be a positive integer. Hard context limits may not exceed 70%, and soft limits must be 10 to 15 percentage points below hard limits.
 
 ```yaml
 kind: agent-task
@@ -40,11 +40,10 @@ permissions:
   network_access: false
 supervision:
   context:
-    soft_limit_percent: 75
-    hard_limit_percent: 90
+    soft_limit_percent: 60
+    hard_limit_percent: 70
     checkpoint_grace_seconds: 20
   max_attempts: 3
-  timeout_seconds: 1800
 ```
 
 The runner reads the original bytes once, records their SHA-256, and never rewrites the task. `workspace.cwd` must be an absolute existing directory. v1 always uses explicit deny-all approvals; it never silently approves or enables auto-review.
@@ -102,7 +101,7 @@ task:
   sha256: 64-hex-digest
   job_id: fix-widget-test
 runner:
-  version: 1.0.0
+  version: 1.1.0
   sdk_version: 0.147.0
   sdk_package: openai-codex
   runtime_package: openai-codex-cli-bin==0.147.0
@@ -125,15 +124,15 @@ approval:
 error: null
 ```
 
-Attempts record fresh thread and turn IDs, timestamps, status, peak observed context percentage, last and total token usage, and a structured checkpoint or fallback partial output when rotation is needed. Top-level usage sums the final per-attempt totals. Terminal statuses are `completed`, `blocked`, `failed`, `interrupted`, `timed_out`, `worktree_locked`, `invalid_task`, and `context_exhausted`. `needs_approval` is reserved for future schemas and is unreachable under v1 deny-all policy.
+Attempts record fresh thread and turn IDs, timestamps, status, peak observed context percentage, last and total token usage, and a structured checkpoint or fallback partial output when rotation is needed. Top-level usage sums the final per-attempt totals. Terminal statuses are `completed`, `blocked`, `failed`, `interrupted`, `worktree_locked`, `invalid_task`, and `context_exhausted`. `needs_approval` is reserved for future schemas and is unreachable under v1 deny-all policy.
 
-## Context rotation, timeout, and cleanup
+## Context rotation, signals, and cleanup
 
 The runner observes public `thread/tokenUsage/updated` stream events and computes pressure from `last.totalTokens / modelContextWindow`; accumulated thread totals are recorded but do not drive rotation. At the soft percentage it steers once for a structured checkpoint. At the hard percentage, or after checkpoint grace expires, it interrupts and waits for the old turn to become terminal before starting a fresh ephemeral thread. Only the task, fixed instructions, and the structured checkpoint (or fallback partial agent output) cross the boundary; dialogue history does not.
 
 The terminal SDK turn status is authoritative. Structured output can complete or block a run only when the turn itself completed. A failed turn remains failed even if it emitted valid JSON first. A context-interrupted turn can contribute a valid checkpoint only as carry into a fresh attempt.
 
-Thresholds are best-effort at SDK event boundaries. A model may emit a usage event after it has crossed a threshold, and a missing model context window prevents percentage supervision for that attempt. The one monotonic `timeout_seconds` deadline covers SDK startup and all attempts. On timeout, SIGINT, or SIGTERM, the runner requests interruption for an active turn, waits a bounded cleanup interval, closes the SDK/private App Server, and finalizes the result when possible. SIGKILL, power loss, or host failure can leave a valid `running` result because no process can perform cleanup afterward.
+Thresholds are best-effort at SDK event boundaries. A model may emit a usage event after it has crossed a threshold, and a missing model context window prevents percentage supervision for that attempt. The runner deliberately has no wall-clock job timeout; a foreground invocation waits until the worker finishes, exhausts its context attempts, fails, or receives SIGINT/SIGTERM. On those signals it requests interruption for an active turn, waits a bounded cleanup interval, closes the SDK/private App Server, and finalizes the result when possible. SIGKILL, power loss, or host failure can leave a valid `running` result because no process can perform cleanup afterward.
 
 ## Concurrency and locking
 

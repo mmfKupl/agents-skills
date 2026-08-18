@@ -6,7 +6,8 @@ Personal Codex skills and custom agents backup and sync repository.
 
 - `skills/` - skill folders that can be copied into `${CODEX_HOME:-$HOME/.codex}/skills`
 - `agents/` - custom agent TOML files that can be copied into `${CODEX_HOME:-$HOME/.codex}/agents`
-- `scripts/install-skills.sh` - install skills and custom agents from this repository into local Codex
+- `agent-runner/` - one-shot supervised Codex job runner used by `develop-task`
+- `scripts/install-skills.sh` - install skills, custom agents, and the runner into local Codex
 - `scripts/backup-local-skills.sh` - copy local non-system skills and custom agents back into this repository
 
 System skills from `.system` are intentionally not stored here.
@@ -24,6 +25,11 @@ Use `CODEX_HOME` to install into a non-default Codex home:
 ```bash
 CODEX_HOME=/path/to/.codex ./scripts/install-skills.sh
 ```
+
+The installer creates a dedicated runner virtual environment at
+`${CODEX_HOME:-$HOME/.codex}/tools/agent-runner`. Set `AGENT_RUNNER_PYTHON` when
+the preferred Python 3.10+ interpreter is not discoverable as `python3.12`,
+`python3.11`, `python3.10`, or `python3`.
 
 ## Back up local skills into this repo
 
@@ -45,7 +51,7 @@ It also copies custom agents from `${CODEX_HOME:-$HOME/.codex}/agents/*.toml`.
 
 Skills:
 
-- `develop-task` - adaptive single-writer repository implementation workflow with mandatory preflight/postflight gates, focused validation, logical commits, and draft PR creation.
+- `develop-task` - adaptive single-writer repository implementation workflow with mandatory preflight/postflight gates, supervised runner jobs by default, an explicit direct-subagent fallback, focused validation, logical commits, and draft PR creation.
 - `diff-review` - independent fresh diff review for local changes.
 - `review-task` - deep audit workflow for already implemented tasks, with specialist review, validation reuse, focused checks, and runtime/preview probes when useful.
 

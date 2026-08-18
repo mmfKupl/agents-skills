@@ -15,6 +15,10 @@ non-trivial implementation to a model selected for the task. Preserve strong
 independent review, avoid conflicting writers, and make escalation cheaper than
 repeating weak attempts.
 
+Use supervised one-shot runner jobs and YAML artifacts by default so every
+delegated role starts fresh and has bounded context. Preserve the previous
+direct-subagent behavior as an explicit per-run user fallback.
+
 The workflow handles one coherent repository implementation task. It does not
 invent product requirements.
 
@@ -27,20 +31,21 @@ invent product requirements.
    preflight after a replan trigger changes ownership, scope, behavior,
    contracts, validation, or the Execution Profile.
 3. The main agent owns intent, routing, evidence, gate challenges, integration,
-   and lifecycle. It may write implementation code only for a confirmed Fast
-   profile.
-4. Standard and Deep work use one generic `implementation-worker`. Do not add
-   language-specific workers until repeated tasks show a real responsibility
-   or tool-surface boundary.
+   and lifecycle. In runner mode it delegates every implementation; in the
+   direct-subagent fallback it may write code only for a confirmed Fast profile.
+4. Use one generic `implementation-worker` for every runner-mode task and for
+   Standard and Deep direct-subagent work. Do not add language-specific workers
+   until repeated tasks show a real responsibility or tool-surface boundary.
 5. At most one agent may mutate a shared worktree at a time. Code writing and
    potentially write-producing validation are serialized through the same
    authorized-mutator state.
 6. Review gates and generalist specialists are read-only. Gates request
-   specialists; the main agent performs the technical spawn and returns raw
-   evidence to the requesting gate for interpretation.
+   specialists; the main agent dispatches them through the selected backend and
+   returns raw evidence to the requesting gate for interpretation.
 7. Shared custom-agent TOML files do not pin a model or reasoning effort. Every
    consuming workflow selects an explicit callable model ID and effort for each
-   spawn and uses a no-history or bounded-history fork.
+   delegated job. Runner jobs start fresh; direct-subagent jobs use a no-history
+   or bounded-history fork.
 8. Writer handoff uses a strict contract boundary and a flexible implementation
    hypothesis. Evidence that invalidates the approved boundary produces
    `replan_required`; local implementation choices do not.
@@ -52,14 +57,27 @@ invent product requirements.
     postflight.
 11. Repository-specific owner maps and commands are conditional references, not
     generic orchestration rules.
+12. Select one delegation backend per run. `runner` is the default for every
+    gate, specialist, and implementation worker. `subagents` is selected only
+    by an explicit user instruction not to use the runner or to use subagents.
+13. Runner mode uses one private App Server process per immutable YAML job. The
+    main thread owns `run.yaml` and task files; runner processes own unique
+    result files. No daemon, MCP server, batch engine, or model-driven polling
+    is part of the workflow.
+14. Every runner-mode role, including Fast implementation, uses a fresh worker.
+    Direct-subagent mode preserves the prior option for main to implement a
+    confirmed Fast task.
+15. A runner follow-up is a new job with the same role, tier, ownership, and
+    explicit prior artifacts. Same-writer and same-gate semantics do not imply
+    hidden thread continuity in runner mode.
 
 ## Execution Profiles
 
-Every actual spawn receives one exact model and effort, never a range.
+Every delegated job receives one exact model and effort, never a range.
 
 | Profile | Typical shape | Preflight | Implementation | Postflight |
 | --- | --- | --- | --- | --- |
-| Fast | Established local pattern, low blast radius, narrow validation | `gpt-5.6-terra` medium | Main or worker on `gpt-5.6-terra` medium | `gpt-5.6-terra` medium |
+| Fast | Established local pattern, low blast radius, narrow validation | `gpt-5.6-terra` medium | Runner worker by default; main or worker fallback on `gpt-5.6-terra` medium | `gpt-5.6-terra` medium |
 | Standard | Clear requirements, non-trivial but bounded logic | `gpt-5.6-terra` high | Worker on `gpt-5.6-terra` medium by default | `gpt-5.6-terra` high |
 | Deep | Cross-layer, novel, ambiguous, high-risk, or hard to validate | `gpt-5.6-sol` high by default | Worker on `gpt-5.6-sol` high by default | `gpt-5.6-sol` high by default |
 | Deep + Critical | Multiple critical risks, costly failure, low reversibility, or failed lower-tier reasoning | `gpt-5.6-sol` xhigh by default | Worker on `gpt-5.6-sol` xhigh by default | `gpt-5.6-sol` xhigh by default |
@@ -85,14 +103,18 @@ and low-validatability changes.
 
 ```text
 main orchestrator
-  -> optional parallel read-only discovery
-  -> mandatory read-only preflight
-  -> one implementation writer
+  -> optional parallel read-only discovery jobs
+  -> mandatory read-only preflight job
+  -> one implementation writer job
   -> focused validation under controlled mutation ownership
-  -> mandatory independent read-only postflight
-  -> same writer fixes local findings
+  -> mandatory independent read-only postflight job
+  -> same writer responsibility fixes local findings
   -> main accepts and performs allowed lifecycle actions
 ```
+
+Runner mode records that sequence outside the worktree under a private
+temporary `run.yaml` plus immutable task/result job directories. Direct-subagent
+mode uses the collaboration lifecycle without runner artifacts.
 
 Parallel implementation is unsupported by this design, including across
 separate worktrees. It remains deferred until ownership, isolation, integration,
@@ -208,3 +230,6 @@ Before publishing a revision:
    permits.
 6. Confirm from traces that both gates ran, the route was exact, and only one
    authorized mutator existed at any moment.
+7. Forward-test both delegation selections: default runner jobs for gates,
+   specialists, and implementation; and explicit user opt-out to direct
+   subagents with no runner artifacts.

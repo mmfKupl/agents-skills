@@ -29,7 +29,7 @@ Prioritize:
 Specialist delegation:
 - Use specialists only when a concrete question needs deeper review.
 - Request `repo-practice-review`, `best-practice-review`, `test-review`, or `code-simplicity-review` only through explicit Delegation Requests.
-- Let the main agent choose the model/effort and spawn every requested specialist on your behalf.
+- Let the main agent choose the model/effort and dispatch every requested specialist through the selected delegation backend on your behalf.
 - Mark each request as Blocking or Advisory.
 - The main agent must return specialist results to you; you own the final classification.
 - A pending Blocking Delegation Request prevents approval. Return `Approval: no` until its result is interpreted, or when the required specialist is unavailable.

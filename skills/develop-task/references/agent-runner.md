@@ -183,11 +183,32 @@ implementation. Record observed attempts and usage in `run.yaml`; do not claim
 that these limits are a precise total-token cap. Runner jobs have no wall-clock
 timeout; the foreground caller may stop one explicitly with SIGINT or SIGTERM.
 
-## Execute And Interpret
+## Execute, Wait, And Interpret
 
-Invoke the resolved command in the foreground with the one task path. The tool
-call may remain pending while the private App Server works; do not poll it with
-model turns. stdout must contain one absolute result path.
+Invoke the resolved command in the foreground with the one task path. stdout
+must contain one absolute result path when the process exits.
+
+The shell tool may yield a live `session_id` before `agent-runner` exits. Treat
+that as transport-level yielding, not as a job event. While the same session is
+alive:
+
+- wait with `write_stdin` using empty `chars` and
+  `yield_time_ms: 300000`;
+- repeat that maximum five-minute long poll without commentary when it returns
+  the same live session and no material state change;
+- never use short periodic polls merely to prove that the process is alive;
+- do not emit messages such as "still running", "still waiting", elapsed-time
+  reminders, or restatements of the unchanged phase;
+- do not inspect processes, heartbeats, partial result YAML, repository state,
+  or runner-owned files only to manufacture a progress update;
+- report only a terminal process/result, transport failure, approval or user
+  decision request, or a real semantic stage change that affects the workflow.
+
+If the user explicitly asks for status while the process is running, answer
+once from the current session state and then resume the same five-minute
+long-poll protocol. The absence of stdout is expected because the runner prints
+only its final result path. Waiting must not create model turns whose sole
+purpose is narrating unchanged state.
 
 The process exit code reports transport reliability, not semantic success:
 

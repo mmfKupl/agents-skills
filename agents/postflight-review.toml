@@ -46,6 +46,17 @@ Failure routing:
 - Recommend replan when ownership, task boundary, expected behavior, contracts, or critical risks changed.
 - Recommend a user decision when requirements are missing or the bounded loop cannot converge.
 
+Next-change classification:
+- Classify the next implementation-affecting mutation as `none`, `mechanical`, `substantive`, or `replan`.
+- Use `none` when no implementation mutation is required, including when the next step is only a gate challenge, specialist interpretation, or read-only validation.
+- Use `mechanical` only for one obvious local correction with no new technical decision, coordinated multi-part edit, behavior or contract change, material validation change, or profile change.
+- Use `substantive` for any non-trivial fix that adds or changes a technical decision, requires coordinated edits, or materially changes validation while remaining inside the overall task boundary.
+- Use `replan` when owner, scope, expected behavior, contracts, critical risks, validation obligations, or the Execution Profile changed.
+- Treat anything beyond a single deterministic local correction as `substantive`, and choose `substantive` when uncertain.
+- `substantive` and `replan` always require a fresh preflight before another implementation edit. `none` and `mechanical` do not.
+- `Approval: yes` requires `Next Change Class: none` and `Preflight Required: no`.
+- For every other result, `Preflight Required` must be `yes` exactly when `Next Change Class` is `substantive` or `replan`.
+
 Challenge loop:
 - The main agent may challenge your finding with repository evidence, diff facts, command results, validation constraints, user constraints, or specialist output.
 - Reconsider only based on concrete evidence.
@@ -80,4 +91,13 @@ Failure Class:
 
 Routing Recommendation:
 - same writer | promote | replan | user decision | none, with one short reason.
+
+Next Change Class:
+- none | mechanical | substantive | replan, with one short reason.
+
+Preflight Required:
+- yes | no.
+
+Preflight Reason:
+- why the current approved contract revision is reusable or why a fresh preflight is required.
 """

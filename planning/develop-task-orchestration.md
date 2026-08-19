@@ -27,9 +27,10 @@ invent product requirements.
 1. `preflight-review` and `postflight-review` are mandatory for every
    implementation task, including Fast work. There is no approved
    `develop-task` path that waives either gate.
-2. One preflight approval covers one unchanged implementation contract. Repeat
-   preflight after a replan trigger changes ownership, scope, behavior,
-   contracts, validation, or the Execution Profile.
+2. One preflight approval covers one exact implementation-contract revision.
+   Repeat preflight before every postflight-directed fix classified as
+   `substantive` or `replan`. Only a deterministic local `mechanical`
+   correction may reuse the current revision without another preflight.
 3. The main agent owns intent, routing, evidence, gate challenges, integration,
    and lifecycle. In runner mode it delegates every implementation; in the
    direct-subagent fallback it may write code only for a confirmed Fast profile.
@@ -49,9 +50,12 @@ invent product requirements.
 8. Writer handoff uses a strict contract boundary and a flexible implementation
    hypothesis. Evidence that invalidates the approved boundary produces
    `replan_required`; local implementation choices do not.
-9. A first local postflight finding returns to the same writer. A repeated
-   conceptual error, unexpected risk growth, or persistent low confidence
-   causes replan and/or promotion to a stronger model.
+9. Postflight classifies the next implementation mutation as `none`,
+   `mechanical`, `substantive`, or `replan`. A first mechanical finding may
+   return to the same writer under the current revision. Substantive and replan
+   fixes require a fresh preflight and new contract revision before editing. A
+   repeated conceptual error, unexpected risk growth, or persistent low
+   confidence also causes replan and/or promotion to a stronger model.
 10. Any implementation-affecting mutation after approval invalidates that
     approval and requires new diff inspection, affected validation, and
     postflight.
@@ -108,7 +112,9 @@ main orchestrator
   -> one implementation writer job
   -> focused validation under controlled mutation ownership
   -> mandatory independent read-only postflight job
-  -> same writer responsibility fixes local findings
+  -> classify next mutation
+     -> mechanical: same revision and writer responsibility
+     -> substantive/replan: new revision and fresh preflight before writer
   -> main accepts and performs allowed lifecycle actions
 ```
 
@@ -169,12 +175,34 @@ specialist request. It reviews the actual diff and validation evidence, not the
 writer summary. The postflight model may not be below the effective risk shown
 by the final diff.
 
+Every postflight decision also classifies the next implementation mutation:
+
+- `none`: no implementation mutation is required;
+- `mechanical`: one deterministic local correction with no new technical
+  decision, coordinated edit, contract change, material validation change, or
+  profile change; the current revision remains valid;
+- `substantive`: a non-trivial fix inside the overall task boundary; create and
+  preflight a new contract revision;
+- `replan`: the approved boundary, contracts, validation obligations, critical
+  risks, or profile changed; create and preflight a new contract revision.
+
+Anything beyond a single deterministic local correction is `substantive`, and
+uncertainty resolves toward fresh preflight. The main agent may add a preflight
+but may not waive one required by postflight.
+
+`Preflight Required` is `yes` exactly for `substantive` and `replan` and `no`
+for `none` and `mechanical`. `Approval: yes` is valid only with `Next Change
+Class: none`. A missing or inconsistent classification is an incomplete gate
+response and returns to the same postflight responsibility for correction.
+
 Gate challenges are evidence-based and return to the same gate. The main agent
 does not silently overrule a gate.
 
 ## Failure And Promotion Policy
 
-- First local defect: same writer, same tier, then validation and postflight.
+- First local defect: preserve the writer responsibility when appropriate, but
+  route by next-change class. Mechanical fixes reuse the current revision;
+  substantive fixes receive a fresh preflight and revision before the writer.
 - Repeated conceptual defect: stop the writer, reassess the contract and
   profile, then promote or replace the writer with explicit ownership transfer.
 - Scope, owner, behavior, or contract drift: `replan_required`, followed by a
@@ -191,7 +219,10 @@ checks while the current writer owns mutation or after an explicit mutator
 transfer. Reinspect status and diff afterward.
 
 Rebases, conflict resolution, formatting, generated-file changes, and tracked
-test output after approval all invalidate approval.
+test output after approval all invalidate approval. Any such mutation beyond a
+single deterministic local correction also creates a new contract revision and
+requires fresh preflight before editing, including a voluntarily accepted
+Recommended or Optional implementation change.
 
 ## Shared Reviewer Compatibility
 
@@ -228,8 +259,10 @@ Before publishing a revision:
 5. Forward-test fresh-context Fast and worker-delegated scenarios, plus replan,
    promotion, Bakery/non-Bakery, and dirty-tree cases when routing/runtime access
    permits.
-6. Confirm from traces that both gates ran, the route was exact, and only one
-   authorized mutator existed at any moment.
+6. Confirm from traces that every implementation and postflight job names its
+   `contract_revision` and exact approving preflight, all required repeat
+   preflights ran, the route was exact, and only one authorized mutator existed
+   at any moment.
 7. Forward-test both delegation selections: default runner jobs for gates,
    specialists, and implementation; and explicit user opt-out to direct
    subagents with no runner artifacts.

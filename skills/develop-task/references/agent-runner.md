@@ -62,16 +62,35 @@ run:
 jobs:
   - id: 001-preflight
     role: preflight-review
+    contract_revision: 1
+    approved_by_preflight: null
+    task_path: <absolute task path>
+    result_path: <absolute result path>
+    status: completed
+    model: gpt-5.6-terra
+    reasoning_effort: high
+  - id: 002-implementation
+    role: implementation-worker
+    contract_revision: 1
+    approved_by_preflight: 001-preflight
     task_path: <absolute task path>
     result_path: null
     status: running
     model: gpt-5.6-terra
-    reasoning_effort: high
+    reasoning_effort: medium
 ```
 
 After each process finishes, record its absolute result path, semantic status,
 execution ID, and relevant usage totals. Keep full role reports in their result
 files; do not copy them wholesale into `run.yaml`.
+
+Start at `contract_revision: 1` and increment it before every fresh preflight
+for a `substantive` or `replan` fix. A `mechanical` fix remains on the current
+revision. Preflight jobs use `approved_by_preflight: null`; every implementation
+and postflight job must name the exact approving preflight job. Other gate or
+specialist follow-ups record the current revision and use the approving
+preflight when one already exists. This linkage is required even when the same
+role, model, or writer responsibility continues.
 
 ## Create One Task
 
@@ -106,6 +125,11 @@ supervision:
 Every field shown is required except `agent.developer_instructions`, which this
 workflow always supplies for delegated roles. Use absolute existing workspace
 paths. Preserve exact approved model and effort values.
+
+Include the current contract revision and, for implementation and postflight,
+the approving preflight job ID inside `job.prompt` as part of the self-contained
+packet. These orchestration fields remain in `run.yaml`; do not add unsupported
+keys to the strict `agent-task` v1 document.
 
 ## Role Contracts And Output Envelope
 
@@ -188,14 +212,31 @@ timeout; the foreground caller may stop one explicitly with SIGINT or SIGTERM.
 Invoke the resolved command in the foreground with the one task path. stdout
 must contain one absolute result path when the process exits.
 
-The shell tool may yield a live `session_id` before `agent-runner` exits. Treat
-that as transport-level yielding, not as a job event. While the same session is
-alive:
+When the host exposes the programmatic `functions.exec` wrapper, start the
+foreground invocation with this first-line pragma so the outer cell also uses
+the five-minute wait window:
 
-- wait with `write_stdin` using empty `chars` and
+```javascript
+// @exec: {"yield_time_ms": 300000}
+```
+
+The transport may then yield either a nested shell `session_id` or an outer
+`functions.exec` `cell_id` before `agent-runner` exits. Treat both as
+transport-level yielding, not as job events:
+
+- for a live `session_id`, wait with `write_stdin` using empty `chars` and
   `yield_time_ms: 300000`;
+- when `functions.exec` reports `Script running with cell ID ...`, wait with
+  `functions.wait` using that `cell_id` and `yield_time_ms: 300000`;
+- continue with the same wait primitive and identifier until it returns a
+  terminal result; never alternate to short polling merely to check liveness;
+- if the host caps a wait below five minutes, use its maximum accepted wait and
+  repeat silently.
+
+While either transport remains alive:
+
 - repeat that maximum five-minute long poll without commentary when it returns
-  the same live session and no material state change;
+  the same live transport and no material state change;
 - never use short periodic polls merely to prove that the process is alive;
 - do not emit messages such as "still running", "still waiting", elapsed-time
   reminders, or restatements of the unchanged phase;
@@ -239,6 +280,11 @@ fresh invocation. In runner mode, "same gate" or "same writer" means the same
 role, approved model/effort, ownership, and decision responsibility with all
 relevant prior artifacts supplied explicitly; it never means a resumed hidden
 thread.
+
+A `mechanical` fix may keep the current `contract_revision`. Before a
+`substantive` or `replan` fix, create the next revision, dispatch a fresh
+preflight job, and link the later implementation and postflight jobs to that
+approval in `run.yaml`.
 
 Run independent read-only reviews concurrently through separate foreground
 tool calls when the tool layer supports parallel calls. Otherwise run them

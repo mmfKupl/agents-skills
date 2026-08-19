@@ -14,9 +14,10 @@ lifecycle actions. Do not invent business requirements.
 For every implementation task, including a Fast change:
 
 1. Obtain `preflight-review` approval before the first implementation edit.
-   That approval covers one unchanged implementation contract. Repeat preflight
-   only when a replan trigger changes or invalidates that contract or its
-   Execution Profile.
+   That approval covers one exact implementation-contract revision. Obtain a
+   fresh preflight before every later fix cycle that postflight classifies as
+   `substantive` or `replan`; only a `mechanical` correction may reuse the
+   current revision without another preflight.
 2. Run `postflight-review` on the resulting diff before accepting, committing,
    pushing, or submitting the work.
 
@@ -171,10 +172,34 @@ Do not:
 
 ### Core Gates
 
-Dispatch `preflight-review` once before implementation under each approved
-contract, and dispatch it again after any replan-triggering contract or profile
-change. Dispatch `postflight-review` after every resulting implementation diff.
-Let the gates own review decisions and resolve specialist conflicts.
+Dispatch `preflight-review` before implementation under each approved contract
+revision. Revision 1 covers the initial implementation. Create and approve a
+new revision before a postflight-directed fix classified as `substantive` or
+`replan`. Dispatch `postflight-review` after every resulting implementation
+diff. Let the gates own review decisions and resolve specialist conflicts.
+
+Require postflight to classify the next implementation-affecting mutation:
+
+- `none`: no implementation mutation is required;
+- `mechanical`: one obvious local correction with no new technical decision,
+  coordinated multi-part edit, behavior or contract change, validation change,
+  or profile change; it may reuse the current contract revision;
+- `substantive`: a non-trivial fix that adds or changes a technical decision,
+  requires coordinated edits, or materially changes validation while remaining
+  inside the overall task boundary; it requires a new contract revision and
+  fresh preflight;
+- `replan`: owner, scope, expected behavior, contracts, critical risks,
+  validation obligations, or Execution Profile changed; it requires a new
+  contract revision and fresh preflight.
+
+Treat anything beyond a single deterministic local correction as
+`substantive`, and choose `substantive` when uncertain. The main orchestrator
+may require a fresh preflight after a `mechanical` classification when evidence
+warrants more review, but it must never waive `Preflight Required: yes`.
+Require `Preflight Required: yes` exactly for `substantive` and `replan`, and
+`no` for `none` and `mechanical`. `Approval: yes` requires `Next Change Class:
+none`. Treat a missing or inconsistent classification as an incomplete gate
+response and return it to the same postflight responsibility for correction.
 
 Require preflight to confirm or upgrade:
 
@@ -196,11 +221,13 @@ Standard and Deep direct-subagent tasks, and for a Fast direct-subagent task
 when handoff adds useful separation. Assign exact paths or responsibility and
 remind it that other user or agent changes may exist.
 
-Return all first local postflight fixes to the same writer responsibility and
-tier. Runner mode creates a fresh implementation job with the prior result,
-diff, validation, and findings; direct-subagent mode follows up with the same
-live writer. Use a new stronger route only after stopping the current writer
-and explicitly transferring ownership.
+Return a first `mechanical` postflight fix to the same writer responsibility and
+tier. Before any `substantive` or `replan` fix, obtain fresh preflight approval
+for the proposed fix contract and its exact route. Runner mode creates a fresh
+implementation job with the prior result, diff, validation, findings, contract
+revision, and approving preflight job; direct-subagent mode follows up with the
+same live writer only after any required fresh gate. Use a new stronger route
+only after stopping the current writer and explicitly transferring ownership.
 
 ### Generalist Specialists
 
@@ -253,13 +280,16 @@ surface.
     preflight profile, actual diff, worker deviations, and validation gaps.
 13. Dispatch mandatory independent `postflight-review` with the task packet,
     preflight decision, writer result, changed files, diff, validation, current
-    cycle, and prior findings/fixes.
+    cycle, contract revision, approving preflight, and prior findings/fixes.
 14. If postflight requests specialists, return their raw results to the same
     gate for its final classification. Approval is impossible while a Blocking
     specialist request remains unresolved.
 15. Relay postflight findings in the main chat before any writer resumes.
-16. Return first local blocking fixes to the same writer responsibility using
-    the selected backend, rerun focused validation, and repeat postflight.
+16. Follow postflight's next-change classification. Return a `mechanical` fix
+    to the same writer under the current revision. For a `substantive` or
+    `replan` fix, define the proposed next contract revision and dispatch a
+    fresh preflight before any writer resumes. Rerun affected validation and
+    repeat postflight after every mutation.
 17. Promote or replan after a repeated conceptual failure, low confidence, or
     unexpected scope/risk growth.
 18. After approval, create logical commits and a draft PR for standalone work
@@ -329,9 +359,11 @@ technical adjustment that stays inside the approved contract.
 
 ## Promotion Policy
 
-- First local blocking finding: use the same writer responsibility and same
-  tier. Start a fresh runner job in runner mode; follow up with the live worker
-  in direct-subagent mode.
+- First local blocking finding: preserve the same writer responsibility when
+  appropriate, but follow postflight's next-change classification. A
+  `mechanical` correction may reuse the current revision and tier; a
+  `substantive` correction requires fresh preflight before a new writer job;
+  `replan` requires fresh preflight over the changed boundary or profile.
 - Repeated conceptual finding, low confidence, or unexpected risk/scope growth:
   stop the current writer, return to preflight when the approved profile is
   invalid, promote the model/effort, and give the new writer a fresh packet with
@@ -390,7 +422,10 @@ Any implementation-affecting mutation after postflight approval, including a
 rebase resolution, generated-file update, formatter rewrite, or test-produced
 tracked artifact, invalidates that approval. Inspect
 the new diff, rerun affected validation, and obtain fresh postflight approval
-before lifecycle actions continue.
+before lifecycle actions continue. If that post-approval mutation is more than
+a single deterministic local correction, create a new contract revision and
+obtain fresh preflight approval before editing; this includes voluntarily
+accepting a Recommended or Optional implementation change after approval.
 
 ## Postflight Relay
 
@@ -401,6 +436,8 @@ After every postflight response, report in the main chat:
 - notable Optional findings, or `none`;
 - Validation gaps, or `none`;
 - Failure class and routing recommendation;
+- Next Change Class, whether fresh preflight is required, and why;
+- current contract revision and approving preflight job;
 - Approval and review cycle.
 
 ## Report Format
@@ -412,6 +449,7 @@ When done, report:
 - Fix;
 - Validation and skipped checks;
 - Preflight and postflight results and cycle count;
+- implementation-contract revisions and their approving preflight jobs;
 - Replans or promotions, or `none`;
 - delegation backend and, for runner mode, the `run.yaml` path;
 - PR URL/state, or why no PR was created;

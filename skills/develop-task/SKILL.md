@@ -5,6 +5,13 @@ description: Explicitly invoked engineering workflow for repository implementati
 
 # Develop Task
 
+## Writing quality
+
+Before drafting user-facing prose for this workflow, read
+[`../unslop/SKILL.md`](../unslop/SKILL.md) and apply its relevant editing
+guidance. Preserve user-provided wording, exact quotes, and required report
+formats when they conflict with that guidance.
+
 ## Core Contract
 
 Implement one coherent repository task at a time. Own task framing, model and

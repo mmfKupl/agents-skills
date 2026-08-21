@@ -5,6 +5,13 @@ description: Render missing PDF page images and agent-preview thumbnails for the
 
 # PDF Analysis Images
 
+## Writing quality
+
+Before drafting the user-facing report, read
+[`../unslop/SKILL.md`](../unslop/SKILL.md) and apply its relevant editing
+guidance. Preserve user-provided wording, exact command output, and required
+output formats when they conflict with that guidance.
+
 ## Purpose
 
 Use the existing `ensure-pdf-images.sh` workflow for analysis archives. The script renders PDF pages to PNG files beside the source PDFs and creates `agent-preview-*.jpg` previews for PDFs and standalone image files.

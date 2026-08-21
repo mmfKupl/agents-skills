@@ -5,6 +5,12 @@ description: Generate standard 5-page PDF incident reports from Linear security/
 
 # Incident Report PDF
 
+## Writing quality
+
+Before drafting report prose, read [`../unslop/SKILL.md`](../unslop/SKILL.md)
+and apply its relevant editing guidance. Preserve source quotations, required
+field values, and the fixed report format when they conflict with that guidance.
+
 ## Overview
 
 Use this skill to turn a Linear incident-style ticket into the standard PDF report used in prior `UIB-*` security/privacy incident documents.

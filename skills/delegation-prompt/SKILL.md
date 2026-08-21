@@ -5,6 +5,12 @@ description: Prepare a compact copyable task prompt for another chat that names 
 
 # Delegation Prompt
 
+## Writing quality
+
+Before drafting the prompt, read [`../unslop/SKILL.md`](../unslop/SKILL.md) and
+apply its relevant editing guidance. Preserve user-provided wording, exact
+quotes, and the required output format when they conflict with that guidance.
+
 ## Goal
 
 Produce one compact prompt that the user can paste into another chat. Carry the

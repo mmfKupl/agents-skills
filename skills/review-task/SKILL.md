@@ -5,6 +5,13 @@ description: Explicitly invoked deep audit workflow for already implemented repo
 
 # Review Task
 
+## Writing quality
+
+Before drafting the final review report, read
+[`../unslop/SKILL.md`](../unslop/SKILL.md) and apply its relevant editing
+guidance. Preserve user-provided wording, exact quotes, and required report
+formats when they conflict with that guidance.
+
 ## Core Contract
 
 Audit one already implemented task. Find credible correctness, requirement, testing, runtime, simplicity, and repository-practice issues. `review-task` owns review orchestration, evidence collection, validation selection, and the final risk report.

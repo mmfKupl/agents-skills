@@ -1,6 +1,6 @@
 # Codex agent runner v1
 
-`agent-runner` is a foreground CLI for exactly one immutable YAML task. It starts one private Codex App Server through the stable Python SDK, runs one ephemeral worker at a time, writes one unique YAML result, prints that result's absolute path to stdout, and exits. Launch separate processes for independent batch or parallel work; there is no daemon, queue, scheduler, MCP server, or persistent conversation history.
+`agent-runner` is a foreground CLI for exactly one immutable YAML task. It starts one private Codex App Server through the stable Python SDK, runs one ephemeral worker at a time, writes one unique YAML result, prints that result's absolute path to stdout, and exits. `agent-run-manifest` is a separate one-shot companion that reconciles those immutable results into a develop-task `run.yaml`. Launch separate runner processes for independent parallel work; there is no daemon, queue, scheduler, MCP server, or persistent conversation history.
 
 ## Install and run
 
@@ -10,6 +10,7 @@ Requirements: Python 3.10 or newer on POSIX. Advisory locking uses `fcntl`, so W
 python3.12 -m venv .venv
 .venv/bin/pip install ./agent-runner
 .venv/bin/agent-runner /absolute/path/to/task.yaml
+.venv/bin/agent-run-manifest reconcile /absolute/path/to/run.yaml
 ```
 
 The runtime dependencies are exactly `openai-codex==0.147.0` and `PyYAML==6.0.3`. The SDK installs its pinned `openai-codex-cli-bin==0.147.0` runtime and reuses existing Codex authentication. stdout contains only the absolute result path. Diagnostics go to stderr. Every successfully finalized, trustworthy result exits 0, regardless of its semantic status. Failure to create or finalize a reliable result exits 3. The YAML result—not the process exit code or console text—is the semantic source of truth.
@@ -101,7 +102,7 @@ task:
   sha256: 64-hex-digest
   job_id: fix-widget-test
 runner:
-  version: 1.1.0
+  version: 1.2.0
   sdk_version: 0.147.0
   sdk_package: openai-codex
   runtime_package: openai-codex-cli-bin==0.147.0
@@ -137,3 +138,17 @@ Thresholds are best-effort at SDK event boundaries. A model may emit a usage eve
 ## Concurrency and locking
 
 Read-only runs take no lock and can overlap. `workspace_write` and `danger_full_access` take a nonblocking POSIX advisory lock keyed by the canonical Git worktree root, falling back to canonical cwd outside Git. Lock files live under the platform temporary directory. A conflict produces `worktree_locked`. The lock only coordinates cooperating agent-runner processes; it does not stop editors, Git commands, or other programs.
+
+## Run manifest companion
+
+`agent-run-manifest` operates only on a strict `develop-task-run` schema v1 `run.yaml`. The main orchestrator creates the run, job directories, immutable tasks, and semantic job plan. Each job starts as `pending`. The companion scans that task's sibling `results/` directory, verifies the task path, SHA-256, job ID, result schema, and execution status, then copies only `result_path`, `status`, `execution_id`, and `usage` into the job entry.
+
+Use exactly one job directory per runner invocation. Reconciliation rejects multiple result files for one job instead of guessing which execution is authoritative. Updates take a short `fcntl` lock beside `run.yaml` and use a same-directory temporary file, file `fsync`, `os.replace`, and directory `fsync`.
+
+```bash
+agent-run-manifest reconcile /absolute/path/to/run.yaml
+agent-run-manifest finish /absolute/path/to/run.yaml completed
+agent-run-manifest resume /absolute/path/to/run.yaml
+```
+
+`finish` first reconciles and refuses to close a run with any `pending` or `running` job. Terminal run statuses are `completed`, `blocked`, `needs_user_input`, and `stopped`. `resume` reconciles, resets the run to `running`, and clears `finished_at`. The helper does not interpret gate reports or decide whether earlier failed jobs were semantically resolved.

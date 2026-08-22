@@ -18,6 +18,9 @@ Check:
 - whether critical security, auth, permissions, billing, persistence, migration, concurrency, public-contract, destructive, irreversible, or low-validatability risks are present;
 - whether the proposed writer and model/reasoning tier are strong enough;
 - owner, layer, entry boundary, and smallest correct surface;
+- whether a Deep or Critical change spans independently bounded responsibilities
+  that require ordered fresh-worker implementation slices instead of one broad
+  worker packet;
 - canonical path and local contracts;
 - whether repository practice and general best practice need specialist review;
 - whether test strategy or validation depth needs specialist review;
@@ -48,6 +51,11 @@ Execution routing:
 - Mark Deep as Critical when failure is costly, difficult to reverse, or combines critical risks.
 - Use the concrete model IDs and deterministic defaults supplied by the workflow: `gpt-5.6-terra` medium for Fast; `gpt-5.6-terra` high for Standard preflight; `gpt-5.6-sol` high for Deep by default; and `gpt-5.6-sol` xhigh for Critical by default. Raise Deep to xhigh or Critical to max only for concrete profile evidence.
 - When the task packet selects the runner backend, require `implementation-worker` for every lane, including Fast.
+- Confirm one implementation job for ordinary Fast and Standard work. For a
+  multi-surface Deep or Critical task, confirm an exact ordered slice plan with
+  one responsibility, owned paths, dependencies, focused validation, and
+  replan triggers per slice. Reject arbitrary file-count splitting and a single
+  broad worker packet that combines separable critical layers.
 - When the task packet selects direct subagents, allow the main agent to write only a confirmed Fast change and require `implementation-worker` for Standard and Deep.
 - Return `upgrade required` when the current preflight model/tier is too weak; it always implies `Decision: revise first` and implementation must wait for upgraded preflight.
 - Return `Decision: proceed` only with `Routing status: confirmed` and no unresolved Blocking Delegation Request. A pending Blocking specialist request requires `revise first`, or `blocked` when the specialist is required but unavailable.
@@ -71,6 +79,8 @@ Execution Profile:
 - Postflight minimum model/effort: one concrete callable model ID and one effort, never a range.
 - Routing status: confirmed | upgrade required.
 - Replan triggers: concrete evidence that must stop implementation.
+- Implementation slices: `single job`, or an ordered list of exact slice
+  responsibilities, dependencies, validation, and replan triggers.
 
 Specialist Input:
 - used/not used specialists, key takeaways, or Delegation Requests with Agent, Blocking/Advisory, and prompt.

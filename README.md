@@ -6,7 +6,7 @@ Personal Codex skills and custom agents backup and sync repository.
 
 - `skills/` - skill folders that can be copied into `${CODEX_HOME:-$HOME/.codex}/skills`
 - `agents/` - custom agent TOML files that can be copied into `${CODEX_HOME:-$HOME/.codex}/agents`
-- `agent-runner/` - one-shot supervised Codex job runner used by `develop-task`
+- `agent-runner/` - one-shot supervised Codex job runner and atomic run-manifest companion used by `develop-task`
 - `scripts/install-skills.sh` - install skills, custom agents, and the runner into local Codex
 - `scripts/backup-local-skills.sh` - copy local non-system skills and custom agents back into this repository
 
@@ -65,3 +65,4 @@ Custom agents:
 - `best-practice-review` - general engineering best-practice review.
 - `test-review` - focused test strategy and validation review.
 - `code-simplicity-review` - scope, simplicity, reuse, and code-quality review.
+- `diagnosis-review` - read-only root-cause analysis after an attempted fix leaves the same failure unresolved.

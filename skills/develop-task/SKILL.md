@@ -83,6 +83,9 @@ backends.
   lifecycle actions.
 - In runner mode, route every implementation, including Fast, through an
   `implementation-worker` runner job.
+- For an approved multi-slice Deep or Deep + Critical plan, route each slice
+  through a separate fresh `implementation-worker` job and keep the jobs
+  sequential in one worktree.
 - In direct-subagent mode, let the main agent write product code only for a
   confirmed Fast profile; otherwise use `implementation-worker`.
 - Use the generic `implementation-worker` role for every delegated
@@ -124,6 +127,29 @@ Critical indicators include security, authentication, permissions, billing,
 persistence, migrations, destructive behavior, concurrency, public contracts,
 and low-validatability changes.
 
+## Implementation Slicing
+
+Use one implementation job by default for Fast and Standard work. Do not split
+a small coherent change merely to create more agents.
+
+Before preflight, identify whether a preliminary Deep or Deep + Critical task
+contains multiple independently bounded layers or responsibilities. When one
+worker packet would combine several such surfaces, propose ordered
+implementation slices. Typical boundaries are a migration or persistence
+contract, backend enforcement, API or token contracts, frontend behavior, and
+integration coverage. Slice by responsibility and dependency, not by arbitrary
+file count.
+
+Require preflight to approve either one implementation job or an exact ordered
+slice plan. Every slice must state its responsibility and owned paths, inputs
+from earlier slices, acceptance evidence, focused validation, and replan
+triggers. All approved slices remain under the same contract revision and are
+implemented by separate fresh runner jobs. Keep one worktree writer active at
+a time, inspect each result and diff before starting the next slice, and run
+postflight on the combined implementation after all slices finish. A slice
+that invalidates the approved boundary, ordering, behavior, or critical
+contract stops the sequence and returns to fresh preflight.
+
 For Standard implementation, raise `gpt-5.6-terra` from medium to high only
 when preflight names concrete reasoning uncertainty, unfamiliar repository
 patterns, or difficult validation. For Deep, raise `gpt-5.6-sol` from high to
@@ -163,6 +189,8 @@ Do:
 - build the preliminary Execution Profile;
 - choose the model and reasoning effort for each delegated job;
 - select and enforce one delegation backend;
+- propose and sequence bounded implementation slices when a Deep or Critical
+  task spans multiple separable responsibilities;
 - sequence every write-capable agent;
 - provide self-contained review and implementation packets;
 - inspect actual status, diff, and validation evidence rather than trusting
@@ -223,10 +251,12 @@ the upgraded tier before editing.
 
 ### Implementation Worker
 
-Use the single generic `implementation-worker` for every runner-mode task, for
-Standard and Deep direct-subagent tasks, and for a Fast direct-subagent task
-when handoff adds useful separation. Assign exact paths or responsibility and
-remind it that other user or agent changes may exist.
+Use the single generic `implementation-worker` role for every runner-mode task,
+for Standard and Deep direct-subagent tasks, and for a Fast direct-subagent
+task when handoff adds useful separation. A multi-slice plan uses the same role
+in separate fresh jobs; it does not give the complete cross-layer task to one
+logical worker. Assign exact paths or responsibility and remind it that other
+user or agent changes may exist.
 
 Return a first `mechanical` postflight fix to the same writer responsibility and
 tier. Before any `substantive` or `replan` fix, obtain fresh preflight approval
@@ -249,6 +279,16 @@ Do not add language-specific implementation workers. Reconsider specialization
 only after repeated real tasks demonstrate a distinct responsibility or tool
 surface.
 
+### Diagnosis Reviewer
+
+Use `diagnosis-review` only after an attempted fix leaves the same observable
+failure unresolved or repeated evidence makes the current causal hypothesis
+unreliable. It is a read-only root-cause role, not another implementation
+worker. Give it the exact reproduction, failure output, relevant current diff,
+prior attempted fix, and any runtime evidence already gathered by the main
+thread. Dispatch it through the selected backend and require evidence that
+distinguishes confirmed, probable, and unknown causes before another edit.
+
 ## Workflow
 
 1. Confirm one current task. If the user provides a list, work only on the
@@ -258,24 +298,30 @@ surface.
 3. Read repository instructions, inspect the dirty tree and current branch,
    gather minimal ownership, nearby-pattern, reproduction, and validation
    context, and conditionally load repository-specific guidance.
-4. Build the preliminary Execution Profile.
+4. Build the preliminary Execution Profile and, only for a multi-surface Deep
+   or Deep + Critical task, a proposed ordered implementation slice plan.
 5. Dispatch mandatory `preflight-review` with the user request, preliminary
    profile, current preflight model/effort, task boundary, dirty-tree notes,
    likely files, constraints, expected behavior, selected backend and its writer
-   invariant, and initial technical hypothesis.
+   invariant, proposed slices or an explicit single-job choice, and initial
+   technical hypothesis.
 6. If preflight requests specialists, dispatch only the requested read-only
    roles with explicit model/effort and return their raw reports to the same
    gate responsibility for its updated decision.
 7. If preflight requires a stronger tier, rerun preflight before editing. If it
    returns `revise first` or `blocked`, resolve that state before continuing.
-8. Build the implementation contract defined below.
-9. In runner mode, dispatch one `implementation-worker` with the approved
-    model/effort for every profile. In direct-subagent mode, let main write only
-    when preflight confirms Fast and main already holds the required context
-    inside one local ownership boundary; otherwise dispatch one
-    `implementation-worker`.
-10. Handle the writer result: `implemented`, `replan_required`, or `blocked`.
-    Do not materially expand the task without returning to preflight.
+8. Build the approved implementation contract or ordered slice contracts
+   defined below.
+9. In runner mode, dispatch one `implementation-worker` per approved slice,
+    sequentially, with the approved model/effort. A normal Fast or Standard
+    task has one slice. In direct-subagent mode, let main write only when
+    preflight confirms Fast and main already holds the required context inside
+    one local ownership boundary; otherwise dispatch the approved writer jobs
+    sequentially.
+10. After each slice, handle `implemented`, `replan_required`, or `blocked`,
+    inspect the actual diff and focused validation, and pass only approved
+    prior-slice contracts and compact results to the next fresh writer. Do not
+    start the next slice or materially expand the task after a replan trigger.
 11. Inspect actual repository status and diff. Run or verify focused validation
     and record failed, unavailable, and skipped checks. The worker should run
     potentially write-producing checks before returning. The main may run a
@@ -297,8 +343,10 @@ surface.
     `replan` fix, define the proposed next contract revision and dispatch a
     fresh preflight before any writer resumes. Rerun affected validation and
     repeat postflight after every mutation.
-17. Promote or replan after a repeated conceptual failure, low confidence, or
-    unexpected scope/risk growth.
+17. If an attempted fix leaves the same observable failure unresolved, stop
+    code edits and follow Repeated Failure Diagnosis below before another
+    implementation job. Otherwise promote or replan after a repeated
+    conceptual failure, low confidence, or unexpected scope/risk growth.
 18. After approval, create logical commits and a draft PR for standalone work
     unless the user asked to keep changes local. In embedded mode, defer
     lifecycle actions to the outer workflow.
@@ -358,6 +406,28 @@ packet, including:
 
 Inability to run an approved validation command because tooling or access is
 unavailable is `blocked`, not `replan_required`.
+
+## Repeated Failure Diagnosis
+
+When one attempted fix leaves the same observable test, runtime, UI, or CI
+failure unresolved, do not make another speculative code or test edit. Stop the
+writer, preserve the exact reproduction and output, and dispatch a fresh
+read-only `diagnosis-review` through the selected backend. The diagnosis packet
+must include the failed hypothesis and edit, current diff, commands and logs,
+and concrete DOM, state, request, or runtime observations when relevant.
+
+Require the diagnosis to label its cause `confirmed`, `probable`, or `unknown`
+and cite evidence that distinguishes it from rejected hypotheses. Gather
+authorized runtime evidence directly before the review when a read-only runner
+cannot access the required browser, network, or write-producing test surface;
+the diagnosis reviewer still interprets that evidence and does not edit. Do not
+start another implementation job on an `unknown` cause merely to try a new
+guess. A confirmed or sufficiently evidenced probable cause becomes a proposed
+fresh contract revision and returns to preflight before another mutation.
+
+Do not invoke this gate for a clearly different failure, a proven transient
+infrastructure error, or a first failure whose cause is already directly
+established by evidence.
 
 When a worker returns `replan_required`, preserve its evidence and current diff,
 stop further expansion, and return to preflight if owner, boundary, behavior,
@@ -433,6 +503,37 @@ before lifecycle actions continue. If that post-approval mutation is more than
 a single deterministic local correction, create a new contract revision and
 obtain fresh preflight approval before editing; this includes voluntarily
 accepting a Recommended or Optional implementation change after approval.
+
+## Terminal-State Gate
+
+Treat the final response as completion of the current turn. Never use it as a
+progress update or promise of future in-scope work.
+
+Before sending a final response, verify all of the following:
+
+- no delegated job, command, validation, CI watch, or required wait remains
+  active;
+- no next in-scope action can be taken without new user input or external state;
+- a successful implementation has current postflight approval and no later
+  implementation-affecting mutation;
+- runner mode has a reconciled `run.yaml` with no `pending` or `running` job and
+  a terminal run status, unless reconciliation/finalization itself is the exact
+  blocker being reported;
+- the final response names one honest workflow state: `completed`, genuinely
+  `blocked`, `needs_user_input`, or explicitly `stopped_by_user`.
+
+If the response would say "work continues", "I will retry", "I will fix next",
+"still running", or equivalent future-work language, do that work or continue
+the foreground wait instead of sending the final response. `invalid_task`, a
+failed validation, a rejected hypothesis, or an unapproved postflight is not a
+blocker while a safe next action remains. An explicit user instruction to
+ignore a wall-clock or skill timebox makes elapsed time invalid as a blocker;
+continue until another terminal condition above is real.
+
+A required approval, missing product decision, exhausted bounded review loop,
+unavailable mandatory component, unsafe dirty-tree conflict, or external state
+the workflow cannot change may be a genuine blocker. State the exact condition
+and required next decision rather than implying that work is continuing.
 
 ## Postflight Relay
 

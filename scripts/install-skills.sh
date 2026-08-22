@@ -47,6 +47,7 @@ install_agent_runner() {
     --force-reinstall \
     "${source_dir}"
   "${target_venv}/bin/agent-runner" --help >/dev/null
+  "${target_venv}/bin/agent-run-manifest" --help >/dev/null
 
   echo "Installed agent-runner to ${target_venv}/bin/agent-runner"
 }

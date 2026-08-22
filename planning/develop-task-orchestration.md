@@ -34,9 +34,11 @@ invent product requirements.
 3. The main agent owns intent, routing, evidence, gate challenges, integration,
    and lifecycle. In runner mode it delegates every implementation; in the
    direct-subagent fallback it may write code only for a confirmed Fast profile.
-4. Use one generic `implementation-worker` for every runner-mode task and for
-   Standard and Deep direct-subagent work. Do not add language-specific workers
-   until repeated tasks show a real responsibility or tool-surface boundary.
+4. Use one generic `implementation-worker` role for every runner-mode task and
+   for Standard and Deep direct-subagent work. Fast and Standard work normally
+   uses one job. A multi-surface Deep or Critical contract may use several
+   ordered fresh jobs of that same role, each owning one bounded slice. Do not
+   add language-specific workers.
 5. At most one agent may mutate a shared worktree at a time. Code writing and
    potentially write-producing validation are serialized through the same
    authorized-mutator state.
@@ -65,15 +67,23 @@ invent product requirements.
     gate, specialist, and implementation worker. `subagents` is selected only
     by an explicit user instruction not to use the runner or to use subagents.
 13. Runner mode uses one private App Server process per immutable YAML job. The
-    main thread owns `run.yaml` and task files; runner processes own unique
-    result files. No daemon, MCP server, batch engine, or model-driven polling
-    is part of the workflow.
+    main thread owns the semantic run plan and task files; runner processes own
+    unique result files. A one-shot manifest helper atomically reconciles
+    result-derived execution fields and terminal run timestamps in `run.yaml`.
+    No daemon, MCP server, batch engine, or model-driven polling is part of the
+    workflow.
 14. Every runner-mode role, including Fast implementation, uses a fresh worker.
     Direct-subagent mode preserves the prior option for main to implement a
     confirmed Fast task.
 15. A runner follow-up is a new job with the same role, tier, ownership, and
     explicit prior artifacts. Same-writer and same-gate semantics do not imply
     hidden thread continuity in runner mode.
+16. After one attempted fix leaves the same observable failure unresolved,
+    stop speculative edits and require a fresh read-only root-cause diagnosis
+    before another preflight and implementation mutation.
+17. A final response is a terminal-state decision, never a progress update. It
+    requires no active work or available next action; runner mode additionally
+    requires a reconciled and atomically finalized `run.yaml`.
 
 ## Execution Profiles
 
@@ -109,7 +119,8 @@ and low-validatability changes.
 main orchestrator
   -> optional parallel read-only discovery jobs
   -> mandatory read-only preflight job
-  -> one implementation writer job
+  -> one implementation writer job for Fast/Standard
+     or ordered bounded writer jobs for an approved multi-surface Deep/Critical plan
   -> focused validation under controlled mutation ownership
   -> mandatory independent read-only postflight job
   -> classify next mutation
@@ -119,8 +130,10 @@ main orchestrator
 ```
 
 Runner mode records that sequence outside the worktree under a private
-temporary `run.yaml` plus immutable task/result job directories. Direct-subagent
-mode uses the collaboration lifecycle without runner artifacts.
+temporary `run.yaml` plus immutable task/result job directories. A companion
+one-shot helper reconciles the manifest after every job and finalizes it before
+the main thread ends. Direct-subagent mode uses the collaboration lifecycle
+without runner artifacts.
 
 Parallel implementation is unsupported by this design, including across
 separate worktrees. It remains deferred until ownership, isolation, integration,
@@ -205,6 +218,9 @@ does not silently overrule a gate.
   substantive fixes receive a fresh preflight and revision before the writer.
 - Repeated conceptual defect: stop the writer, reassess the contract and
   profile, then promote or replace the writer with explicit ownership transfer.
+- Same observable failure after an attempted fix: stop edits, capture the exact
+  reproduction and failed hypothesis, and run a fresh read-only root-cause
+  diagnosis before another preflight or writer job.
 - Scope, owner, behavior, or contract drift: `replan_required`, followed by a
   new preflight decision before edits continue.
 - Missing requirements: stop for requirements discovery or user input.

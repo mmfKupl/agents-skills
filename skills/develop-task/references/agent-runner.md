@@ -17,6 +17,11 @@ upgrade, or repair the runner from inside `develop-task`. If no executable is
 available, fail closed and report the setup problem. Do not silently switch to
 direct subagents; only an explicit user instruction may select that backend.
 
+Resolve the companion `agent-run-manifest` executable from the same directory
+as the selected runner, then from `PATH`. Require `agent-run-manifest --help`
+to succeed before creating `run.yaml`. It is a one-shot YAML helper, not a
+daemon or scheduler.
+
 ## Run Directory And Ownership
 
 Create one private temporary run directory outside the repository and target
@@ -38,16 +43,19 @@ than `0700`.
         └── results/<execution-id>.yaml
 ```
 
-The main thread exclusively creates and updates `run.yaml`, job directories,
-and every `task.yaml`. The runner exclusively creates result files. Workers
-must not receive orchestration paths and must not edit orchestration files.
+The main thread creates `run.yaml`, job directories, every `task.yaml`, and the
+semantic job plan. The runner exclusively creates result files. The
+`agent-run-manifest` helper exclusively reconciles result-derived job fields
+and run lifecycle timestamps under a short file lock with atomic replacement.
+Workers must not receive orchestration paths and must not edit orchestration
+files.
 
 Use a monotonically increasing sequence plus a short role slug for job
 directories. Treat a task file as immutable after its process starts. Create a
 new job directory for every retry, gate challenge, specialist result
 interpretation, postflight cycle, or writer fix instead of editing an old task.
 
-Maintain this compact main-owned run index:
+Maintain this compact run index:
 
 ```yaml
 kind: develop-task-run
@@ -67,6 +75,8 @@ jobs:
     task_path: <absolute task path>
     result_path: <absolute result path>
     status: completed
+    execution_id: <runner execution id>
+    usage: <result usage mapping>
     model: gpt-5.6-terra
     reasoning_effort: high
   - id: 002-implementation
@@ -75,14 +85,19 @@ jobs:
     approved_by_preflight: 001-preflight
     task_path: <absolute task path>
     result_path: null
-    status: running
+    status: pending
+    execution_id: null
+    usage: null
     model: gpt-5.6-terra
     reasoning_effort: medium
 ```
 
-After each process finishes, record its absolute result path, semantic status,
-execution ID, and relevant usage totals. Keep full role reports in their result
-files; do not copy them wholesale into `run.yaml`.
+Create a job entry as `pending` immediately before its foreground runner call.
+After each process finishes, run `agent-run-manifest reconcile <run.yaml>`; do
+not hand-copy its result path, execution status, ID, or usage. Reconciliation
+verifies the immutable task hash and job ID, rejects multiple executions in one
+job directory, and writes those derived fields atomically. Keep full role
+reports in result files; do not copy them wholesale into `run.yaml`.
 
 Start at `contract_revision: 1` and increment it before every fresh preflight
 for a `substantive` or `replan` fix. A `mechanical` fix remains on the current
@@ -141,7 +156,8 @@ Supported roles are:
 - `repo-practice-review`;
 - `best-practice-review`;
 - `test-review`;
-- `code-simplicity-review`.
+- `code-simplicity-review`;
+- `diagnosis-review`.
 
 Treat `${CODEX_HOME:-$HOME/.codex}/agents/<role>.toml` as the canonical role
 contract. Read its complete `developer_instructions` and place them in the task
@@ -269,6 +285,11 @@ before using the role report. Route statuses as follows:
 - `invalid_task`: correct orchestration-owned YAML in a new job directory;
 - `needs_approval`: reserved; treat it as a stop requiring user input.
 
+After validating the result, invoke `agent-run-manifest reconcile` and read the
+reconciled job entry before creating another job. Treat reconciliation failure
+as an orchestration error: preserve the immutable task and result, correct only
+main-owned metadata in a new safe action, and do not claim the run completed.
+
 Read attempt diagnostics only for failure, rotation analysis, or budget tuning.
 Pass future workers the approved task packet plus compact role reports and raw
 specialist evidence, never the entire prior result or hidden dialogue.
@@ -280,6 +301,13 @@ fresh invocation. In runner mode, "same gate" or "same writer" means the same
 role, approved model/effort, ownership, and decision responsibility with all
 relevant prior artifacts supplied explicitly; it never means a resumed hidden
 thread.
+
+An approved multi-slice Deep or Deep + Critical implementation uses a separate
+fresh runner job for every ordered slice. Keep those writer jobs sequential in
+one worktree and link each to the same approving preflight and contract
+revision. Pass a later slice only its approved contract, repository state, and
+compact prior-slice results. Fast and Standard work remains one implementation
+job unless preflight upgrades the task profile; do not micro-slice it.
 
 A `mechanical` fix may keep the current `contract_revision`. Before a
 `substantive` or `replan` fix, create the next revision, dispatch a fresh
@@ -295,3 +323,29 @@ Keep only one active implementation job per worktree. Different
 `agent-runner` processes already coordinate cooperating writers with a
 worktree lock, but `develop-task` must still sequence ownership explicitly and
 must not treat lock failure as a scheduler.
+
+## Reconcile And Finish The Run
+
+Before any final response in runner mode, run reconciliation again:
+
+```bash
+agent-run-manifest reconcile /absolute/path/to/run.yaml
+```
+
+Do not finish while any job is `pending` or `running`. Once the semantic
+terminal state is established, atomically close the manifest with exactly one
+of:
+
+```bash
+agent-run-manifest finish /absolute/path/to/run.yaml completed
+agent-run-manifest finish /absolute/path/to/run.yaml blocked
+agent-run-manifest finish /absolute/path/to/run.yaml needs_user_input
+agent-run-manifest finish /absolute/path/to/run.yaml stopped
+```
+
+`finish` reconciles first and refuses an active job. Use `completed` only after
+postflight approval and required lifecycle actions. If a later user response
+legitimately resumes a terminal run, call
+`agent-run-manifest resume /absolute/path/to/run.yaml` before adding the next
+job. The helper does not decide whether a failed historical job was
+semantically resolved; the main thread and gates retain that responsibility.

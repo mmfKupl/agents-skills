@@ -1,0 +1,4 @@
+interface:
+  display_name: "Brainstorm Task"
+  short_description: "Shape rough ideas into repository-grounded tasks"
+  default_prompt: "Use $brainstorm-task to turn my rough engineering idea into an approved, repository-grounded task scope."

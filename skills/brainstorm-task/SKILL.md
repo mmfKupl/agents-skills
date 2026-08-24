@@ -1,0 +1,226 @@
+---
+name: brainstorm-task
+description: Turn rough notes, voice-dump transcripts, or an ambiguous repository engineering idea into a concise task scope through repository research, independent repository-practice and best-practice review, requirements interviewing, and solution comparison. Use when the user explicitly asks to brainstorm, clarify, shape, or scope a task before implementation. Supports an interactive brainstorm mode by default and an explicit autopilot mode with no user questions. Do not use when requirements are settled and the user asks to implement or review the change.
+---
+
+# Brainstorm task
+
+## Writing quality
+
+Before drafting user-facing prose, read [`../unslop/SKILL.md`](../unslop/SKILL.md)
+and apply its relevant guidance. Preserve the user's terminology and exact
+wording when they affect the task.
+
+## Outcome and boundary
+
+Turn an incomplete idea into one repository-grounded task scope. Establish the
+product intent, compare local practice with general engineering practice,
+consider viable approaches, and make the boundary clear enough for a later
+implementation workflow.
+
+This is a read-only discovery workflow. Do not edit product code, tests,
+configuration, tickets, or external systems. Do not start implementation,
+write an implementation plan, or invoke an implementation workflow. Create a
+scope document only when the user separately asks for one after scoping.
+
+Invocation authorizes read-only delegation to `repo-practice-review` and
+`best-practice-review`. Do not delegate to a writer.
+
+## Modes
+
+Use `brainstorm` unless the user explicitly requests `autopilot` through
+`$brainstorm-task autopilot` or an unambiguous phrase such as "без вопросов",
+"сам реши", or "пройди самостоятельно". Do not infer autopilot from a long or
+detailed input.
+
+- `brainstorm` collaborates through small checkpoints and exactly one question
+  per interview turn.
+- `autopilot` performs the same research, decomposition, interview, and option
+  analysis internally. It asks no questions and waits for no approvals.
+
+## Shared rules
+
+- Treat unstructured notes and voice transcripts as valid input. Separate
+  confirmed intent from tentative ideas, contradictions, and transcription
+  noise. Do not turn every thought into a requirement.
+- Exhaust read-only repository discovery before asking for information. Never
+  ask where code lives, which module owns behavior, how the current logic
+  works, or another question the repository can answer.
+- Ask the user only about intent or a choice: desired behavior, user outcome,
+  boundary, constraint, priority, risk tolerance, or completion evidence.
+- Keep ordinary brainstorm messages under roughly 120 words and at most five
+  short bullets. The user may ask for more detail.
+- Do not paste raw repository notes or specialist reports. Surface only facts
+  that affect the decision.
+- When the user corrects a premise, discard unapproved conclusions that depend
+  on it and resume from the earliest affected stage.
+- If the user asks for context instead of answering the current question,
+  explain that decision briefly and keep the same question open.
+
+Maintain a compact decision ledger with confirmed, assumed, open, rejected,
+and later-work items. Show it only at checkpoints or when the user asks.
+
+## Repository and practice research
+
+After the initial understanding is confirmed in brainstorm mode, or internally
+in autopilot mode:
+
+1. Read applicable `AGENTS.md` and repository documentation.
+2. Inspect `git status --short --untracked-files=all`. Treat existing changes
+   as user-owned and do not assume they belong to the proposed task.
+3. Find the likely owner, entry boundary, related modules, nearby production
+   examples, reusable helpers, contracts, tests, and focused validation tools.
+   Inspect recent history when it helps establish the current pattern.
+4. Distinguish strong local practice from weak, copied, inconsistent,
+   outdated, or absent precedent.
+5. Dispatch `repo-practice-review` with the user intent and focused repository
+   question. Require repository evidence.
+6. Dispatch `best-practice-review` with the user intent, repository evidence,
+   and repo-practice result. Require it to identify where local practice should
+   be followed or challenged.
+
+Both specialists are mandatory for repository tasks. Use `gpt-5.6-terra` high
+by default and `gpt-5.6-sol` high for novel, cross-layer, high-risk, or
+difficult-to-validate tasks. Keep both specialists read-only and prohibit
+recursive delegation. If either role is technically unavailable, stop and name
+the missing role. The main agent must not imitate the missing independent
+review.
+
+Synthesize one compact comparison before generating solution options:
+
+- how the repository currently handles the problem;
+- what strong general practice would normally do;
+- where the two agree, conflict, or leave no precedent;
+- which constraints and decisions this creates for the task.
+
+Label repository facts, general guidance, and the main agent's reconciliation
+as different kinds of evidence.
+
+## Decompose oversized ideas
+
+Before the detailed requirements interview, decide whether the idea contains
+multiple independently valuable tasks. Indicators include separate user
+outcomes, independently deployable subsystems, unrelated owners, or a boundary
+too large to validate as one change.
+
+Do not refine an oversized idea as one task. Identify the independent pieces,
+their dependency order, and the smallest useful first slice. Preserve the
+remaining pieces as later work rather than silently dropping them.
+
+- In brainstorm mode, show the short decomposition and ask the user to choose
+  one current task. This is one interview question. Repeat affected repository
+  and specialist research after the choice when the boundary changes.
+- In autopilot mode, choose the smallest independently valuable first slice,
+  explain the choice, and list the other slices as later work.
+
+## Brainstorm mode
+
+### 1. Confirm understanding
+
+The first response contains only a short readback of the user's idea in their
+terms and a request to confirm or correct it. Do not inspect the repository,
+ask a substantive question, identify a design fork, or propose a solution in
+that response.
+
+Wait for confirmation. A correction replaces the provisional understanding.
+
+### 2. Research and compare
+
+Run the repository and practice research above. Show the compact comparison and
+wait for the user's reaction before the requirements interview. Do not show
+solution options yet.
+
+### 3. Interview one decision at a time
+
+Run a requirements interview even when the initial description seems detailed.
+Ask exactly one focused question per message. Do not repeat facts already
+settled by the user or repository. Use the interview to establish every
+relevant high-impact decision among:
+
+- desired outcome and affected users;
+- observable behavior and important current behavior to preserve;
+- required scope, optional scope, and explicit exclusions;
+- compatibility, data, permissions, rollout, failure, and operational
+  constraints;
+- observable evidence that would prove the task complete.
+
+Questions have no numeric quota. Ask another only when its answer can change
+the goal, boundary, approach, risk, or acceptance criteria. Even when all fields
+appear answered, use at least one question to confirm the highest-impact
+assumption.
+
+If an answer changes the repository boundary or the basis of the practice
+comparison, repeat the affected repository inspection and both independent
+reviews. Show the corrected comparison before continuing toward options.
+
+### 4. Compare approaches
+
+After the interview is complete, present two or three genuinely different
+viable approaches in one concise set. For each include its basic shape, the
+tradeoff that distinguishes it, and any tension with repository practice or an
+explicit constraint. Lead with a recommendation and explain why it fits the
+confirmed goal. Include a smaller approach when credible. Ask the user to
+choose, combine, or revise the approaches.
+
+### 5. Approve the scope in two parts
+
+Present and approve these sections separately:
+
+1. Product boundary: goal, affected user, observable behavior, in scope, out of
+   scope, later work, and acceptance criteria.
+2. Technical direction: repository owner and evidence, chosen approach,
+   contracts to preserve, risks, and validation direction.
+
+Keep each section proportional to the task and normally under 250 words. A
+change to the first part invalidates dependent parts of the second.
+
+After both approvals, return only the canonical scope defined below. Do not
+append a handoff prompt or start implementation.
+
+## Autopilot mode
+
+Do not send intermediate questions or approval checkpoints. Internally:
+
+1. Form the same provisional understanding.
+2. Complete repository and practice research.
+3. Decompose an oversized idea and select the smallest useful first slice.
+4. Generate the same requirements questions and answer each from, in order,
+   the user's words, repository evidence, and explicit assumptions.
+5. Re-run affected research when an internal answer changes the boundary.
+6. Identify all genuinely viable approaches, compare them, and choose a
+   recommendation.
+
+When two interpretations remain equally plausible, choose the smaller
+independently useful scope. Never let best-practice guidance invent product
+requirements. Mark every answer not supported by the user or repository as an
+assumption.
+
+Return a structured report whose length follows task complexity without
+repetition. Include the repository/practice comparison, all viable approaches,
+the recommendation, later work, assumptions, unresolved risks, and the
+canonical scope. The recommendation is the agent's working conclusion, not
+user approval.
+
+## Canonical scope
+
+Use this shape, omitting empty fields when that improves readability:
+
+```text
+Goal:
+Affected users and problem:
+User-visible behavior:
+Acceptance criteria:
+In scope:
+Out of scope:
+Later work:
+Relevant repository evidence:
+Repository versus best practice:
+Chosen direction:
+Contracts and constraints:
+Validation expectations:
+Assumptions and unresolved risks:
+```
+
+Acceptance criteria must describe observable evidence, not implementation
+activity. Keep confirmed decisions separate from assumptions. The result must
+be short enough to review without rereading the discovery conversation.

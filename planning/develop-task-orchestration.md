@@ -84,6 +84,11 @@ invent product requirements.
 17. A final response is a terminal-state decision, never a progress update. It
     requires no active work or available next action; runner mode additionally
     requires a reconciled and atomically finalized `run.yaml`.
+18. Runner context rotation uses absolute latest-turn token counts rather than
+    a percentage of the reported model window. Profile budgets set both soft
+    checkpoint and hard interruption thresholds.
+19. Live foreground work and post-PR lifecycle checks use five-minute silent
+    long polls. Unchanged state produces no commentary or extra status probes.
 
 ## Execution Profiles
 

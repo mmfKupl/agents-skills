@@ -472,6 +472,32 @@ When specialist outputs conflict, require the gate to decide explicitly whether
 to follow repository practice, depart from it, take a transitional local fix,
 or stop for user input.
 
+## Silent Long-Poll Discipline
+
+Use the same quiet wait behavior for every live foreground process and every
+post-PR lifecycle wait in the current turn. This includes runner jobs, tests,
+builds, CI, preview or deployment readiness, E2E, and review or check refreshes.
+Keep this discipline when an outer workflow owns those lifecycle actions; it
+does not transfer lifecycle ownership to `develop-task`.
+
+- Prefer one existing foreground watch command or blocking tool call. Do not
+  add a custom CI monitor, daemon, background service, or polling script solely
+  to keep the model idle.
+- When the tool yields a live session, cell, process, or wait handle, continue
+  on that same handle with `yield_time_ms: 300000`, or the largest supported
+  value when five minutes is unavailable.
+- If the wait returns early with the same live state and no semantic change,
+  repeat it silently. Do not send elapsed-time reminders or "still waiting"
+  commentary.
+- Report only a semantic stage change, terminal success, failure, approval or
+  user-decision request, or a transport problem that changes the next action.
+- Do not inspect process state, logs, repository files, CI status, or
+  heartbeats merely to prove that unchanged work is alive.
+
+If no blocking watcher exists and status must be queried again, wait five
+minutes before the next query and keep unchanged results silent. A user status
+request permits one current snapshot, then the same quiet wait resumes.
+
 ## Embedded And Lifecycle Policy
 
 When another explicitly invoked workflow wraps `develop-task`, treat it as the

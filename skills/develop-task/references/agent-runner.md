@@ -109,11 +109,11 @@ role, model, or writer responsibility continues.
 
 ## Create One Task
 
-Write exactly one strict `agent-task` v1 document per invocation:
+Write exactly one strict `agent-task` v2 document per invocation:
 
 ```yaml
 kind: agent-task
-schema_version: 1
+schema_version: 2
 job:
   id: 001-preflight
   prompt: |
@@ -131,8 +131,8 @@ permissions:
   network_access: false
 supervision:
   context:
-    soft_limit_percent: 60
-    hard_limit_percent: 70
+    soft_limit_tokens: 155000
+    hard_limit_tokens: 180000
     checkpoint_grace_seconds: 30
   max_attempts: 3
 ```
@@ -144,7 +144,7 @@ paths. Preserve exact approved model and effort values.
 Include the current contract revision and, for implementation and postflight,
 the approving preflight job ID inside `job.prompt` as part of the self-contained
 packet. These orchestration fields remain in `run.yaml`; do not add unsupported
-keys to the strict `agent-task` v1 document.
+keys to the strict `agent-task` v2 document.
 
 ## Role Contracts And Output Envelope
 
@@ -189,7 +189,7 @@ implementation without reading that report.
 
 ## Permission Mapping
 
-Use these v1 combinations only:
+Use these v2 combinations only:
 
 | Job | sandbox_mode | network_access |
 | --- | --- | --- |
@@ -206,27 +206,31 @@ The runner cannot pause for interactive approval. A denied operation becomes a
 semantic result that the main thread must surface. Do not retry it with broader
 permissions without a new user decision.
 
-## Initial Supervision Budgets
+## Supervision Budgets
 
-Use these conservative v1 defaults until real runs justify a matrix revision:
+Use these profile defaults:
 
 | Profile | soft | hard | grace seconds | attempts |
 | --- | ---: | ---: | ---: | ---: |
-| Fast | 60 | 70 | 20 | 2 |
-| Standard | 60 | 70 | 30 | 3 |
-| Deep | 55 | 65 | 45 | 4 |
-| Deep + Critical | 50 | 60 | 60 | 5 |
+| Fast | 155,000 tokens | 180,000 tokens | 20 | 2 |
+| Standard | 155,000 tokens | 180,000 tokens | 30 | 3 |
+| Deep | 210,000 tokens | 240,000 tokens | 45 | 4 |
+| Deep + Critical | 350,000 tokens | 400,000 tokens | 60 | 5 |
 
 Use the requesting gate's effective profile for specialists. A changed profile
 or a materially larger task packet requires a new preflight decision before
-implementation. Record observed attempts and usage in `run.yaml`; do not claim
-that these limits are a precise total-token cap. Runner jobs have no wall-clock
-timeout; the foreground caller may stop one explicitly with SIGINT or SIGTERM.
+implementation. These limits control the latest worker turn's context, not a
+job's cumulative token usage or credits. Record observed attempts and usage in
+`run.yaml`. Runner jobs have no wall-clock timeout; the foreground caller may
+stop one explicitly with SIGINT or SIGTERM.
 
 ## Execute, Wait, And Interpret
 
 Invoke the resolved command in the foreground with the one task path. stdout
 must contain one absolute result path when the process exits.
+
+Apply the skill's Silent Long-Poll Discipline throughout this wait. The rules
+below only map that discipline to the runner's two possible live handles.
 
 When the host exposes the programmatic `functions.exec` wrapper, start the
 foreground invocation with this first-line pragma so the outer cell also uses

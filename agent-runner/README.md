@@ -1,4 +1,4 @@
-# Codex agent runner v1
+# Codex agent runner
 
 `agent-runner` is a foreground CLI for exactly one immutable YAML task. It starts one private Codex App Server through the stable Python SDK, runs one ephemeral worker at a time, writes one unique YAML result, prints that result's absolute path to stdout, and exits. `agent-run-manifest` is a separate one-shot companion that reconciles those immutable results into a develop-task `run.yaml`. Launch separate runner processes for independent parallel work; there is no daemon, queue, scheduler, MCP server, or persistent conversation history.
 
@@ -19,11 +19,11 @@ The main agent or caller must place the task and its derived `results/` director
 
 ## Task contract
 
-Tasks are strict `agent-task` schema v1 YAML. Every shown field is required except `developer_instructions`. Unknown and duplicate keys are rejected. Strings marked nonempty may not contain only whitespace. Numeric limits must be finite; attempts must be a positive integer. Hard context limits may not exceed 70%, and soft limits must be 10 to 15 percentage points below hard limits.
+Tasks are strict `agent-task` schema v2 YAML. Every shown field is required except `developer_instructions`. Unknown and duplicate keys are rejected. Strings marked nonempty may not contain only whitespace. Context token limits and attempts must be positive integers. The soft token limit must be 10% to 15% below the hard limit.
 
 ```yaml
 kind: agent-task
-schema_version: 1
+schema_version: 2
 job:
   id: fix-widget-test
   prompt: |
@@ -41,13 +41,13 @@ permissions:
   network_access: false
 supervision:
   context:
-    soft_limit_percent: 60
-    hard_limit_percent: 70
-    checkpoint_grace_seconds: 20
+    soft_limit_tokens: 155000
+    hard_limit_tokens: 180000
+    checkpoint_grace_seconds: 30
   max_attempts: 3
 ```
 
-The runner reads the original bytes once, records their SHA-256, and never rewrites the task. `workspace.cwd` must be an absolute existing directory. v1 always uses explicit deny-all approvals; it never silently approves or enables auto-review.
+The runner reads the original bytes once, records their SHA-256, and never rewrites the task. `workspace.cwd` must be an absolute existing directory. v2 always uses explicit deny-all approvals; it never silently approves or enables auto-review.
 
 Supported permission combinations are:
 
@@ -125,7 +125,7 @@ approval:
 error: null
 ```
 
-Attempts record fresh thread and turn IDs, timestamps, status, peak observed context percentage, last and total token usage, and a structured checkpoint or fallback partial output when rotation is needed. Top-level usage sums the final per-attempt totals. Terminal statuses are `completed`, `blocked`, `failed`, `interrupted`, `worktree_locked`, `invalid_task`, and `context_exhausted`. `needs_approval` is reserved for future schemas and is unreachable under v1 deny-all policy.
+Attempts record fresh thread and turn IDs, timestamps, status, peak observed context tokens, an optional percentage diagnostic when the model reports its window, last and total token usage, and a structured checkpoint or fallback partial output when rotation is needed. Top-level usage sums the final per-attempt totals. Terminal statuses are `completed`, `blocked`, `failed`, `interrupted`, `worktree_locked`, `invalid_task`, and `context_exhausted`. `needs_approval` is reserved for future schemas and is unreachable under v2 deny-all policy.
 
 ## Context rotation, signals, and cleanup
 
@@ -133,7 +133,7 @@ The runner observes public `thread/tokenUsage/updated` stream events and compute
 
 The terminal SDK turn status is authoritative. Structured output can complete or block a run only when the turn itself completed. A failed turn remains failed even if it emitted valid JSON first. A context-interrupted turn can contribute a valid checkpoint only as carry into a fresh attempt.
 
-Thresholds are best-effort at SDK event boundaries. A model may emit a usage event after it has crossed a threshold, and a missing model context window prevents percentage supervision for that attempt. The runner deliberately has no wall-clock job timeout; a foreground invocation waits until the worker finishes, exhausts its context attempts, fails, or receives SIGINT/SIGTERM. On those signals it requests interruption for an active turn, waits a bounded cleanup interval, closes the SDK/private App Server, and finalizes the result when possible. SIGKILL, power loss, or host failure can leave a valid `running` result because no process can perform cleanup afterward.
+Thresholds are best-effort at SDK event boundaries. A model may emit a usage event after it has crossed a token threshold. Rotation uses the latest turn's absolute `total_tokens` and does not depend on the model's reported context-window size. The runner deliberately has no wall-clock job timeout; a foreground invocation waits until the worker finishes, exhausts its context attempts, fails, or receives SIGINT/SIGTERM. On those signals it requests interruption for an active turn, waits a bounded cleanup interval, closes the SDK/private App Server, and finalizes the result when possible. SIGKILL, power loss, or host failure can leave a valid `running` result because no process can perform cleanup afterward.
 
 ## Concurrency and locking
 

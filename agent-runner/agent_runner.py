@@ -33,7 +33,7 @@ from openai_codex import (
 )
 
 
-RUNNER_VERSION = "1.2.0"
+RUNNER_VERSION = "1.3.0"
 CLEANUP_GRACE_SECONDS = 5.0
 SIGNAL_POLL_SECONDS = 0.1
 HEARTBEAT_INTERVAL_SECONDS = 5.0
@@ -108,7 +108,7 @@ TERMINAL_STATUSES = {
 
 
 class TaskValidationError(ValueError):
-    """Raised when a task is not a strict agent-task v1 document."""
+    """Raised when a task is not a strict agent-task v2 document."""
 
 
 class RunnerInterrupted(Exception):
@@ -202,7 +202,7 @@ def _strict_positive_int(value: Any, location: str) -> int:
 
 
 def parse_task(raw: bytes, task_path: Path) -> dict[str, Any]:
-    """Parse and validate an immutable agent-task v1 byte sequence."""
+    """Parse and validate an immutable agent-task v2 byte sequence."""
     try:
         text = raw.decode("utf-8")
     except UnicodeDecodeError as exc:
@@ -221,8 +221,8 @@ def parse_task(raw: bytes, task_path: Path) -> dict[str, Any]:
     )
     if root["kind"] != "agent-task":
         raise TaskValidationError("kind must be 'agent-task'")
-    if type(root["schema_version"]) is not int or root["schema_version"] != 1:
-        raise TaskValidationError("schema_version must be integer 1")
+    if type(root["schema_version"]) is not int or root["schema_version"] != 2:
+        raise TaskValidationError("schema_version must be integer 2")
 
     job = _require_mapping(root["job"], "job", {"id", "prompt"})
     _nonempty_string(job["id"], "job.id")
@@ -261,7 +261,7 @@ def parse_task(raw: bytes, task_path: Path) -> dict[str, Any]:
             "permissions.sandbox_mode must be read_only, workspace_write, or danger_full_access"
         )
     if permissions["approval_policy"] != "never":
-        raise TaskValidationError("permissions.approval_policy must be 'never' in v1")
+        raise TaskValidationError("permissions.approval_policy must be 'never' in v2")
     if not isinstance(permissions["network_access"], bool):
         raise TaskValidationError("permissions.network_access must be a boolean")
     sandbox_mode = permissions["sandbox_mode"]
@@ -283,16 +283,16 @@ def parse_task(raw: bytes, task_path: Path) -> dict[str, Any]:
     context = _require_mapping(
         supervision["context"],
         "supervision.context",
-        {"soft_limit_percent", "hard_limit_percent", "checkpoint_grace_seconds"},
+        {"soft_limit_tokens", "hard_limit_tokens", "checkpoint_grace_seconds"},
     )
-    soft = _positive_number(context["soft_limit_percent"], "soft_limit_percent")
-    hard = _positive_number(context["hard_limit_percent"], "hard_limit_percent")
+    soft = _strict_positive_int(context["soft_limit_tokens"], "soft_limit_tokens")
+    hard = _strict_positive_int(context["hard_limit_tokens"], "hard_limit_tokens")
     _positive_number(context["checkpoint_grace_seconds"], "checkpoint_grace_seconds")
-    if not 0 < soft < hard <= 70:
-        raise TaskValidationError("context limits must satisfy 0 < soft < hard <= 70")
-    if not 10 <= hard - soft <= 15:
+    if soft >= hard:
+        raise TaskValidationError("context limits must satisfy 0 < soft < hard")
+    if not 10 * hard <= 100 * (hard - soft) <= 15 * hard:
         raise TaskValidationError(
-            "soft context limit must be 10 to 15 percentage points below hard"
+            "soft context token limit must be 10% to 15% below hard"
         )
     _strict_positive_int(supervision["max_attempts"], "supervision.max_attempts")
 
@@ -644,6 +644,7 @@ async def _run_attempt(
         "started_at": _utc_now(),
         "finished_at": None,
         "status": "starting",
+        "context_peak_tokens": 0,
         "context_peak_percent": 0.0,
         "token_usage": _usage(None),
         "checkpoint": None,
@@ -689,8 +690,8 @@ async def _run_attempt(
     attempt["status"] = "running"
     _touch(result, writer)
 
-    soft = float(task["supervision"]["context"]["soft_limit_percent"])
-    hard = float(task["supervision"]["context"]["hard_limit_percent"])
+    soft = task["supervision"]["context"]["soft_limit_tokens"]
+    hard = task["supervision"]["context"]["hard_limit_tokens"]
     checkpoint_grace = float(task["supervision"]["context"]["checkpoint_grace_seconds"])
     soft_steered_at: float | None = None
     interrupt_reason: str | None = None
@@ -771,18 +772,22 @@ async def _run_attempt(
             elif method == "thread/tokenUsage/updated":
                 usage = _usage(getattr(payload, "token_usage", None))
                 attempt["token_usage"] = usage
+                last_total = usage["last"]["total_tokens"]
+                attempt["context_peak_tokens"] = max(
+                    attempt["context_peak_tokens"], last_total
+                )
                 window = usage["model_context_window"]
                 if window:
-                    percent = usage["last"]["total_tokens"] * 100.0 / window
+                    percent = last_total * 100.0 / window
                     attempt["context_peak_percent"] = round(
                         max(attempt["context_peak_percent"], percent), 4
                     )
-                    if percent >= soft and soft_steered_at is None:
-                        soft_steered_at = time.monotonic()
-                        with contextlib.suppress(Exception):
-                            await _bounded_call(turn.steer(CHECKPOINT_STEER))
-                    if percent >= hard:
-                        await request_interrupt("context")
+                if last_total >= soft and soft_steered_at is None:
+                    soft_steered_at = time.monotonic()
+                    with contextlib.suppress(Exception):
+                        await _bounded_call(turn.steer(CHECKPOINT_STEER))
+                if last_total >= hard:
+                    await request_interrupt("context")
             elif method == "turn/completed":
                 completed_payload = payload
             persist_event(
@@ -1140,9 +1145,9 @@ def run_invocation(
 def _argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="agent-runner",
-        description="Run exactly one immutable agent-task v1 YAML file in the foreground.",
+        description="Run exactly one immutable agent-task v2 YAML file in the foreground.",
     )
-    parser.add_argument("task", help="path to one agent-task v1 YAML file")
+    parser.add_argument("task", help="path to one agent-task v2 YAML file")
     return parser
 
 

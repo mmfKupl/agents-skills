@@ -45,7 +45,7 @@ def event(method: str, payload: object) -> SimpleNamespace:
 
 def usage_event(
     last_total: int,
-    window: int = 100,
+    window: int | None = 100,
     input_tokens: int | None = None,
     accumulated_total: int | None = None,
 ) -> SimpleNamespace:
@@ -207,7 +207,7 @@ class RunnerTestCase(unittest.TestCase):
     def task_value(self, **updates: object) -> dict[str, object]:
         value: dict[str, object] = {
             "kind": "agent-task",
-            "schema_version": 1,
+            "schema_version": 2,
             "job": {"id": "job-1", "prompt": "Do one focused thing."},
             "workspace": {"cwd": str(self.workspace)},
             "agent": {"model": "gpt-test", "reasoning_effort": "high"},
@@ -218,8 +218,8 @@ class RunnerTestCase(unittest.TestCase):
             },
             "supervision": {
                 "context": {
-                    "soft_limit_percent": 60,
-                    "hard_limit_percent": 70,
+                    "soft_limit_tokens": 60,
+                    "hard_limit_tokens": 70,
                     "checkpoint_grace_seconds": 1,
                 },
                 "max_attempts": 2,
@@ -250,17 +250,21 @@ class ValidationTests(RunnerTestCase):
             runner.parse_task(b"kind: one\nkind: two\n", path)
 
     def test_supported_context_threshold_pairs(self) -> None:
-        for soft, hard in ((60, 70), (55, 65), (50, 60)):
+        for soft, hard in (
+            (155_000, 180_000),
+            (210_000, 240_000),
+            (350_000, 400_000),
+        ):
             value = self.task_value()
             value["supervision"]["context"].update(  # type: ignore[index,union-attr]
-                {"soft_limit_percent": soft, "hard_limit_percent": hard}
+                {"soft_limit_tokens": soft, "hard_limit_tokens": hard}
             )
             with self.subTest(soft=soft, hard=hard):
                 parsed = runner.parse_task(
                     yaml.safe_dump(value).encode(), self.root / "task.yaml"
                 )
                 self.assertEqual(
-                    parsed["supervision"]["context"]["hard_limit_percent"], hard
+                    parsed["supervision"]["context"]["hard_limit_tokens"], hard
                 )
 
     def test_unknown_keys_are_rejected_at_each_level(self) -> None:
@@ -287,6 +291,7 @@ class ValidationTests(RunnerTestCase):
         mutations = [
             (lambda value: value.__setitem__("schema_version", True), "schema_version"),
             (lambda value: value.__setitem__("schema_version", 1.0), "schema_version"),
+            (lambda value: value.__setitem__("schema_version", 1), "schema_version"),
             (
                 lambda value: value["workspace"].__setitem__("cwd", "relative"),  # type: ignore[union-attr]
                 "absolute",
@@ -296,12 +301,16 @@ class ValidationTests(RunnerTestCase):
                 "never",
             ),
             (
-                lambda value: value["supervision"]["context"].__setitem__("hard_limit_percent", 71),  # type: ignore[index,union-attr]
-                "0 < soft",
+                lambda value: value["supervision"]["context"].__setitem__("hard_limit_tokens", 60),  # type: ignore[index,union-attr]
+                "0 < soft < hard",
             ),
             (
-                lambda value: value["supervision"]["context"].__setitem__("soft_limit_percent", 65),  # type: ignore[index,union-attr]
-                "10 to 15",
+                lambda value: value["supervision"]["context"].__setitem__("soft_limit_tokens", 65),  # type: ignore[index,union-attr]
+                "10% to 15%",
+            ),
+            (
+                lambda value: value["supervision"]["context"].__setitem__("hard_limit_tokens", 70.0),  # type: ignore[index,union-attr]
+                "positive integer",
             ),
             (
                 lambda value: value["supervision"].__setitem__("max_attempts", True),  # type: ignore[union-attr]
@@ -452,6 +461,7 @@ class SupervisionTests(RunnerTestCase):
         ]
         invocation, result, codex, _ = self.run_with(scenarios)
         self.assertEqual(invocation.status, "completed")
+        self.assertEqual(result["attempts"][0]["context_peak_tokens"], 50)
         self.assertEqual(result["attempts"][0]["context_peak_percent"], 50.0)
         self.assertEqual(codex.turns[0].steer_inputs, [])
         self.assertEqual(codex.turns[0].interrupt_count, 0)
@@ -492,7 +502,7 @@ class SupervisionTests(RunnerTestCase):
             {
                 "events": [
                     delta_event("partial durable work"),
-                    usage_event(95),
+                    usage_event(95, window=None),
                     completed_event("interrupted"),
                 ]
             },
@@ -502,6 +512,8 @@ class SupervisionTests(RunnerTestCase):
         self.assertEqual(invocation.status, "completed")
         self.assertEqual(codex.turns[0].interrupt_count, 1)
         self.assertEqual(codex.turns[0].steer_inputs, [runner.CHECKPOINT_STEER])
+        self.assertEqual(result["attempts"][0]["context_peak_tokens"], 95)
+        self.assertEqual(result["attempts"][0]["context_peak_percent"], 0.0)
         self.assertEqual(result["attempts"][0]["status"], "interrupted_for_context")
         self.assertIn("partial durable work", codex.turn_calls[1][0])
 
@@ -615,6 +627,7 @@ class SupervisionTests(RunnerTestCase):
         _, result, _, _ = self.run_with(scenarios)
         self.assertEqual(result["usage"]["input_tokens"], 70)
         self.assertEqual(result["usage"]["total_tokens"], 70)
+        self.assertEqual(result["attempts"][0]["context_peak_tokens"], 40)
         self.assertEqual(result["attempts"][0]["context_peak_percent"], 40.0)
 
     def test_signal_interrupts_active_turn_and_closes_sdk(self) -> None:

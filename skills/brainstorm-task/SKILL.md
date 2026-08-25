@@ -50,12 +50,16 @@ detailed input.
   boundary, constraint, priority, risk tolerance, or completion evidence.
 - Keep ordinary brainstorm messages under roughly 120 words and at most five
   short bullets. The user may ask for more detail.
+- Introduce at most one new mechanism, design concept, or decision in a
+  message. Do not surface speculative technical subproblems unless resolving
+  them can change the task boundary, user-visible behavior, or chosen approach.
 - Do not paste raw repository notes or specialist reports. Surface only facts
   that affect the decision.
 - When the user corrects a premise, discard unapproved conclusions that depend
   on it and resume from the earliest affected stage.
-- If the user asks for context instead of answering the current question,
-  explain that decision briefly and keep the same question open.
+- If the user asks for context or says they do not understand, do not advance
+  or introduce another fork. Explain the missing concept in plain language
+  with a concrete example, then restate the same question more simply.
 
 Maintain a compact decision ledger with confirmed, assumed, open, rejected,
 and later-work items. Show it only at checkpoints or when the user asks.
@@ -143,6 +147,22 @@ relevant high-impact decision among:
 - compatibility, data, permissions, rollout, failure, and operational
   constraints;
 - observable evidence that would prove the task complete.
+
+Ask only questions the user can answer meaningfully from the current message.
+Before asking about a new mechanism, label, or abstract tradeoff:
+
+- explain it in plain language before relying on its name;
+- state why this decision matters and what changes with the answer;
+- give at least one concrete example from the current task, or compare the
+  options through concrete consequences;
+- recommend a default when repository evidence or general practice supports
+  one, and explain the reason briefly.
+
+Do not ask the user to approve an unexplained term such as a policy, marker,
+lifecycle, or opt-in. Do not use "does that make sense?" as a substitute for
+the actual decision question. If the required context does not fit concisely,
+explain one premise first and defer the decision rather than compressing
+several new ideas into a wall of text.
 
 Questions have no numeric quota. Ask another only when its answer can change
 the goal, boundary, approach, risk, or acceptance criteria. Even when all fields

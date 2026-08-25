@@ -16,7 +16,7 @@ Before editing:
 
 Own only:
 - production code and justified behavior-focused tests inside the assigned paths or responsibility;
-- the smallest defensible implementation that satisfies the stated acceptance criteria;
+- the smallest sufficient implementation that satisfies the stated acceptance criteria;
 - focused validation requested in the task packet;
 - an evidence-based report of changes, deviations, and remaining risks.
 
@@ -25,8 +25,21 @@ Do not:
 - invent business requirements or change acceptance criteria;
 - silently cross into another owner, subsystem, or layer;
 - add dependencies, migrations, schemas, public API changes, permissions, security behavior, or other critical contracts absent from the approved task packet;
+- add guards, fallbacks, compatibility branches, abstractions, extension points,
+  options, or error handling for merely plausible or theoretical situations;
+- add tests for behavior that is neither required, observed, demonstrated as
+  reachable through the changed code, nor part of an existing supported contract;
+- refactor, clean up, reformat, or harden adjacent code simply because it is
+  nearby;
 - commit, push, open or update a PR, resolve review threads, or update external systems;
 - continue expanding changes after a replan trigger.
+
+A non-obvious addition needs concrete support from the approved packet: an
+explicit requirement, reproduced failure or reachable state demonstrated by
+current code, data, or logs, existing supported contract, or concrete reachable
+security/correctness failure at the changed boundary. Generic best practice,
+hypothetical future use, and defense in depth without such a path are not
+implementation requirements. Leave them out.
 
 You may change local code shape, naming, helper usage, and test structure when the goal, acceptance criteria, ownership, out-of-scope boundary, and preserved contracts remain intact. Report meaningful deviations from the hypothesis.
 

@@ -43,6 +43,33 @@ Default limits:
 
 Stop for a user decision when a bounded loop does not converge.
 
+## Evidence-based minimality
+
+Implement the smallest change that satisfies the explicit acceptance criteria
+and proven repository contracts. Treat the approved scope as closed.
+
+Do not add behavior, guards, fallbacks, compatibility branches, abstractions,
+extension points, configuration, cleanup, or tests merely because they may be
+useful or because a theoretical failure is possible. Every non-obvious addition
+must be justified by at least one of:
+
+- an explicit user requirement or acceptance criterion;
+- a reproduced failure or reachable state shown by current code, data, or logs;
+- an existing supported contract or invariant at the changed boundary;
+- a concrete reachable security or correctness failure introduced or exposed
+  by the change.
+
+Generic best practice, reviewer preference, hypothetical future use, and
+"defense in depth" without a demonstrated path are not evidence. Leave an
+unproven concern out of the implementation. Ask the user only when resolving it
+would change required behavior or scope.
+
+Prefer an existing code path, a local edit, and deletion of superseded code.
+Do not mix adjacent cleanup or refactoring into the task. Keep existing
+defensive behavior that protects a proven contract unless the approved task
+explicitly changes it. Tests should prove requested behavior or an observed
+regression, not enumerate unsupported theoretical states.
+
 ## Delegation Backend
 
 Select one delegation backend at the start of the run and report it in the
@@ -304,7 +331,8 @@ distinguishes confirmed, probable, and unknown causes before another edit.
    profile, current preflight model/effort, task boundary, dirty-tree notes,
    likely files, constraints, expected behavior, selected backend and its writer
    invariant, proposed slices or an explicit single-job choice, and initial
-   technical hypothesis.
+   technical hypothesis. Include concrete evidence for every proposed
+   non-obvious behavior, guard, fallback, edge case, or test.
 6. If preflight requests specialists, dispatch only the requested read-only
    roles with explicit model/effort and return their raw reports to the same
    gate responsibility for its updated decision.
@@ -362,6 +390,7 @@ Acceptance criteria:
 Owned paths/responsibility:
 Out of scope:
 Relevant repository evidence:
+Evidence for non-obvious behavior:
 Contracts to preserve:
 Implementation hypothesis:
 Dirty-tree constraints:
@@ -370,9 +399,9 @@ Replan triggers:
 Expected return:
 ```
 
-Keep goal, acceptance criteria, ownership, out-of-scope boundary, preserved
-contracts, validation expectations, and replan triggers strict. Keep the
-implementation hypothesis flexible. Allow the writer to adjust local code
+Keep goal, acceptance criteria, ownership, out-of-scope boundary, evidence,
+preserved contracts, validation expectations, and replan triggers strict. Keep
+the implementation hypothesis flexible. Allow the writer to adjust local code
 shape, naming, helper usage, and test structure within the approved contract.
 
 Require this response:

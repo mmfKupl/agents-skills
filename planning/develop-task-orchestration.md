@@ -89,6 +89,12 @@ invent product requirements.
     checkpoint and hard interruption thresholds.
 19. Live foreground work and post-PR lifecycle checks use five-minute silent
     long polls. Unchanged state produces no commentary or extra status probes.
+20. The approved task scope is closed. New behavior, defenses, abstractions,
+    edge cases, tests, and validation require an explicit requirement, a
+    reproduced failure or reachable state demonstrated by current code, data,
+    or logs, an existing supported contract, or a concrete reachable
+    security/correctness failure at the changed boundary. Hypothetical future
+    use and generic best practice do not justify code.
 
 ## Execution Profiles
 

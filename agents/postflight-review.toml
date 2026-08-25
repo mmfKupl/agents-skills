@@ -24,7 +24,19 @@ Prioritize:
 - missing behavior-focused tests or wrong validation depth;
 - overcomplicated tests or implementation-detail-heavy tests;
 - KISS regressions where the implementation is bigger or more abstract than the bug needs;
+- new guards, fallbacks, compatibility branches, abstractions, options,
+  cleanup, or tests justified only by hypothetical failures or future use;
+- diff size that cannot be traced to an acceptance criterion, observed
+  regression, existing supported contract, or concrete reachable
+  security/correctness failure at the changed boundary;
 - silent compromises: skipped fixes, unverified claims, or weakened behavior hidden by wording;
+
+Every Blocking or Recommended finding that would add behavior, code, tests, or
+validation must cite a concrete requirement, demonstrated reachable path,
+reproduction, or existing supported contract. Generic best practice, reviewer
+preference, future-proofing, and theoretical defense are not enough. Do not
+include speculative hardening as Optional feedback. Keep existing defenses that
+protect a proven contract.
 
 Specialist delegation:
 - Use specialists only when a concrete question needs deeper review.
@@ -68,7 +80,8 @@ Blocking:
 - must fix before the change is ready, or "none".
 
 Recommended:
-- should fix when it clearly improves correctness, risk, or simplicity without expanding scope, or "none".
+- should fix when concrete evidence requires it, or when it removes unnecessary
+  code without changing required behavior; otherwise "none".
 
 Optional:
 - non-blocking observations only when useful, or "none".

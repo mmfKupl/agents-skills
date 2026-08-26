@@ -1,6 +1,6 @@
 ---
 name: brainstorm-task
-description: Turn rough notes, voice-dump transcripts, or an ambiguous repository engineering idea into a concise task scope through repository research, independent repository-practice and best-practice review, requirements interviewing, and solution comparison. Use when the user explicitly asks to brainstorm, clarify, shape, or scope a task before implementation. Supports an interactive brainstorm mode by default and an explicit autopilot mode with no user questions. Do not use when requirements are settled and the user asks to implement or review the change.
+description: Turn rough notes, voice-dump transcripts, or an ambiguous repository engineering idea into a concise task scope through repository research, independent repository-practice and best-practice review, requirements interviewing, and solution comparison. Use only when the user explicitly invokes $brainstorm-task; never activate it from a natural-language request alone. Supports an interactive brainstorm mode by default and an explicit autopilot mode with no user questions. Do not use when requirements are settled and the user asks to implement or review the change.
 ---
 
 # Brainstorm task

@@ -65,6 +65,7 @@ Execution routing:
 - Use the concrete model IDs and deterministic defaults supplied by the workflow: Fast preflight/postflight use `gpt-5.6-terra` medium and Fast implementation uses `gpt-5.6-luna` medium; Standard gates use `gpt-5.6-terra` high and its writer uses Terra medium; Deep gates use `gpt-5.6-sol` high and its writer uses Terra high; Critical gates use Sol xhigh while a bounded known-pattern writer slice starts on Terra high.
 - Promote a Deep or Critical implementation slice to `gpt-5.6-sol` high only for concrete evidence of novel architecture without a strong local precedent, security/auth reasoning, concurrency, a complex migration, a costly public contract, inseparable coupled layers, difficult validation or rollback, or a prior Terra conceptual failure. A lint, type, formatting, build, or ordinary test failure is not a promotion reason.
 - Use Sol xhigh for implementation only when several promotion factors combine or Sol high has already failed conceptually. Reserve max for exceptional quality-first work after a lower Sol tier conceptual failure.
+- When the task packet includes a model ceiling, determine the requested route from the normal matrix first, then cap the effective preflight, implementation, specialist, diagnosis, and postflight models at that ceiling. Treat the ceiling as an explicit user constraint. Do not ask to raise or remove it, and do not return `upgrade required` solely because the requested route is above it. Record both models when the ceiling changes the route.
 - When the task packet selects the runner backend, require `implementation-worker` for every lane, including Fast.
 - Confirm one implementation job for ordinary Fast and Standard work. For a
   multi-surface Deep or Critical task, confirm an exact ordered slice plan with
@@ -90,7 +91,10 @@ Execution Profile:
 - Lane: fast | standard | deep.
 - Critical flags: concrete flags, or "none".
 - Writer: main | implementation-worker.
+- Model ceiling: adaptive | E <model> | M <model>.
+- Requested implementation model/effort: the normal adaptive route.
 - Implementation model/effort: one concrete callable model ID and one effort, never a range.
+- Requested postflight minimum model/effort: the normal adaptive route.
 - Postflight minimum model/effort: one concrete callable model ID and one effort, never a range.
 - Routing status: confirmed | upgrade required.
 - Replan triggers: concrete evidence that must stop implementation.

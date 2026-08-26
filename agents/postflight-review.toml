@@ -55,6 +55,7 @@ Failure routing:
 - Classify blocking failures as local, conceptual, scope, or requirements.
 - Recommend the same writer for a first local fix.
 - Recommend promotion when the same conceptual error repeats, confidence remains low, or the actual risk exceeds the approved tier.
+- When the approved packet has a model ceiling, record the normally requested promotion but keep the effective recommendation at or below the ceiling. Do not ask the user to raise, remove, or bypass the ceiling.
 - Recommend replan when ownership, task boundary, expected behavior, contracts, or critical risks changed.
 - Recommend a user decision when requirements are missing or the bounded loop cannot converge.
 

@@ -1,6 +1,6 @@
 # Codex agent runner
 
-`agent-runner` is a foreground CLI for exactly one immutable YAML task. It starts one private Codex App Server through the stable Python SDK, runs one ephemeral worker at a time, writes one unique YAML result, prints that result's absolute path to stdout, and exits. `agent-run-manifest` is a separate one-shot companion that validates and registers immutable tasks, reconciles their results into a develop-task `run.yaml`, and finalizes the run. Launch separate runner processes for independent parallel work; there is no daemon, queue, scheduler, MCP server, or persistent conversation history.
+`agent-runner` is a foreground CLI for exactly one immutable YAML task. It starts one private Codex App Server through the stable Python SDK, runs one ephemeral worker at a time, writes one unique YAML result, prints that result's absolute path to stdout, and exits. `agent-run-manifest` is a separate one-shot companion that resolves the current main-chat model, applies a run-wide model ceiling, validates and registers immutable tasks, reconciles their results into a develop-task `run.yaml`, and finalizes the run. Launch separate runner processes for independent parallel work; there is no daemon, queue, scheduler, MCP server, or persistent conversation history.
 
 ## Install and run
 
@@ -104,7 +104,7 @@ task:
   sha256: 64-hex-digest
   job_id: fix-widget-test
 runner:
-  version: 1.4.0
+  version: 1.5.0
   sdk_version: 0.147.0
   sdk_package: openai-codex
   runtime_package: openai-codex-cli-bin==0.147.0
@@ -143,11 +143,13 @@ Read-only runs take no lock and can overlap. `workspace_write` and `danger_full_
 
 ## Run manifest companion
 
-`agent-run-manifest` operates only on a strict `develop-task-run` schema v1 `run.yaml`. The main orchestrator creates the run, prepares task drafts, and owns the semantic job plan. `new-job` validates a complete `agent-task` v2 draft, requires its workspace to match the run, creates the final immutable `jobs/<job.id>/task.yaml`, and atomically registers the pending entry. Its stdout is the final task path. The companion later scans that task's sibling `results/` directory, verifies the task path, SHA-256, job ID, result schema, and execution status, then copies only `result_path`, `status`, `execution_id`, and `usage` into the job entry.
+`agent-run-manifest` operates on a strict `develop-task-run` schema v1 `run.yaml`. An optional `run.model_policy` is backward-compatible; missing policy means `adaptive`. New runs record `adaptive`, `explicit_ceiling`, or `main_ceiling` plus a resolved maximum GPT-5.6 model. `new-job` validates a complete `agent-task` v2 draft, requires its workspace to match the run, caps the requested model when needed, creates the final immutable `jobs/<job.id>/task.yaml`, and atomically registers the pending entry. Each new job records `requested_model`, `selected_model`, and `limited_by`; the legacy `model` field equals `selected_model`. Its stdout is the final task path. The companion later scans that task's sibling `results/` directory, verifies the task path, SHA-256, job ID, result schema, and execution status, then copies only `result_path`, `status`, `execution_id`, and `usage` into the job entry.
 
 Use exactly one job directory per runner invocation. Reconciliation rejects multiple result files for one job instead of guessing which execution is authoritative. Updates take a short `fcntl` lock beside `run.yaml` and use a same-directory temporary file, file `fsync`, `os.replace`, and directory `fsync`.
 
 ```bash
+# Only when creating a main_ceiling run:
+agent-run-manifest current-model
 agent-run-manifest new-job /absolute/path/to/run.yaml /absolute/path/to/task-draft.yaml \
   --role implementation-worker \
   --contract-revision 1 \

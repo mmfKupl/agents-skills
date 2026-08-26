@@ -22,6 +22,18 @@ as the selected runner, then from `PATH`. Require `agent-run-manifest --help`
 to succeed before creating `run.yaml`. It is a one-shot YAML helper, not a
 daemon or scheduler.
 
+When model policy `M` is selected, resolve the main chat model before creating
+the manifest:
+
+```bash
+agent-run-manifest current-model
+```
+
+The command reads the current Codex rollout identified by `CODEX_THREAD_ID` and
+prints only its current model ID. Require one of `gpt-5.6-luna`,
+`gpt-5.6-terra`, or `gpt-5.6-sol`; do not infer a replacement if resolution
+fails.
+
 ## Run Directory And Ownership
 
 Create one private temporary run directory outside the repository and target
@@ -68,6 +80,9 @@ run:
   status: running
   started_at: <UTC timestamp>
   finished_at: null
+  model_policy:
+    mode: adaptive # adaptive | explicit_ceiling | main_ceiling
+    maximum_model: null # null, gpt-5.6-luna, gpt-5.6-terra, or gpt-5.6-sol
 jobs:
   - id: 001-preflight
     role: preflight-review
@@ -78,7 +93,10 @@ jobs:
     status: completed
     execution_id: <runner execution id>
     usage: <result usage mapping>
-    model: gpt-5.6-terra
+    model: gpt-5.6-terra # effective compatibility field
+    requested_model: gpt-5.6-sol
+    selected_model: gpt-5.6-terra
+    limited_by: explicit_ceiling
     reasoning_effort: high
   - id: 002-implementation
     role: implementation-worker
@@ -90,10 +108,16 @@ jobs:
     execution_id: null
     usage: null
     model: gpt-5.6-luna
+    requested_model: gpt-5.6-luna
+    selected_model: gpt-5.6-luna
+    limited_by: null
     reasoning_effort: medium
 ```
 
-Initialize a new manifest with `jobs: []`. For each invocation, prepare the
+Initialize a new manifest with `jobs: []`. Missing `run.model_policy` remains
+compatible and means `adaptive`, but every new develop-task run must write the
+resolved policy explicitly. The policy is immutable for that run. For each
+invocation, prepare the
 strict task YAML at a temporary path outside `jobs/`, then register it:
 
 ```bash
@@ -105,8 +129,11 @@ agent-run-manifest new-job /absolute/path/to/run.yaml /absolute/path/to/task-dra
 
 Omit `--approved-by-preflight` for the initial preflight. The command validates
 the complete task schema before creating anything, requires its workspace to
-match the run, creates `jobs/<job.id>/task.yaml`, atomically appends the pending
-entry, and prints the final task path for the foreground runner call. Do not
+match the run, applies the run's model ceiling, creates
+`jobs/<job.id>/task.yaml`, atomically appends the pending entry, and prints the
+final task path for the foreground runner call. When capped, the immutable task
+contains the selected model while the manifest records the requested model,
+selected model, and limiting mode. Do not
 manually create final job directories or append job entries. The temporary
 source may be removed after successful registration.
 
@@ -156,7 +183,9 @@ supervision:
 
 Every field shown is required except `agent.developer_instructions`, which this
 workflow always supplies for delegated roles. Use absolute existing workspace
-paths. Preserve exact approved model and effort values.
+paths. Put the normal adaptive requested model and approved effort in the draft;
+`agent-run-manifest new-job` applies any run-wide ceiling before the runner sees
+the immutable task.
 
 Include the current contract revision and, for implementation and postflight,
 the approving preflight job ID inside `job.prompt` as part of the self-contained

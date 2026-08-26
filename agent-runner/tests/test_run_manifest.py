@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import subprocess
 import sys
 import tempfile
@@ -65,6 +66,7 @@ class RunManifestTests(unittest.TestCase):
         job_id: str = "002-implementation",
         *,
         workspace: Path | None = None,
+        model: str = "gpt-5.6-luna",
     ) -> Path:
         source_path = self.root / f"{job_id}-draft.yaml"
         task = {
@@ -72,7 +74,7 @@ class RunManifestTests(unittest.TestCase):
             "schema_version": 2,
             "job": {"id": job_id, "prompt": "Perform the bounded job."},
             "workspace": {"cwd": str(workspace or self.root)},
-            "agent": {"model": "gpt-5.6-luna", "reasoning_effort": "medium"},
+            "agent": {"model": model, "reasoning_effort": "medium"},
             "permissions": {
                 "sandbox_mode": "workspace_write",
                 "approval_policy": "never",
@@ -191,7 +193,136 @@ class RunManifestTests(unittest.TestCase):
         self.assertEqual(job["task_path"], str(expected))
         self.assertEqual(job["status"], "pending")
         self.assertEqual(job["model"], "gpt-5.6-luna")
+        self.assertEqual(job["requested_model"], "gpt-5.6-luna")
+        self.assertEqual(job["selected_model"], "gpt-5.6-luna")
+        self.assertIsNone(job["limited_by"])
         self.assertEqual(job["reasoning_effort"], "medium")
+
+    def test_new_job_applies_explicit_ceiling_to_immutable_task(self) -> None:
+        manifest = self.manifest_value()
+        manifest["run"]["model_policy"] = {  # type: ignore[index]
+            "mode": "explicit_ceiling",
+            "maximum_model": "gpt-5.6-terra",
+        }
+        manifest["jobs"][0]["model"] = "gpt-5.6-terra"  # type: ignore[index]
+        self.write_manifest(manifest)
+        source_path = self.write_task_source(model="gpt-5.6-sol")
+
+        task_path = run_manifest.new_job_manifest(
+            str(self.manifest_path),
+            str(source_path),
+            "implementation-worker",
+            1,
+            "001-preflight",
+        )
+
+        source = yaml.safe_load(source_path.read_text(encoding="utf-8"))
+        task = yaml.safe_load(task_path.read_text(encoding="utf-8"))
+        self.assertEqual(source["agent"]["model"], "gpt-5.6-sol")
+        self.assertEqual(task["agent"]["model"], "gpt-5.6-terra")
+        job = self.read_manifest()["jobs"][1]  # type: ignore[index]
+        self.assertEqual(job["model"], "gpt-5.6-terra")
+        self.assertEqual(job["requested_model"], "gpt-5.6-sol")
+        self.assertEqual(job["selected_model"], "gpt-5.6-terra")
+        self.assertEqual(job["limited_by"], "explicit_ceiling")
+
+    def test_new_job_applies_main_ceiling_without_requesting_a_change(self) -> None:
+        manifest = self.manifest_value()
+        manifest["run"]["model_policy"] = {  # type: ignore[index]
+            "mode": "main_ceiling",
+            "maximum_model": "gpt-5.6-luna",
+        }
+        manifest["jobs"][0]["model"] = "gpt-5.6-luna"  # type: ignore[index]
+        self.write_manifest(manifest)
+        source_path = self.write_task_source(model="gpt-5.6-sol")
+
+        run_manifest.new_job_manifest(
+            str(self.manifest_path),
+            str(source_path),
+            "implementation-worker",
+            1,
+            "001-preflight",
+        )
+
+        job = self.read_manifest()["jobs"][1]  # type: ignore[index]
+        self.assertEqual(job["selected_model"], "gpt-5.6-luna")
+        self.assertEqual(job["limited_by"], "main_ceiling")
+
+    def test_new_job_rejects_model_outside_ceiling_order(self) -> None:
+        manifest = self.manifest_value()
+        manifest["run"]["model_policy"] = {  # type: ignore[index]
+            "mode": "explicit_ceiling",
+            "maximum_model": "gpt-5.6-terra",
+        }
+        manifest["jobs"][0]["model"] = "gpt-5.6-terra"  # type: ignore[index]
+        self.write_manifest(manifest)
+        source_path = self.write_task_source(model="gpt-5.5")
+        original = self.manifest_path.read_bytes()
+
+        with self.assertRaisesRegex(run_manifest.ManifestError, "unsupported requested model"):
+            run_manifest.new_job_manifest(
+                str(self.manifest_path),
+                str(source_path),
+                "implementation-worker",
+                1,
+                "001-preflight",
+            )
+
+        self.assertEqual(self.manifest_path.read_bytes(), original)
+        self.assertFalse((self.root / "jobs" / "002-implementation").exists())
+
+    def test_resume_preserves_model_policy(self) -> None:
+        manifest = self.manifest_value()
+        manifest["run"]["model_policy"] = {  # type: ignore[index]
+            "mode": "explicit_ceiling",
+            "maximum_model": "gpt-5.6-terra",
+        }
+        manifest["jobs"][0]["model"] = "gpt-5.6-terra"  # type: ignore[index]
+        self.write_manifest(manifest)
+        self.write_result()
+        run_manifest.finish_manifest(str(self.manifest_path), "completed")
+
+        run_manifest.resume_manifest(str(self.manifest_path))
+
+        resumed = self.read_manifest()
+        self.assertEqual(
+            resumed["run"]["model_policy"],  # type: ignore[index]
+            {
+                "mode": "explicit_ceiling",
+                "maximum_model": "gpt-5.6-terra",
+            },
+        )
+
+    def test_resolve_main_model_reads_latest_turn_context(self) -> None:
+        codex_home = self.root / "codex-home"
+        rollout_dir = codex_home / "sessions" / "2026" / "08" / "26"
+        rollout_dir.mkdir(parents=True)
+        rollout = rollout_dir / "rollout-thread-123.jsonl"
+        items = [
+            {
+                "type": "turn_context",
+                "payload": {"model": "gpt-5.6-luna"},
+            },
+            {
+                "type": "event_msg",
+                "payload": {
+                    "type": "thread_settings_applied",
+                    "thread_settings": {"model": "gpt-5.6-terra"},
+                },
+            },
+            {
+                "type": "turn_context",
+                "payload": {"model": "gpt-5.6-sol"},
+            },
+        ]
+        rollout.write_text(
+            "\n".join(json.dumps(item) for item in items) + "\n", encoding="utf-8"
+        )
+
+        self.assertEqual(
+            run_manifest.resolve_main_model("thread-123", codex_home),
+            "gpt-5.6-sol",
+        )
 
     def test_new_job_rejects_invalid_task_without_changing_manifest(self) -> None:
         source_path = self.root / "invalid-draft.yaml"

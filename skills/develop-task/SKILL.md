@@ -1,6 +1,6 @@
 ---
 name: develop-task
-description: Explicitly invoked engineering workflow for repository implementation tasks with mandatory preflight/postflight review gates, adaptive gpt-5.6-luna/gpt-5.6-terra/gpt-5.6-sol routing, runner-supervised fresh-context delegation by default, an explicit direct-subagent fallback, focused validation, and standalone lifecycle handling. Use only when the user explicitly writes `$develop-task` or explicitly asks to run the develop-task workflow; otherwise do not select this skill.
+description: Explicitly invoked engineering workflow for repository implementation tasks with mandatory preflight/postflight review gates, adaptive gpt-5.6-luna/gpt-5.6-terra/gpt-5.6-sol routing with optional strict model ceilings, runner-supervised fresh-context delegation by default, an explicit direct-subagent fallback, focused validation, and standalone lifecycle handling. Use only when the user explicitly writes `$develop-task` or explicitly asks to run the develop-task workflow; otherwise do not select this skill.
 ---
 
 # Develop Task
@@ -73,7 +73,7 @@ regression, not enumerate unsupported theoretical states.
 ## Delegation Backend
 
 Select one delegation backend at the start of the run and report it in the
-first progress update:
+first progress update together with the resolved model policy:
 
 - use `runner` by default;
 - use `subagents` only when the user explicitly says not to use the runner or
@@ -103,6 +103,52 @@ All later instructions to "dispatch", "run", "return to", or "ask" a role use
 the selected backend. Core gate semantics, evidence requirements, review
 independence, bounded loops, and lifecycle rules are identical across both
 backends.
+
+## Model Ceiling
+
+Resolve one immutable model policy at the start of the run, before preflight:
+
+- `adaptive` is the default and preserves the routing matrix below unchanged;
+- `explicit_ceiling`, alias `E`, uses the model named by the user, for example
+  `E Terra`, `E: Luna`, or "не выше модели Terra";
+- `main_ceiling`, alias `M`, uses the model selected for the main chat, for
+  example `M` or "не используй модели сильнее модели этого чата".
+
+Interpret an unambiguous cost-saving instruction such as "не используй сильные
+модели" in context and resolve it to a concrete `explicit_ceiling`; do not
+hard-code that phrase to Terra and do not ask the user to translate it into a
+mode. Report the resolved mode and maximum model before the first delegated
+job.
+
+The supported ceiling order is strictly `gpt-5.6-luna` < `gpt-5.6-terra` <
+`gpt-5.6-sol`. A ceiling limits the model only; keep the reasoning effort chosen
+by the normal profile. Determine the requested model exactly as in `adaptive`,
+then select the lower of that model and the ceiling. Never select a model above
+the ceiling.
+
+The ceiling is an explicit user constraint, not a reason to request an upgrade:
+
+- do not ask the user to raise, remove, or bypass it;
+- do not return `upgrade required` solely because the adaptive route is above
+  it;
+- keep every retry, specialist, diagnosis, implementation slice, preflight, and
+  postflight at or below it;
+- record the adaptive requested model, selected model, and limiting mode when
+  they differ;
+- if the bounded workflow cannot succeed within the ceiling, report that
+  terminal outcome without proposing a model-policy change.
+
+In runner mode, write the resolved policy under `run.model_policy`; prepare each
+task with its adaptive requested model and let `agent-run-manifest new-job`
+apply the ceiling before creating immutable `task.yaml`. For `M`, resolve the
+main model with `agent-run-manifest current-model` before creating `run.yaml`.
+If that command cannot return one of the three supported models, stop before the
+first job rather than guessing.
+
+In direct-subagent mode, apply the same comparison before every `spawn_agent`
+call and pass only the selected model. Include the requested and selected model
+in the role packet when the ceiling changed it. Direct subagents have no
+manifest enforcement, so this check is mandatory at every spawn.
 
 ## Ownership Invariants
 
@@ -224,15 +270,17 @@ successful only when it reduces usage without increasing conceptual failures
 or review cycles.
 
 Always pass an explicit model and reasoning effort for every delegated job. Do
-not rely on inherited defaults. Runner tasks record both values in YAML and
-start fresh ephemeral workers. Direct-subagent spawns must use
+not rely on inherited defaults. Runner task drafts contain the requested model;
+the manifest helper records and applies any ceiling before the runner starts a
+fresh ephemeral worker. Direct-subagent spawns must use
 `fork_turns: "none"` or a positive bounded history. Every backend receives a
 compact self-contained packet even when the selected model matches the parent.
 
 If an approved model or agent role is unavailable, do not silently downgrade or
-substitute a weaker route. Use an available equivalent-or-stronger approved
-route, repeating preflight if the profile changes materially, or stop with the
-unavailable component and required decision.
+substitute a weaker route. In `adaptive`, use an available equivalent-or-stronger
+approved route, repeating preflight if the profile changes materially. Under a
+ceiling, never cross it; stop with the unavailable component when no approved
+route remains at or below the ceiling.
 
 ## Roles
 
@@ -244,6 +292,7 @@ Do:
   technical hypothesis;
 - build the preliminary Execution Profile;
 - choose the model and reasoning effort for each delegated job;
+- resolve and enforce the run's model policy;
 - select and enforce one delegation backend;
 - propose and sequence bounded implementation slices when a Deep or Critical
   task spans multiple separable responsibilities;
@@ -259,7 +308,9 @@ Do not:
 - silently override a core-gate decision;
 - interpret specialist output as the final gate decision;
 - edit concurrently with an active implementation worker;
-- keep a task on a cheap tier after evidence requires promotion.
+- keep a task below an evidence-based promotion when the model policy is
+  `adaptive`; under a ceiling, record the requested promotion and keep the
+  selected model capped.
 
 ### Core Gates
 
@@ -299,6 +350,11 @@ Require preflight to confirm or upgrade:
 - implementation model/effort;
 - postflight minimum model/effort;
 - replan triggers.
+
+When a ceiling is active, require preflight to state the adaptive requested
+model and the capped selected model. Treat the selected model as confirmed when
+the only difference is the user's ceiling; the gate must not request removal of
+the ceiling.
 
 Implementation may start only when preflight returns both `Decision: proceed`
 and `Routing status: confirmed`, with no unresolved Blocking specialist
@@ -643,6 +699,7 @@ When done, report:
 
 - Problem and cause, when applicable;
 - Execution Profile and writer;
+- model policy and any jobs whose requested model was capped;
 - Fix;
 - Validation and skipped checks;
 - Preflight and postflight results and cycle count;

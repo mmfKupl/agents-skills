@@ -53,7 +53,7 @@ Skills:
 
 - `unslop` - shared writing-quality layer used by every skill in this repository for clear, natural user-facing prose.
 - `brainstorm-task` - repository-grounded task scoping with interactive brainstorm and autonomous autopilot modes.
-- `develop-task` - adaptive single-writer repository implementation workflow with mandatory preflight/postflight gates, supervised runner jobs by default, an explicit direct-subagent fallback, focused validation, logical commits, and draft PR creation.
+- `develop-task` - adaptive single-writer repository implementation workflow with optional explicit or main-chat model ceilings, mandatory preflight/postflight gates, supervised runner jobs by default, an explicit direct-subagent fallback, focused validation, logical commits, and draft PR creation.
 - `diff-review` - independent fresh diff review for local changes.
 - `review-task` - deep audit workflow for already implemented tasks, with specialist review, validation reuse, focused checks, and runtime/preview probes when useful.
 

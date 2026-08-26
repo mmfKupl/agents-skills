@@ -98,6 +98,12 @@ invent product requirements.
     or logs, an existing supported contract, or a concrete reachable
     security/correctness failure at the changed boundary. Hypothetical future
     use and generic best practice do not justify code.
+21. Model routing has three run-wide modes. `adaptive` preserves the matrix;
+    `explicit_ceiling` (`E`) caps every delegated job at a user-selected GPT-5.6
+    model; `main_ceiling` (`M`) caps every delegated job at the model selected
+    for the main chat. A ceiling is strict and never triggers a request to lift
+    it. Runner mode records and enforces it in `run.yaml`; direct-subagent mode
+    checks it before every spawn.
 
 ## Execution Profiles
 
@@ -111,6 +117,11 @@ Every delegated job receives one exact model and effort, never a range.
 | Deep + Critical | Multiple critical risks, costly failure, low reversibility, or failed lower-tier reasoning | `gpt-5.6-sol` xhigh by default | Bounded known-pattern slice on `gpt-5.6-terra` high; evidence-based promotion to Sol | `gpt-5.6-sol` xhigh by default |
 
 Routing adjustments:
+
+- Apply the routing matrix first to obtain the requested model. When `E` or `M`
+  is active, select the lower model in the fixed Luna < Terra < Sol order and
+  preserve the matrix's reasoning effort. Record both models when they differ.
+  Preflight and later promotions do not cross or request removal of the ceiling.
 
 - Raise Standard implementation to `gpt-5.6-terra` high only when preflight
   names concrete reasoning uncertainty, unfamiliar patterns, or difficult

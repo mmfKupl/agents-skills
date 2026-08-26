@@ -7,6 +7,7 @@ import argparse
 import contextlib
 import fcntl
 import hashlib
+import json
 import os
 import sys
 import tempfile
@@ -32,6 +33,13 @@ RESULT_STATUSES = {
     "context_exhausted",
 }
 ACTIVE_JOB_STATUSES = {"pending", "running"}
+MODEL_ORDER = (
+    "gpt-5.6-luna",
+    "gpt-5.6-terra",
+    "gpt-5.6-sol",
+)
+MODEL_RANK = {model: rank for rank, model in enumerate(MODEL_ORDER)}
+MODEL_POLICY_MODES = {"adaptive", "explicit_ceiling", "main_ceiling"}
 
 
 class ManifestError(ValueError):
@@ -100,6 +108,49 @@ def _absolute_path(value: Any, location: str) -> Path:
     return path
 
 
+def _validate_model_policy(value: Any, location: str) -> dict[str, Any]:
+    policy = _mapping(value, location, {"mode", "maximum_model"})
+    mode = policy["mode"]
+    if mode not in MODEL_POLICY_MODES:
+        raise ManifestError(f"unsupported {location}.mode: {mode!r}")
+    maximum_model = policy["maximum_model"]
+    if mode == "adaptive":
+        if maximum_model is not None:
+            raise ManifestError(f"{location}.maximum_model must be null in adaptive mode")
+    elif maximum_model not in MODEL_RANK:
+        supported = ", ".join(MODEL_ORDER)
+        raise ManifestError(
+            f"{location}.maximum_model must be one of {supported} in {mode} mode"
+        )
+    return policy
+
+
+def _model_policy(run: dict[str, Any]) -> dict[str, Any]:
+    value = run.get("model_policy")
+    if value is None:
+        return {"mode": "adaptive", "maximum_model": None}
+    return _validate_model_policy(value, "run.model_policy")
+
+
+def _select_model(
+    requested_model: str, policy: dict[str, Any]
+) -> tuple[str, str | None]:
+    requested_model = _nonempty(requested_model, "requested model")
+    mode = policy["mode"]
+    if mode == "adaptive":
+        return requested_model, None
+    if requested_model not in MODEL_RANK:
+        supported = ", ".join(MODEL_ORDER)
+        raise ManifestError(
+            f"cannot apply {mode} to unsupported requested model {requested_model!r}; "
+            f"supported models: {supported}"
+        )
+    maximum_model = policy["maximum_model"]
+    if MODEL_RANK[requested_model] > MODEL_RANK[maximum_model]:
+        return maximum_model, mode
+    return requested_model, None
+
+
 def _load_yaml(path: Path, location: str) -> dict[str, Any]:
     try:
         text = path.read_text(encoding="utf-8")
@@ -116,6 +167,69 @@ def _load_yaml(path: Path, location: str) -> dict[str, Any]:
     return value
 
 
+def resolve_main_model(
+    thread_id: str | None = None, codex_home: Path | None = None
+) -> str:
+    resolved_thread_id = _nonempty(
+        thread_id or os.environ.get("CODEX_THREAD_ID"), "CODEX_THREAD_ID"
+    )
+    if codex_home is None:
+        configured_home = os.environ.get("CODEX_HOME")
+        codex_home = (
+            Path(configured_home).expanduser()
+            if configured_home
+            else Path.home() / ".codex"
+        )
+    sessions_dir = codex_home / "sessions"
+    candidates = sorted(
+        path
+        for path in sessions_dir.rglob("*.jsonl")
+        if resolved_thread_id in path.name
+    )
+    if not candidates:
+        raise ManifestError(
+            f"cannot find rollout for CODEX_THREAD_ID {resolved_thread_id!r} "
+            f"under {sessions_dir}"
+        )
+    if len(candidates) != 1:
+        raise ManifestError(
+            f"found multiple rollouts for CODEX_THREAD_ID {resolved_thread_id!r}"
+        )
+
+    model: str | None = None
+    try:
+        with candidates[0].open(encoding="utf-8") as handle:
+            for line in handle:
+                try:
+                    item = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                payload = item.get("payload")
+                if not isinstance(payload, dict):
+                    continue
+                candidate: Any = None
+                if item.get("type") == "turn_context":
+                    candidate = payload.get("model")
+                elif (
+                    item.get("type") == "event_msg"
+                    and payload.get("type") == "thread_settings_applied"
+                ):
+                    settings = payload.get("thread_settings")
+                    if isinstance(settings, dict):
+                        candidate = settings.get("model")
+                elif item.get("type") == "world_state":
+                    state = payload.get("state")
+                    if isinstance(state, dict):
+                        candidate = state.get("model")
+                if isinstance(candidate, str) and candidate.strip():
+                    model = candidate
+    except OSError as exc:
+        raise ManifestError(f"cannot read rollout {candidates[0]}: {exc}") from exc
+    if model is None:
+        raise ManifestError(f"rollout {candidates[0]} does not record the current model")
+    return model
+
+
 def _validate_manifest(value: dict[str, Any], path: Path) -> dict[str, Any]:
     root = _mapping(value, "run manifest", {"kind", "schema_version", "run", "jobs"})
     if root["kind"] != "develop-task-run":
@@ -127,6 +241,7 @@ def _validate_manifest(value: dict[str, Any], path: Path) -> dict[str, Any]:
         root["run"],
         "run",
         {"id", "backend", "workspace", "status", "started_at", "finished_at"},
+        {"model_policy"},
     )
     _nonempty(run["id"], "run.id")
     if run["backend"] != "runner":
@@ -137,6 +252,7 @@ def _validate_manifest(value: dict[str, Any], path: Path) -> dict[str, Any]:
     _nonempty(run["started_at"], "run.started_at")
     if run["finished_at"] is not None and not isinstance(run["finished_at"], str):
         raise ManifestError("run.finished_at must be a string or null")
+    policy = _model_policy(run)
 
     jobs = root["jobs"]
     if not isinstance(jobs, list):
@@ -153,7 +269,13 @@ def _validate_manifest(value: dict[str, Any], path: Path) -> dict[str, Any]:
         "model",
         "reasoning_effort",
     }
-    optional = {"execution_id", "usage"}
+    optional = {
+        "execution_id",
+        "usage",
+        "requested_model",
+        "selected_model",
+        "limited_by",
+    }
     for index, raw_job in enumerate(jobs):
         job = _mapping(raw_job, f"jobs[{index}]", required, optional)
         job_id = _nonempty(job["id"], f"jobs[{index}].id")
@@ -171,8 +293,39 @@ def _validate_manifest(value: dict[str, Any], path: Path) -> dict[str, Any]:
         if job["result_path"] is not None:
             _absolute_path(job["result_path"], f"jobs[{index}].result_path")
         _nonempty(job["status"], f"jobs[{index}].status")
-        _nonempty(job["model"], f"jobs[{index}].model")
+        model = _nonempty(job["model"], f"jobs[{index}].model")
         _nonempty(job["reasoning_effort"], f"jobs[{index}].reasoning_effort")
+        selection_fields = {"requested_model", "selected_model", "limited_by"}
+        present_selection_fields = selection_fields & set(job)
+        if present_selection_fields and present_selection_fields != selection_fields:
+            missing = sorted(selection_fields - present_selection_fields)
+            raise ManifestError(
+                f"jobs[{index}] model selection is missing: {', '.join(missing)}"
+            )
+        if present_selection_fields:
+            requested_model = _nonempty(
+                job["requested_model"], f"jobs[{index}].requested_model"
+            )
+            selected_model = _nonempty(
+                job["selected_model"], f"jobs[{index}].selected_model"
+            )
+            expected_model, expected_limit = _select_model(requested_model, policy)
+            if selected_model != expected_model:
+                raise ManifestError(
+                    f"jobs[{index}].selected_model does not match run.model_policy"
+                )
+            if job["limited_by"] != expected_limit:
+                raise ManifestError(
+                    f"jobs[{index}].limited_by does not match run.model_policy"
+                )
+            if model != selected_model:
+                raise ManifestError(
+                    f"jobs[{index}].model must equal jobs[{index}].selected_model"
+                )
+        else:
+            selected_model, _ = _select_model(model, policy)
+            if selected_model != model:
+                raise ManifestError(f"jobs[{index}].model exceeds run.model_policy")
         if "execution_id" in job and job["execution_id"] is not None:
             _nonempty(job["execution_id"], f"jobs[{index}].execution_id")
         if "usage" in job and job["usage"] is not None and not isinstance(job["usage"], dict):
@@ -425,6 +578,16 @@ def new_job_manifest(
                 f"task workspace {workspace} does not match run workspace {run_workspace}"
             )
 
+        requested_model = task["agent"]["model"]
+        selected_model, limited_by = _select_model(
+            requested_model, _model_policy(manifest["run"])
+        )
+        if selected_model != requested_model:
+            task["agent"]["model"] = selected_model
+            task_bytes = yaml.safe_dump(
+                task, allow_unicode=True, sort_keys=False
+            ).encode("utf-8")
+
         task_path = _create_immutable_task(path.parent / "jobs" / job_id, task_bytes)
         manifest["jobs"].append(
             {
@@ -437,7 +600,10 @@ def new_job_manifest(
                 "status": "pending",
                 "execution_id": None,
                 "usage": None,
-                "model": task["agent"]["model"],
+                "model": selected_model,
+                "requested_model": requested_model,
+                "selected_model": selected_model,
+                "limited_by": limited_by,
                 "reasoning_effort": task["agent"]["reasoning_effort"],
             }
         )
@@ -476,9 +642,15 @@ def resume_manifest(path_argument: str) -> Path:
 def _argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="agent-run-manifest",
-        description="Register, reconcile, or finalize one develop-task run.yaml atomically.",
+        description=(
+            "Resolve the main model or atomically register, reconcile, and finalize "
+            "one develop-task run.yaml."
+        ),
     )
     commands = parser.add_subparsers(dest="command", required=True)
+    commands.add_parser(
+        "current-model", help="print the model recorded for the current Codex thread"
+    )
     new_job = commands.add_parser(
         "new-job", help="validate a task, create its job directory, and register it"
     )
@@ -500,7 +672,9 @@ def _argument_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = _argument_parser().parse_args(argv)
     try:
-        if args.command == "new-job":
+        if args.command == "current-model":
+            output = resolve_main_model()
+        elif args.command == "new-job":
             path = new_job_manifest(
                 args.run_manifest,
                 args.task_source,
@@ -508,16 +682,20 @@ def main(argv: list[str] | None = None) -> int:
                 args.contract_revision,
                 args.approved_by_preflight,
             )
+            output = str(path.resolve())
         elif args.command == "reconcile":
             path = reconcile_manifest(args.run_manifest)
+            output = str(path.resolve())
         elif args.command == "finish":
             path = finish_manifest(args.run_manifest, args.status)
+            output = str(path.resolve())
         else:
             path = resume_manifest(args.run_manifest)
+            output = str(path.resolve())
     except (ManifestError, OSError) as exc:
         print(f"agent-run-manifest: {exc}", file=sys.stderr)
         return 2
-    print(path.resolve())
+    print(output)
     return 0
 
 

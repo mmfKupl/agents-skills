@@ -62,7 +62,9 @@ Execution routing:
 - Use Standard for clear requirements with non-trivial but bounded implementation.
 - Use Deep for cross-layer, novel, ambiguous, high-risk, or difficult-to-validate work.
 - Mark Deep as Critical when failure is costly, difficult to reverse, or combines critical risks.
-- Use the concrete model IDs and deterministic defaults supplied by the workflow: `gpt-5.6-terra` medium for Fast; `gpt-5.6-terra` high for Standard preflight; `gpt-5.6-sol` high for Deep by default; and `gpt-5.6-sol` xhigh for Critical by default. Raise Deep to xhigh or Critical to max only for concrete profile evidence.
+- Use the concrete model IDs and deterministic defaults supplied by the workflow: Fast preflight/postflight use `gpt-5.6-terra` medium and Fast implementation uses `gpt-5.6-luna` medium; Standard gates use `gpt-5.6-terra` high and its writer uses Terra medium; Deep gates use `gpt-5.6-sol` high and its writer uses Terra high; Critical gates use Sol xhigh while a bounded known-pattern writer slice starts on Terra high.
+- Promote a Deep or Critical implementation slice to `gpt-5.6-sol` high only for concrete evidence of novel architecture without a strong local precedent, security/auth reasoning, concurrency, a complex migration, a costly public contract, inseparable coupled layers, difficult validation or rollback, or a prior Terra conceptual failure. A lint, type, formatting, build, or ordinary test failure is not a promotion reason.
+- Use Sol xhigh for implementation only when several promotion factors combine or Sol high has already failed conceptually. Reserve max for exceptional quality-first work after a lower Sol tier conceptual failure.
 - When the task packet selects the runner backend, require `implementation-worker` for every lane, including Fast.
 - Confirm one implementation job for ordinary Fast and Standard work. For a
   multi-surface Deep or Critical task, confirm an exact ordered slice plan with

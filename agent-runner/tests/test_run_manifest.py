@@ -60,6 +60,36 @@ class RunManifestTests(unittest.TestCase):
             yaml.safe_dump(value or self.manifest_value(), sort_keys=False), encoding="utf-8"
         )
 
+    def write_task_source(
+        self,
+        job_id: str = "002-implementation",
+        *,
+        workspace: Path | None = None,
+    ) -> Path:
+        source_path = self.root / f"{job_id}-draft.yaml"
+        task = {
+            "kind": "agent-task",
+            "schema_version": 2,
+            "job": {"id": job_id, "prompt": "Perform the bounded job."},
+            "workspace": {"cwd": str(workspace or self.root)},
+            "agent": {"model": "gpt-5.6-luna", "reasoning_effort": "medium"},
+            "permissions": {
+                "sandbox_mode": "workspace_write",
+                "approval_policy": "never",
+                "network_access": False,
+            },
+            "supervision": {
+                "context": {
+                    "soft_limit_tokens": 155000,
+                    "hard_limit_tokens": 180000,
+                    "checkpoint_grace_seconds": 20,
+                },
+                "max_attempts": 2,
+            },
+        }
+        source_path.write_text(yaml.safe_dump(task, sort_keys=False), encoding="utf-8")
+        return source_path
+
     def write_result(
         self,
         status: str = "completed",
@@ -141,9 +171,59 @@ class RunManifestTests(unittest.TestCase):
         self.assertEqual(job["status"], "invalid_task")
         self.assertEqual(job["result_path"], str(result_path))
 
+    def test_new_job_validates_creates_and_registers_task(self) -> None:
+        source_path = self.write_task_source()
+        task_path = run_manifest.new_job_manifest(
+            str(self.manifest_path),
+            str(source_path),
+            "implementation-worker",
+            1,
+            "001-preflight",
+        )
+
+        expected = (self.root / "jobs" / "002-implementation" / "task.yaml").resolve()
+        self.assertEqual(task_path, expected)
+        self.assertEqual(task_path.read_bytes(), source_path.read_bytes())
+        job = self.read_manifest()["jobs"][1]  # type: ignore[index]
+        self.assertEqual(job["id"], "002-implementation")
+        self.assertEqual(job["role"], "implementation-worker")
+        self.assertEqual(job["approved_by_preflight"], "001-preflight")
+        self.assertEqual(job["task_path"], str(expected))
+        self.assertEqual(job["status"], "pending")
+        self.assertEqual(job["model"], "gpt-5.6-luna")
+        self.assertEqual(job["reasoning_effort"], "medium")
+
+    def test_new_job_rejects_invalid_task_without_changing_manifest(self) -> None:
+        source_path = self.root / "invalid-draft.yaml"
+        source_path.write_text("kind: agent-task\n", encoding="utf-8")
+        original = self.manifest_path.read_bytes()
+
+        with self.assertRaisesRegex(run_manifest.ManifestError, "invalid task source"):
+            run_manifest.new_job_manifest(
+                str(self.manifest_path),
+                str(source_path),
+                "implementation-worker",
+                1,
+                "001-preflight",
+            )
+
+        self.assertEqual(self.manifest_path.read_bytes(), original)
+        self.assertFalse((self.root / "jobs" / "002-implementation").exists())
+
     def test_finish_refuses_active_jobs(self) -> None:
         with self.assertRaisesRegex(run_manifest.ManifestError, "active jobs"):
             run_manifest.finish_manifest(str(self.manifest_path), "completed")
+        self.assertEqual(self.read_manifest()["run"]["status"], "running")  # type: ignore[index]
+
+    def test_finish_refuses_unregistered_task_file(self) -> None:
+        self.write_result()
+        unregistered_dir = self.root / "jobs" / "002-unregistered"
+        unregistered_dir.mkdir()
+        (unregistered_dir / "task.yaml").write_text("kind: agent-task\n", encoding="utf-8")
+
+        with self.assertRaisesRegex(run_manifest.ManifestError, "unregistered task files"):
+            run_manifest.finish_manifest(str(self.manifest_path), "completed")
+
         self.assertEqual(self.read_manifest()["run"]["status"], "running")  # type: ignore[index]
 
     def test_finish_and_resume_update_run_lifecycle(self) -> None:
@@ -172,6 +252,31 @@ class RunManifestTests(unittest.TestCase):
         )
         self.assertEqual(completed.returncode, 0, completed.stderr)
         self.assertEqual(completed.stdout.strip(), str(self.manifest_path))
+        self.assertEqual(completed.stderr, "")
+
+    def test_new_job_cli_prints_only_absolute_task_path(self) -> None:
+        source_path = self.write_task_source()
+        completed = subprocess.run(
+            [
+                sys.executable,
+                str(Path(run_manifest.__file__).resolve()),
+                "new-job",
+                str(self.manifest_path),
+                str(source_path),
+                "--role",
+                "implementation-worker",
+                "--contract-revision",
+                "1",
+                "--approved-by-preflight",
+                "001-preflight",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        expected = self.root / "jobs" / "002-implementation" / "task.yaml"
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertEqual(completed.stdout.strip(), str(expected))
         self.assertEqual(completed.stderr, "")
 
 

@@ -43,12 +43,13 @@ than `0700`.
         └── results/<execution-id>.yaml
 ```
 
-The main thread creates `run.yaml`, job directories, every `task.yaml`, and the
-semantic job plan. The runner exclusively creates result files. The
-`agent-run-manifest` helper exclusively reconciles result-derived job fields
-and run lifecycle timestamps under a short file lock with atomic replacement.
-Workers must not receive orchestration paths and must not edit orchestration
-files.
+The main thread creates `run.yaml`, prepares each task document, and owns the
+semantic job plan. `agent-run-manifest new-job` validates the task, creates its
+final immutable job directory and `task.yaml`, and atomically registers the
+pending entry. The runner exclusively creates result files. The manifest helper
+also reconciles result-derived job fields and owns run lifecycle timestamps
+under a short file lock with atomic replacement. Workers must not receive
+orchestration paths and must not edit orchestration files.
 
 Use a monotonically increasing sequence plus a short role slug for job
 directories. Treat a task file as immutable after its process starts. Create a
@@ -88,11 +89,27 @@ jobs:
     status: pending
     execution_id: null
     usage: null
-    model: gpt-5.6-terra
+    model: gpt-5.6-luna
     reasoning_effort: medium
 ```
 
-Create a job entry as `pending` immediately before its foreground runner call.
+Initialize a new manifest with `jobs: []`. For each invocation, prepare the
+strict task YAML at a temporary path outside `jobs/`, then register it:
+
+```bash
+agent-run-manifest new-job /absolute/path/to/run.yaml /absolute/path/to/task-draft.yaml \
+  --role implementation-worker \
+  --contract-revision 1 \
+  --approved-by-preflight 001-preflight
+```
+
+Omit `--approved-by-preflight` for the initial preflight. The command validates
+the complete task schema before creating anything, requires its workspace to
+match the run, creates `jobs/<job.id>/task.yaml`, atomically appends the pending
+entry, and prints the final task path for the foreground runner call. Do not
+manually create final job directories or append job entries. The temporary
+source may be removed after successful registration.
+
 After each process finishes, run `agent-run-manifest reconcile <run.yaml>`; do
 not hand-copy its result path, execution status, ID, or usage. Reconciliation
 verifies the immutable task hash and job ID, rejects multiple executions in one
@@ -109,7 +126,7 @@ role, model, or writer responsibility continues.
 
 ## Create One Task
 
-Write exactly one strict `agent-task` v2 document per invocation:
+Prepare exactly one strict `agent-task` v2 document per invocation:
 
 ```yaml
 kind: agent-task
@@ -348,8 +365,9 @@ agent-run-manifest finish /absolute/path/to/run.yaml stopped
 ```
 
 `finish` reconciles first and refuses an active job. Use `completed` only after
-postflight approval and required lifecycle actions. If a later user response
-legitimately resumes a terminal run, call
+postflight approval and required lifecycle actions. It also refuses any
+`jobs/*/task.yaml` that was not registered through the manifest. If a later
+user response legitimately resumes a terminal run, call
 `agent-run-manifest resume /absolute/path/to/run.yaml` before adding the next
 job. The helper does not decide whether a failed historical job was
 semantically resolved; the main thread and gates retain that responsibility.

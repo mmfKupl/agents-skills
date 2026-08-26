@@ -67,11 +67,12 @@ invent product requirements.
     gate, specialist, and implementation worker. `subagents` is selected only
     by an explicit user instruction not to use the runner or to use subagents.
 13. Runner mode uses one private App Server process per immutable YAML job. The
-    main thread owns the semantic run plan and task files; runner processes own
-    unique result files. A one-shot manifest helper atomically reconciles
-    result-derived execution fields and terminal run timestamps in `run.yaml`.
-    No daemon, MCP server, batch engine, or model-driven polling is part of the
-    workflow.
+    main thread owns the semantic run plan and prepares task documents; the
+    one-shot manifest helper validates each task, creates its immutable job
+    directory, atomically registers it, reconciles result-derived execution
+    fields, and owns terminal run timestamps in `run.yaml`. Runner processes
+    own unique result files. No daemon, MCP server, batch engine, or
+    model-driven polling is part of the workflow.
 14. Every runner-mode role, including Fast implementation, uses a fresh worker.
     Direct-subagent mode preserves the prior option for main to implement a
     confirmed Fast task.
@@ -89,6 +90,8 @@ invent product requirements.
     checkpoint and hard interruption thresholds.
 19. Live foreground work and post-PR lifecycle checks use five-minute silent
     long polls. Unchanged state produces no commentary or extra status probes.
+    Once a GitHub Actions run ID is known, an available
+    `gh run watch <id> --exit-status` is the mandatory foreground watcher.
 20. The approved task scope is closed. New behavior, defenses, abstractions,
     edge cases, tests, and validation require an explicit requirement, a
     reproduced failure or reachable state demonstrated by current code, data,
@@ -102,23 +105,34 @@ Every delegated job receives one exact model and effort, never a range.
 
 | Profile | Typical shape | Preflight | Implementation | Postflight |
 | --- | --- | --- | --- | --- |
-| Fast | Established local pattern, low blast radius, narrow validation | `gpt-5.6-terra` medium | Runner worker by default; main or worker fallback on `gpt-5.6-terra` medium | `gpt-5.6-terra` medium |
+| Fast | Established local pattern, low blast radius, narrow validation | `gpt-5.6-terra` medium | Runner worker on `gpt-5.6-luna` medium; direct fallback uses main or a Luna worker | `gpt-5.6-terra` medium |
 | Standard | Clear requirements, non-trivial but bounded logic | `gpt-5.6-terra` high | Worker on `gpt-5.6-terra` medium by default | `gpt-5.6-terra` high |
-| Deep | Cross-layer, novel, ambiguous, high-risk, or hard to validate | `gpt-5.6-sol` high by default | Worker on `gpt-5.6-sol` high by default | `gpt-5.6-sol` high by default |
-| Deep + Critical | Multiple critical risks, costly failure, low reversibility, or failed lower-tier reasoning | `gpt-5.6-sol` xhigh by default | Worker on `gpt-5.6-sol` xhigh by default | `gpt-5.6-sol` xhigh by default |
+| Deep | Cross-layer, novel, ambiguous, high-risk, or hard to validate | `gpt-5.6-sol` high by default | Worker on `gpt-5.6-terra` high by default | `gpt-5.6-sol` high by default |
+| Deep + Critical | Multiple critical risks, costly failure, low reversibility, or failed lower-tier reasoning | `gpt-5.6-sol` xhigh by default | Bounded known-pattern slice on `gpt-5.6-terra` high; evidence-based promotion to Sol | `gpt-5.6-sol` xhigh by default |
 
 Routing adjustments:
 
 - Raise Standard implementation to `gpt-5.6-terra` high only when preflight
   names concrete reasoning uncertainty, unfamiliar patterns, or difficult
   validation.
-- Raise Deep from high to xhigh for novel architecture, several coupled layers,
-  or substantial uncertainty.
-- Use `gpt-5.6-sol` max when multiple critical indicators combine, failure is
-  especially costly or irreversible, correctness is difficult to validate, or
-  a lower Sol tier has already made a conceptual mistake.
+- Promote a Deep or Critical implementation slice from `gpt-5.6-terra` high to
+  `gpt-5.6-sol` high only for evidence of novel architecture without precedent,
+  security/auth reasoning, concurrency, a complex migration, a costly public
+  contract, inseparable coupled layers, difficult validation or rollback, or a
+  prior Terra conceptual failure. Ordinary tool or test failures do not count.
+- Use Sol xhigh for implementation only when several promotion factors combine
+  or Sol high has already failed conceptually. Reserve max for exceptional
+  quality-first work after a lower Sol tier conceptual failure.
 - Do not silently downgrade when a selected model or role is unavailable. Use
   an equivalent-or-stronger approved route or stop explicitly.
+
+Known deterministic validation commands run directly after writer ownership is
+released. A log-classification-only agent may use Luna low or medium; semantic
+gates retain their configured tier. Diagnosis uses Terra high for Fast or
+Standard, Sol high for Deep, and Sol xhigh for a Critical unresolved cause.
+Evaluate routing with existing run artifacts: role/model/effort counts,
+uncached input and output, cached input, promotions, first-pass postflight
+approval, and repeated fix cycles.
 
 Critical indicators include security, authentication, permissions, billing,
 persistence, migrations, destructive behavior, concurrency, public contracts,

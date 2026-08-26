@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Atomically reconcile and finalize a develop-task run manifest."""
+"""Atomically register, reconcile, and finalize a develop-task run manifest."""
 
 from __future__ import annotations
 
@@ -274,6 +274,64 @@ def _reconcile_document(document: dict[str, Any], manifest_path: Path) -> dict[s
     return manifest
 
 
+def _unregistered_task_paths(manifest: dict[str, Any], manifest_path: Path) -> list[Path]:
+    registered = {Path(job["task_path"]).resolve() for job in manifest["jobs"]}
+    jobs_dir = manifest_path.parent / "jobs"
+    return sorted(
+        task_path.resolve()
+        for task_path in jobs_dir.glob("*/task.yaml")
+        if task_path.resolve() not in registered
+    )
+
+
+def _validate_task_source(task_source_argument: str) -> tuple[bytes, dict[str, Any]]:
+    source_path = Path(os.path.abspath(os.path.expanduser(task_source_argument)))
+    try:
+        task_bytes = source_path.read_bytes()
+    except OSError as exc:
+        raise ManifestError(f"cannot read task source {source_path}: {exc}") from exc
+
+    from agent_runner import TaskValidationError, parse_task
+
+    try:
+        task = parse_task(task_bytes, source_path)
+    except TaskValidationError as exc:
+        raise ManifestError(f"invalid task source {source_path}: {exc}") from exc
+    return task_bytes, task
+
+
+def _create_immutable_task(job_dir: Path, task_bytes: bytes) -> Path:
+    jobs_dir = job_dir.parent
+    jobs_dir.mkdir(parents=True, exist_ok=True)
+    if job_dir.exists():
+        raise ManifestError(f"job directory already exists: {job_dir}")
+
+    temporary_dir: Path | None = Path(
+        tempfile.mkdtemp(prefix=f".{job_dir.name}.", dir=jobs_dir)
+    )
+    try:
+        assert temporary_dir is not None
+        temporary_task = temporary_dir / "task.yaml"
+        with temporary_task.open("wb") as handle:
+            handle.write(task_bytes)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary_dir, job_dir)
+        temporary_dir = None
+        directory_fd = os.open(jobs_dir, os.O_RDONLY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+    finally:
+        if temporary_dir is not None:
+            with contextlib.suppress(FileNotFoundError):
+                (temporary_dir / "task.yaml").unlink()
+            with contextlib.suppress(OSError):
+                temporary_dir.rmdir()
+    return job_dir / "task.yaml"
+
+
 def _atomic_write(path: Path, document: dict[str, Any]) -> None:
     temporary: Path | None = None
     try:
@@ -322,12 +380,82 @@ def reconcile_manifest(path_argument: str) -> Path:
     return path
 
 
+def new_job_manifest(
+    path_argument: str,
+    task_source_argument: str,
+    role: str,
+    contract_revision: int,
+    approved_by_preflight: str | None,
+) -> Path:
+    path = Path(os.path.abspath(os.path.expanduser(path_argument)))
+    task_bytes, task = _validate_task_source(task_source_argument)
+    role = _nonempty(role, "role")
+    if (
+        isinstance(contract_revision, bool)
+        or not isinstance(contract_revision, int)
+        or contract_revision <= 0
+    ):
+        raise ManifestError("contract revision must be a positive integer")
+    if approved_by_preflight is not None:
+        approved_by_preflight = _nonempty(
+            approved_by_preflight, "approved_by_preflight"
+        )
+
+    job_id = task["job"]["id"]
+    if job_id in {".", ".."} or Path(job_id).name != job_id:
+        raise ManifestError("task job.id must be a safe job directory name")
+
+    with _locked_manifest(path) as document:
+        manifest = _reconcile_document(document, path)
+        if manifest["run"]["status"] != "running":
+            raise ManifestError("cannot add a job to a terminal run; resume it first")
+        unregistered = _unregistered_task_paths(manifest, path)
+        if unregistered:
+            raise ManifestError(
+                "cannot add a job while unregistered task files exist: "
+                + ", ".join(str(item) for item in unregistered)
+            )
+        if any(job["id"] == job_id for job in manifest["jobs"]):
+            raise ManifestError(f"duplicate job id: {job_id}")
+
+        workspace = Path(task["workspace"]["cwd"]).resolve()
+        run_workspace = Path(manifest["run"]["workspace"]).resolve()
+        if workspace != run_workspace:
+            raise ManifestError(
+                f"task workspace {workspace} does not match run workspace {run_workspace}"
+            )
+
+        task_path = _create_immutable_task(path.parent / "jobs" / job_id, task_bytes)
+        manifest["jobs"].append(
+            {
+                "id": job_id,
+                "role": role,
+                "contract_revision": contract_revision,
+                "approved_by_preflight": approved_by_preflight,
+                "task_path": str(task_path.resolve()),
+                "result_path": None,
+                "status": "pending",
+                "execution_id": None,
+                "usage": None,
+                "model": task["agent"]["model"],
+                "reasoning_effort": task["agent"]["reasoning_effort"],
+            }
+        )
+    return task_path.resolve()
+
+
 def finish_manifest(path_argument: str, status: str) -> Path:
     if status not in FINAL_RUN_STATUSES:
         raise ManifestError(f"unsupported final run status: {status}")
     path = Path(os.path.abspath(os.path.expanduser(path_argument)))
     with _locked_manifest(path) as document:
         manifest = _reconcile_document(document, path)
+        unregistered = _unregistered_task_paths(manifest, path)
+        if unregistered:
+            raise ManifestError(
+                "cannot finish run with unregistered task files: "
+                + ", ".join(str(item) for item in unregistered)
+            )
         active = [job["id"] for job in manifest["jobs"] if job["status"] in ACTIVE_JOB_STATUSES]
         if active:
             raise ManifestError(f"cannot finish run with active jobs: {', '.join(active)}")
@@ -348,9 +476,17 @@ def resume_manifest(path_argument: str) -> Path:
 def _argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="agent-run-manifest",
-        description="Reconcile or finalize one develop-task run.yaml atomically.",
+        description="Register, reconcile, or finalize one develop-task run.yaml atomically.",
     )
     commands = parser.add_subparsers(dest="command", required=True)
+    new_job = commands.add_parser(
+        "new-job", help="validate a task, create its job directory, and register it"
+    )
+    new_job.add_argument("run_manifest", help="absolute path to run.yaml")
+    new_job.add_argument("task_source", help="path to the prepared agent-task v2 YAML")
+    new_job.add_argument("--role", required=True, help="job role recorded in run.yaml")
+    new_job.add_argument("--contract-revision", required=True, type=int)
+    new_job.add_argument("--approved-by-preflight")
     reconcile = commands.add_parser("reconcile", help="rebuild job execution fields")
     reconcile.add_argument("run_manifest", help="absolute path to run.yaml")
     finish = commands.add_parser("finish", help="reconcile and set a terminal run status")
@@ -364,7 +500,15 @@ def _argument_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = _argument_parser().parse_args(argv)
     try:
-        if args.command == "reconcile":
+        if args.command == "new-job":
+            path = new_job_manifest(
+                args.run_manifest,
+                args.task_source,
+                args.role,
+                args.contract_revision,
+                args.approved_by_preflight,
+            )
+        elif args.command == "reconcile":
             path = reconcile_manifest(args.run_manifest)
         elif args.command == "finish":
             path = finish_manifest(args.run_manifest, args.status)

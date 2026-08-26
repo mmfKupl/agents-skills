@@ -1,6 +1,6 @@
 ---
 name: develop-task
-description: Explicitly invoked engineering workflow for repository implementation tasks with mandatory preflight/postflight review gates, adaptive gpt-5.6-terra/gpt-5.6-sol routing, runner-supervised fresh-context delegation by default, an explicit direct-subagent fallback, focused validation, and standalone lifecycle handling. Use only when the user explicitly writes `$develop-task` or explicitly asks to run the develop-task workflow; otherwise do not select this skill.
+description: Explicitly invoked engineering workflow for repository implementation tasks with mandatory preflight/postflight review gates, adaptive gpt-5.6-luna/gpt-5.6-terra/gpt-5.6-sol routing, runner-supervised fresh-context delegation by default, an explicit direct-subagent fallback, focused validation, and standalone lifecycle handling. Use only when the user explicitly writes `$develop-task` or explicitly asks to run the develop-task workflow; otherwise do not select this skill.
 ---
 
 # Develop Task
@@ -145,10 +145,10 @@ difficult-to-validate risks.
 
 | Profile | Use when | Preflight | Implementation | Postflight |
 | --- | --- | --- | --- | --- |
-| Fast | Clear local behavior, established pattern, low blast radius, narrow validation | `gpt-5.6-terra` medium | Runner worker by default; main or direct worker fallback on `gpt-5.6-terra` medium | `gpt-5.6-terra` medium |
+| Fast | Clear local behavior, established pattern, low blast radius, narrow validation | `gpt-5.6-terra` medium | Runner worker on `gpt-5.6-luna` medium; direct fallback uses main or a Luna worker | `gpt-5.6-terra` medium |
 | Standard | Clear requirements with non-trivial but bounded implementation | `gpt-5.6-terra` high | Worker on `gpt-5.6-terra` medium by default | `gpt-5.6-terra` high |
-| Deep | Cross-layer, novel, ambiguous, high-risk, or difficult to validate | `gpt-5.6-sol` high by default | Worker on `gpt-5.6-sol` high by default | `gpt-5.6-sol` high by default |
-| Deep + Critical | Multiple critical risks, costly failure, low reversibility, or failed lower-tier reasoning | `gpt-5.6-sol` xhigh by default | Worker on `gpt-5.6-sol` xhigh by default | `gpt-5.6-sol` xhigh by default |
+| Deep | Cross-layer, novel, ambiguous, high-risk, or difficult to validate | `gpt-5.6-sol` high by default | Worker on `gpt-5.6-terra` high by default | `gpt-5.6-sol` high by default |
+| Deep + Critical | Multiple critical risks, costly failure, low reversibility, or failed lower-tier reasoning | `gpt-5.6-sol` xhigh by default | Bounded known-pattern slice on `gpt-5.6-terra` high; promote only the slice that proves it needs Sol | `gpt-5.6-sol` xhigh by default |
 
 Critical indicators include security, authentication, permissions, billing,
 persistence, migrations, destructive behavior, concurrency, public contracts,
@@ -177,22 +177,51 @@ postflight on the combined implementation after all slices finish. A slice
 that invalidates the approved boundary, ordering, behavior, or critical
 contract stops the sequence and returns to fresh preflight.
 
-For Standard implementation, raise `gpt-5.6-terra` from medium to high only
-when preflight names concrete reasoning uncertainty, unfamiliar repository
-patterns, or difficult validation. For Deep, raise `gpt-5.6-sol` from high to
-xhigh for novel architecture, multiple coupled layers, or substantial
-uncertainty.
+Use `gpt-5.6-luna` medium only for confirmed Fast implementation. For Standard
+implementation, raise `gpt-5.6-terra` from medium to high only when preflight
+names concrete reasoning uncertainty, unfamiliar repository patterns, or
+difficult validation.
 
-Use `gpt-5.6-sol` max when several critical indicators combine, depth matters more than
-speed or usage, failure is especially costly, or a lower Sol tier has already
-made a conceptual mistake. Do not use max automatically for every change in a
-critical domain.
+For Deep implementation, promote the default `gpt-5.6-terra` high writer to
+`gpt-5.6-sol` high only when that exact slice has evidence of novel architecture
+without a strong local precedent, security or authentication reasoning,
+concurrency, a complex migration, a costly public-contract change, several
+inseparable coupled layers, difficult validation or rollback, or a prior
+conceptual failure by Terra. A lint, type, formatting, build, or ordinary test
+failure alone is not a promotion reason.
+
+For Deep + Critical implementation, keep a bounded slice with an established
+repository pattern on `gpt-5.6-terra` high. Use `gpt-5.6-sol` high only for a
+slice meeting the concrete promotion criteria above. Use Sol xhigh for an
+implementation slice only when several such factors combine or Sol high has
+already made a conceptual mistake. Reserve Sol max for exceptional quality-first
+work after a lower Sol tier fails conceptually; do not apply it automatically
+to a critical domain.
 
 Every preflight result must name one exact implementation model/effort and one
 exact postflight floor, never a range. Use `gpt-5.6-terra` medium by default for
 read-heavy specialists in Fast/Standard work, the requesting gate's exact tier
 for questions that determine its decision, and the Deep/Critical tier for
 questions carrying that risk.
+
+Do not create an agent job solely to run a known deterministic command and
+report its exit status. After the active writer stops and mutation ownership is
+clear, let the main thread run that command directly. If an agent is needed
+only to choose a check or classify a deterministic log, use `gpt-5.6-luna` low
+or medium unless the interpretation itself carries the effective risk tier.
+Semantic preflight, diagnosis, and postflight decisions keep their configured
+gate tier.
+
+Route diagnosis at `gpt-5.6-terra` high for Fast or Standard work,
+`gpt-5.6-sol` high for Deep work, and `gpt-5.6-sol` xhigh when the unresolved
+cause itself carries the Critical profile.
+
+For routing evaluation, use runner artifacts rather than adding a second
+telemetry system. Compare job counts by role, model, and effort; uncached input
+and output with cached input reported separately; promotions; first-pass
+postflight approval; and repeated fix cycles. A cheaper writer route is
+successful only when it reduces usage without increasing conceptual failures
+or review cycles.
 
 Always pass an explicit model and reasoning effort for every delegated job. Do
 not rely on inherited defaults. Runner tasks record both values in YAML and
@@ -512,6 +541,11 @@ does not transfer lifecycle ownership to `develop-task`.
 - Prefer one existing foreground watch command or blocking tool call. Do not
   add a custom CI monitor, daemon, background service, or polling script solely
   to keep the model idle.
+- When a GitHub Actions run ID is known and `gh run watch` is available, invoke
+  `gh run watch <run-id> --exit-status` immediately as one foreground command
+  and stay on that command's live handle until it exits. This watcher is
+  mandatory in that situation; do not replace it with repeated `gh run view`,
+  API status queries, repository probes, or model turns.
 - When the tool yields a live session, cell, process, or wait handle, continue
   on that same handle with `yield_time_ms: 300000`, or the largest supported
   value when five minutes is unavailable.

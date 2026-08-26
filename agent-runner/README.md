@@ -1,6 +1,6 @@
 # Codex agent runner
 
-`agent-runner` is a foreground CLI for exactly one immutable YAML task. It starts one private Codex App Server through the stable Python SDK, runs one ephemeral worker at a time, writes one unique YAML result, prints that result's absolute path to stdout, and exits. `agent-run-manifest` is a separate one-shot companion that reconciles those immutable results into a develop-task `run.yaml`. Launch separate runner processes for independent parallel work; there is no daemon, queue, scheduler, MCP server, or persistent conversation history.
+`agent-runner` is a foreground CLI for exactly one immutable YAML task. It starts one private Codex App Server through the stable Python SDK, runs one ephemeral worker at a time, writes one unique YAML result, prints that result's absolute path to stdout, and exits. `agent-run-manifest` is a separate one-shot companion that validates and registers immutable tasks, reconciles their results into a develop-task `run.yaml`, and finalizes the run. Launch separate runner processes for independent parallel work; there is no daemon, queue, scheduler, MCP server, or persistent conversation history.
 
 ## Install and run
 
@@ -9,7 +9,9 @@ Requirements: Python 3.10 or newer on POSIX. Advisory locking uses `fcntl`, so W
 ```bash
 python3.12 -m venv .venv
 .venv/bin/pip install ./agent-runner
-.venv/bin/agent-runner /absolute/path/to/task.yaml
+.venv/bin/agent-run-manifest new-job /absolute/path/to/run.yaml /absolute/path/to/task-draft.yaml \
+  --role implementation-worker --contract-revision 1 --approved-by-preflight 001-preflight
+.venv/bin/agent-runner /absolute/path/to/jobs/002-implementation/task.yaml
 .venv/bin/agent-run-manifest reconcile /absolute/path/to/run.yaml
 ```
 
@@ -102,7 +104,7 @@ task:
   sha256: 64-hex-digest
   job_id: fix-widget-test
 runner:
-  version: 1.2.0
+  version: 1.4.0
   sdk_version: 0.147.0
   sdk_package: openai-codex
   runtime_package: openai-codex-cli-bin==0.147.0
@@ -129,7 +131,7 @@ Attempts record fresh thread and turn IDs, timestamps, status, peak observed con
 
 ## Context rotation, signals, and cleanup
 
-The runner observes public `thread/tokenUsage/updated` stream events and computes pressure from `last.totalTokens / modelContextWindow`; accumulated thread totals are recorded but do not drive rotation. At the soft percentage it steers once for a structured checkpoint. At the hard percentage, or after checkpoint grace expires, it interrupts and waits for the old turn to become terminal before starting a fresh ephemeral thread. Only the task, fixed instructions, and the structured checkpoint (or fallback partial agent output) cross the boundary; dialogue history does not.
+The runner observes public `thread/tokenUsage/updated` stream events. Accumulated thread totals and the reported model context window are diagnostic only. At the absolute soft token limit it steers once for a structured checkpoint. At the absolute hard token limit, or after checkpoint grace expires, it interrupts and waits for the old turn to become terminal before starting a fresh ephemeral thread. Only the task, fixed instructions, and the structured checkpoint (or fallback partial agent output) cross the boundary; dialogue history does not.
 
 The terminal SDK turn status is authoritative. Structured output can complete or block a run only when the turn itself completed. A failed turn remains failed even if it emitted valid JSON first. A context-interrupted turn can contribute a valid checkpoint only as carry into a fresh attempt.
 
@@ -141,14 +143,24 @@ Read-only runs take no lock and can overlap. `workspace_write` and `danger_full_
 
 ## Run manifest companion
 
-`agent-run-manifest` operates only on a strict `develop-task-run` schema v1 `run.yaml`. The main orchestrator creates the run, job directories, immutable tasks, and semantic job plan. Each job starts as `pending`. The companion scans that task's sibling `results/` directory, verifies the task path, SHA-256, job ID, result schema, and execution status, then copies only `result_path`, `status`, `execution_id`, and `usage` into the job entry.
+`agent-run-manifest` operates only on a strict `develop-task-run` schema v1 `run.yaml`. The main orchestrator creates the run, prepares task drafts, and owns the semantic job plan. `new-job` validates a complete `agent-task` v2 draft, requires its workspace to match the run, creates the final immutable `jobs/<job.id>/task.yaml`, and atomically registers the pending entry. Its stdout is the final task path. The companion later scans that task's sibling `results/` directory, verifies the task path, SHA-256, job ID, result schema, and execution status, then copies only `result_path`, `status`, `execution_id`, and `usage` into the job entry.
 
 Use exactly one job directory per runner invocation. Reconciliation rejects multiple result files for one job instead of guessing which execution is authoritative. Updates take a short `fcntl` lock beside `run.yaml` and use a same-directory temporary file, file `fsync`, `os.replace`, and directory `fsync`.
 
 ```bash
+agent-run-manifest new-job /absolute/path/to/run.yaml /absolute/path/to/task-draft.yaml \
+  --role implementation-worker \
+  --contract-revision 1 \
+  --approved-by-preflight 001-preflight
 agent-run-manifest reconcile /absolute/path/to/run.yaml
 agent-run-manifest finish /absolute/path/to/run.yaml completed
 agent-run-manifest resume /absolute/path/to/run.yaml
 ```
 
-`finish` first reconciles and refuses to close a run with any `pending` or `running` job. Terminal run statuses are `completed`, `blocked`, `needs_user_input`, and `stopped`. `resume` reconciles, resets the run to `running`, and clears `finished_at`. The helper does not interpret gate reports or decide whether earlier failed jobs were semantically resolved.
+Do not manually create final job directories or append manifest entries. Omit
+`--approved-by-preflight` for the initial preflight. `finish` first reconciles
+and refuses to close a run with any `pending` or `running` job or any
+unregistered `jobs/*/task.yaml`. Terminal run statuses are `completed`,
+`blocked`, `needs_user_input`, and `stopped`. `resume` reconciles, resets the run
+to `running`, and clears `finished_at`. The helper does not interpret gate
+reports or decide whether earlier failed jobs were semantically resolved.

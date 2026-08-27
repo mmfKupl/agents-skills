@@ -189,6 +189,7 @@ class RunManifestTests(unittest.TestCase):
         job = self.read_manifest()["jobs"][1]  # type: ignore[index]
         self.assertEqual(job["id"], "002-implementation")
         self.assertEqual(job["role"], "implementation-worker")
+        self.assertEqual(job["requirements_revision"], 1)
         self.assertEqual(job["approved_by_preflight"], "001-preflight")
         self.assertEqual(job["task_path"], str(expected))
         self.assertEqual(job["status"], "pending")
@@ -197,6 +198,89 @@ class RunManifestTests(unittest.TestCase):
         self.assertEqual(job["selected_model"], "gpt-5.6-luna")
         self.assertIsNone(job["limited_by"])
         self.assertEqual(job["reasoning_effort"], "medium")
+
+    def test_amendments_preserve_history_and_stamp_later_jobs(self) -> None:
+        result_path = self.write_result()
+        original_task = self.task_path.read_bytes()
+        original_result = result_path.read_bytes()
+        first = {
+            "requirement_id": "R1",
+            "before": "Temporary report files are permitted with cleanup.",
+            "after": "Generate the report only in memory.",
+            "source": "Developer message 12: generate it only in memory.",
+            "reason": "Developer requested no temporary report files.",
+        }
+        run_manifest.amend_requirement_manifest(str(self.manifest_path), **first)
+        source = self.write_task_source()
+        task_path = run_manifest.new_job_manifest(
+            str(self.manifest_path), str(source), "implementation-worker", 3, "001-preflight"
+        )
+        second = {
+            **first,
+            "requirement_id": "R2",
+            "before": "Export CSV.",
+            "after": "Export XLSX.",
+            "source": "Developer message 13: use XLSX instead of CSV.",
+        }
+        run_manifest.amend_requirement_manifest(str(self.manifest_path), **second)
+
+        manifest = self.read_manifest()
+        self.assertEqual(
+            manifest["run"]["requirements"],  # type: ignore[index]
+            {"revision": 3, "amendments": [{**first, "revision": 2}, {**second, "revision": 3}]},
+        )
+        job = manifest["jobs"][1]  # type: ignore[index]
+        self.assertEqual(job["requirements_revision"], 2)
+        self.assertEqual(job["contract_revision"], 3)
+        self.assertEqual(task_path.read_bytes(), source.read_bytes())
+        self.assertEqual(self.task_path.read_bytes(), original_task)
+        self.assertEqual(result_path.read_bytes(), original_result)
+
+    def test_amendment_requires_a_source_without_rewriting_manifest(self) -> None:
+        original = self.manifest_path.read_bytes()
+        with self.assertRaisesRegex(run_manifest.ManifestError, "source"):
+            run_manifest.amend_requirement_manifest(
+                str(self.manifest_path), "R1", "Before", "After", "", "Reason"
+            )
+        self.assertEqual(self.manifest_path.read_bytes(), original)
+
+    def test_requirements_survive_finish_and_resume(self) -> None:
+        self.write_result()
+        run_manifest.amend_requirement_manifest(
+            str(self.manifest_path), "R1", "Before", "After", "Developer message", "Reason"
+        )
+        requirements = self.read_manifest()["run"]["requirements"]  # type: ignore[index]
+        run_manifest.finish_manifest(str(self.manifest_path), "needs_user_input")
+        with self.assertRaisesRegex(run_manifest.ManifestError, "resume it first"):
+            run_manifest.amend_requirement_manifest(
+                str(self.manifest_path), "R1", "After", "Later", "Developer message", "Reason"
+            )
+        run_manifest.resume_manifest(str(self.manifest_path))
+        self.assertEqual(
+            self.read_manifest()["run"]["requirements"], requirements  # type: ignore[index]
+        )
+
+    def test_reconcile_rejects_incomplete_requirements_history(self) -> None:
+        for requirements in (
+            {"revision": 2, "amendments": []},
+            {"revision": 1, "amendments": "not a list"},
+            {"revision": 2, "amendments": [{"revision": 2}]},
+        ):
+            with self.subTest(requirements=requirements):
+                manifest = self.manifest_value()
+                manifest["run"]["requirements"] = requirements  # type: ignore[index]
+                self.write_manifest(manifest)
+                original = self.manifest_path.read_bytes()
+                with self.assertRaises(run_manifest.ManifestError):
+                    run_manifest.reconcile_manifest(str(self.manifest_path))
+                self.assertEqual(self.manifest_path.read_bytes(), original)
+
+    def test_reconcile_rejects_job_with_unrecorded_requirements_revision(self) -> None:
+        manifest = self.manifest_value()
+        manifest["jobs"][0]["requirements_revision"] = 2  # type: ignore[index]
+        self.write_manifest(manifest)
+        with self.assertRaisesRegex(run_manifest.ManifestError, "recorded revision"):
+            run_manifest.reconcile_manifest(str(self.manifest_path))
 
     def test_new_job_applies_explicit_ceiling_to_immutable_task(self) -> None:
         manifest = self.manifest_value()
@@ -409,6 +493,34 @@ class RunManifestTests(unittest.TestCase):
         self.assertEqual(completed.returncode, 0, completed.stderr)
         self.assertEqual(completed.stdout.strip(), str(expected))
         self.assertEqual(completed.stderr, "")
+
+    def test_amendment_cli_preserves_exact_text(self) -> None:
+        before = "Seven sheets.\nKeep their original names."
+        after = "Eight sheets.\nAdd Credit Ledger."
+        source = "Developer message 42: Добавь восьмой лист Credit Ledger."
+        completed = subprocess.run(
+            [
+                sys.executable,
+                str(Path(run_manifest.__file__).resolve()),
+                "amend-requirement",
+                str(self.manifest_path),
+                "R1",
+                "--before", before,
+                "--after", after,
+                "--source", source,
+                "--reason", "The developer requested a complete ledger.",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertEqual(completed.stdout.strip(), str(self.manifest_path))
+        self.assertEqual(completed.stderr, "")
+        amendment = self.read_manifest()["run"]["requirements"]["amendments"][0]  # type: ignore[index]
+        self.assertEqual(amendment["before"], before)
+        self.assertEqual(amendment["after"], after)
+        self.assertEqual(amendment["source"], source)
 
 
 if __name__ == "__main__":

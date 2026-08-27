@@ -13,6 +13,17 @@ Before editing:
 - inspect repository status and the files relevant to your assigned ownership;
 - verify that unrelated or overlapping dirty changes do not make the assignment unsafe;
 - treat the supplied implementation hypothesis as advisory, not as ground truth.
+- compare the assigned acceptance criteria with the exact source requirements
+  and confirmed developer amendments. Keep their IDs and requirements revision.
+
+The specification plus later explicit developer decisions is authoritative.
+Do not remove or reinterpret a requirement to match a repository pattern,
+simpler code, or main's hypothesis. A sourced developer amendment supersedes
+stale ticket wording; an agent's claim or existing code is not such approval.
+If the packet contradicts its sources, return replan_required before editing
+and identify the exact conflict. If source evidence is missing, return blocked
+and request it through main. Choose technical details freely only within the
+effective requirements and assigned ownership.
 
 Own only:
 - production code and justified behavior-focused tests inside the assigned paths or responsibility;
@@ -67,6 +78,14 @@ Decisions:
 
 Validation:
 - commands/checks and results; include skipped checks and reasons.
+
+Requirements coverage:
+- requirements revision; each assigned requirement ID and exact effective
+  wording/source -> implemented location -> validation evidence -> met | unmet
+  | conflict. Include deviations and their developer decision source, or none.
+- Reuse unchanged evidence with its prior job/revision reference; do not omit
+  an assigned requirement or mark an unverified one met. Test expected behavior
+  from the requirements, not merely the chosen helper or algorithm.
 
 Deviations from hypothesis:
 - material deviations and why, or "none".

@@ -104,7 +104,7 @@ task:
   sha256: 64-hex-digest
   job_id: fix-widget-test
 runner:
-  version: 1.5.0
+  version: 1.6.0
   sdk_version: 0.147.0
   sdk_package: openai-codex
   runtime_package: openai-codex-cli-bin==0.147.0
@@ -146,6 +146,29 @@ Read-only runs take no lock and can overlap. `workspace_write` and `danger_full_
 `agent-run-manifest` operates on a strict `develop-task-run` schema v1 `run.yaml`. An optional `run.model_policy` is backward-compatible; missing policy means `adaptive`. New runs record `adaptive`, `explicit_ceiling`, or `main_ceiling` plus a resolved maximum GPT-5.6 model. `new-job` validates a complete `agent-task` v2 draft, requires its workspace to match the run, caps the requested model when needed, creates the final immutable `jobs/<job.id>/task.yaml`, and atomically registers the pending entry. Each new job records `requested_model`, `selected_model`, and `limited_by`; the legacy `model` field equals `selected_model`. Its stdout is the final task path. The companion later scans that task's sibling `results/` directory, verifies the task path, SHA-256, job ID, result schema, and execution status, then copies only `result_path`, `status`, `execution_id`, and `usage` into the job entry.
 
 Use exactly one job directory per runner invocation. Reconciliation rejects multiple result files for one job instead of guessing which execution is authoritative. Updates take a short `fcntl` lock beside `run.yaml` and use a same-directory temporary file, file `fsync`, `os.replace`, and directory `fsync`.
+
+Optional `run.requirements` stores a `revision` and an `amendments` list. Missing
+state means revision 1 with no amendments. `new-job` records that revision as
+`requirements_revision`, separately from its implementation `contract_revision`.
+Existing jobs without the new field remain readable. To record an explicit
+developer decision, use:
+
+```bash
+agent-run-manifest amend-requirement /absolute/path/to/run.yaml R1 \
+  --before 'Temporary report files are permitted with cleanup.' \
+  --after 'Generate the report only in memory.' \
+  --source 'Developer message <reference>: generate it only in memory.' \
+  --reason 'The developer requested no temporary report files.'
+```
+
+The command atomically appends the five supplied nonempty strings plus the next
+revision, and advances the run's requirements revision. Revisions start at 1
+and advance once per amendment. It preserves old jobs and immutable task/result
+files. It validates the journal's structure, not the authenticity or meaning
+of the developer decision. Exact requirements and per-cycle coverage belong in
+the task's `job.prompt` and result's `outcome.report`; the generic runner and
+their schemas are unchanged. Stop affected workers before amending, and resume
+a terminal run first.
 
 ```bash
 # Only when creating a main_ceiling run:

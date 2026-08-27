@@ -132,6 +132,27 @@ def _model_policy(run: dict[str, Any]) -> dict[str, Any]:
     return _validate_model_policy(value, "run.model_policy")
 
 
+def _requirements(run: dict[str, Any]) -> dict[str, Any]:
+    value = run.get("requirements")
+    if value is None:
+        return {"revision": 1, "amendments": []}
+    state = _mapping(value, "run.requirements", {"revision", "amendments"})
+    amendments = state["amendments"]
+    if not isinstance(amendments, list):
+        raise ManifestError("run.requirements.amendments must be a list")
+    if type(state["revision"]) is not int or state["revision"] != len(amendments) + 1:
+        raise ManifestError("run.requirements.revision must equal amendment count + 1")
+    fields = {"requirement_id", "before", "after", "source", "reason"}
+    for index, raw_amendment in enumerate(amendments):
+        location = f"run.requirements.amendments[{index}]"
+        amendment = _mapping(raw_amendment, location, fields | {"revision"})
+        if type(amendment["revision"]) is not int or amendment["revision"] != index + 2:
+            raise ManifestError(f"{location}.revision must be {index + 2}")
+        for field in fields:
+            _nonempty(amendment[field], f"{location}.{field}")
+    return state
+
+
 def _select_model(
     requested_model: str, policy: dict[str, Any]
 ) -> tuple[str, str | None]:
@@ -241,7 +262,7 @@ def _validate_manifest(value: dict[str, Any], path: Path) -> dict[str, Any]:
         root["run"],
         "run",
         {"id", "backend", "workspace", "status", "started_at", "finished_at"},
-        {"model_policy"},
+        {"model_policy", "requirements"},
     )
     _nonempty(run["id"], "run.id")
     if run["backend"] != "runner":
@@ -253,6 +274,7 @@ def _validate_manifest(value: dict[str, Any], path: Path) -> dict[str, Any]:
     if run["finished_at"] is not None and not isinstance(run["finished_at"], str):
         raise ManifestError("run.finished_at must be a string or null")
     policy = _model_policy(run)
+    requirements = _requirements(run)
 
     jobs = root["jobs"]
     if not isinstance(jobs, list):
@@ -275,6 +297,7 @@ def _validate_manifest(value: dict[str, Any], path: Path) -> dict[str, Any]:
         "requested_model",
         "selected_model",
         "limited_by",
+        "requirements_revision",
     }
     for index, raw_job in enumerate(jobs):
         job = _mapping(raw_job, f"jobs[{index}]", required, optional)
@@ -286,6 +309,15 @@ def _validate_manifest(value: dict[str, Any], path: Path) -> dict[str, Any]:
         revision = job["contract_revision"]
         if isinstance(revision, bool) or not isinstance(revision, int) or revision <= 0:
             raise ManifestError(f"jobs[{index}].contract_revision must be a positive integer")
+        if "requirements_revision" in job:
+            requirements_revision = job["requirements_revision"]
+            if (
+                type(requirements_revision) is not int
+                or not 1 <= requirements_revision <= requirements["revision"]
+            ):
+                raise ManifestError(
+                    f"jobs[{index}].requirements_revision must name a recorded revision"
+                )
         approval = job["approved_by_preflight"]
         if approval is not None and not isinstance(approval, str):
             raise ManifestError(f"jobs[{index}].approved_by_preflight must be a string or null")
@@ -594,6 +626,7 @@ def new_job_manifest(
                 "id": job_id,
                 "role": role,
                 "contract_revision": contract_revision,
+                "requirements_revision": _requirements(manifest["run"])["revision"],
                 "approved_by_preflight": approved_by_preflight,
                 "task_path": str(task_path.resolve()),
                 "result_path": None,
@@ -608,6 +641,34 @@ def new_job_manifest(
             }
         )
     return task_path.resolve()
+
+
+def amend_requirement_manifest(
+    path_argument: str,
+    requirement_id: str,
+    before: str,
+    after: str,
+    source: str,
+    reason: str,
+) -> Path:
+    amendment: dict[str, Any] = {
+        "requirement_id": _nonempty(requirement_id, "requirement_id"),
+        "before": _nonempty(before, "before"),
+        "after": _nonempty(after, "after"),
+        "source": _nonempty(source, "source"),
+        "reason": _nonempty(reason, "reason"),
+    }
+    path = Path(os.path.abspath(os.path.expanduser(path_argument)))
+    with _locked_manifest(path) as document:
+        manifest = _reconcile_document(document, path)
+        if manifest["run"]["status"] != "running":
+            raise ManifestError("cannot amend requirements of a terminal run; resume it first")
+        state = _requirements(manifest["run"])
+        state["revision"] += 1
+        amendment["revision"] = state["revision"]
+        state["amendments"].append(amendment)
+        manifest["run"]["requirements"] = state
+    return path
 
 
 def finish_manifest(path_argument: str, status: str) -> Path:
@@ -643,7 +704,7 @@ def _argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="agent-run-manifest",
         description=(
-            "Resolve the main model or atomically register, reconcile, and finalize "
+            "Resolve the main model or atomically register, amend, reconcile, and finalize "
             "one develop-task run.yaml."
         ),
     )
@@ -659,6 +720,13 @@ def _argument_parser() -> argparse.ArgumentParser:
     new_job.add_argument("--role", required=True, help="job role recorded in run.yaml")
     new_job.add_argument("--contract-revision", required=True, type=int)
     new_job.add_argument("--approved-by-preflight")
+    amendment = commands.add_parser(
+        "amend-requirement", help="record one explicitly approved developer amendment"
+    )
+    amendment.add_argument("run_manifest", help="absolute path to run.yaml")
+    amendment.add_argument("requirement_id", help="stable ID from the source requirements")
+    for field in ("before", "after", "source", "reason"):
+        amendment.add_argument(f"--{field}", required=True)
     reconcile = commands.add_parser("reconcile", help="rebuild job execution fields")
     reconcile.add_argument("run_manifest", help="absolute path to run.yaml")
     finish = commands.add_parser("finish", help="reconcile and set a terminal run status")
@@ -685,6 +753,16 @@ def main(argv: list[str] | None = None) -> int:
             output = str(path.resolve())
         elif args.command == "reconcile":
             path = reconcile_manifest(args.run_manifest)
+            output = str(path.resolve())
+        elif args.command == "amend-requirement":
+            path = amend_requirement_manifest(
+                args.run_manifest,
+                args.requirement_id,
+                args.before,
+                args.after,
+                args.source,
+                args.reason,
+            )
             output = str(path.resolve())
         elif args.command == "finish":
             path = finish_manifest(args.run_manifest, args.status)

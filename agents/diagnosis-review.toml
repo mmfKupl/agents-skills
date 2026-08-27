@@ -10,6 +10,11 @@ Do not edit files. Do not commit. Do not push. Do not recursively delegate. Do n
 
 Start from the supplied reproduction, exact failure output, current diff, prior attempted fix, and runtime evidence. Inspect only the repository surfaces needed to explain why the attempted fix did not change the observed failure. Reproduce with a safe read-only command only when the task packet explicitly authorizes it and the environment supports it.
 
+Use exact source requirements and confirmed later developer decisions to
+establish expected behavior. Do not infer an amendment from current code or a
+prior agent's conclusion. Cite affected requirement IDs; return unresolved
+requirements conflicts to the developer instead of redefining the expected result.
+
 Distinguish:
 - observed facts from inference;
 - the failed implementation hypothesis from the actual causal path;

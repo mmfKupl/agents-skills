@@ -83,10 +83,14 @@ run:
   model_policy:
     mode: adaptive # adaptive | explicit_ceiling | main_ceiling
     maximum_model: null # null, gpt-5.6-luna, gpt-5.6-terra, or gpt-5.6-sol
+  requirements:
+    revision: 1
+    amendments: []
 jobs:
   - id: 001-preflight
     role: preflight-review
     contract_revision: 1
+    requirements_revision: 1
     approved_by_preflight: null
     task_path: <absolute task path>
     result_path: <absolute result path>
@@ -94,13 +98,14 @@ jobs:
     execution_id: <runner execution id>
     usage: <result usage mapping>
     model: gpt-5.6-terra # effective compatibility field
-    requested_model: gpt-5.6-sol
+    requested_model: gpt-5.6-terra
     selected_model: gpt-5.6-terra
-    limited_by: explicit_ceiling
+    limited_by: null
     reasoning_effort: high
   - id: 002-implementation
     role: implementation-worker
     contract_revision: 1
+    requirements_revision: 1
     approved_by_preflight: 001-preflight
     task_path: <absolute task path>
     result_path: null
@@ -117,7 +122,10 @@ jobs:
 Initialize a new manifest with `jobs: []`. Missing `run.model_policy` remains
 compatible and means `adaptive`, but every new develop-task run must write the
 resolved policy explicitly. The policy is immutable for that run. For each
-invocation, prepare the
+new run also initialize `run.requirements` as shown. A legacy manifest without
+it means revision 1 with no recorded amendments; old jobs without
+`requirements_revision` remain readable, not retroactively certified.
+For each invocation, prepare the
 strict task YAML at a temporary path outside `jobs/`, then register it:
 
 ```bash
@@ -133,7 +141,8 @@ match the run, applies the run's model ceiling, creates
 `jobs/<job.id>/task.yaml`, atomically appends the pending entry, and prints the
 final task path for the foreground runner call. When capped, the immutable task
 contains the selected model while the manifest records the requested model,
-selected model, and limiting mode. Do not
+selected model, and limiting mode. Each new job also records the current
+`requirements_revision`, independently of `contract_revision`. Do not
 manually create final job directories or append job entries. The temporary
 source may be removed after successful registration.
 
@@ -150,6 +159,37 @@ and postflight job must name the exact approving preflight job. Other gate or
 specialist follow-ups record the current revision and use the approving
 preflight when one already exists. This linkage is required even when the same
 role, model, or writer responsibility continues.
+
+## Record Approved Requirement Changes
+
+Follow the skill's Requirements Fidelity rule. Main must recover an actual
+explicit developer decision before recording an amendment; a gate conclusion,
+existing code, or a claim that the ticket is stale is insufficient. Stop any
+affected writer first. If the run is terminal, resume it before recording the
+confirmed decision. Record each changed requirement through the same atomic
+manifest helper:
+
+```bash
+agent-run-manifest amend-requirement /absolute/path/to/run.yaml R1 \
+  --before 'Temporary report files are allowed with cleanup.' \
+  --after 'Generate reports only in memory.' \
+  --source 'Developer message <reference>: "Generate reports only in memory."' \
+  --reason 'The developer requested no temporary report files.'
+```
+
+Use the exact previous/new wording and the real message or comment reference
+with its explicit decision. Record the developer's reason, or state that none
+was supplied. The helper appends `requirement_id`, `before`, `after`, `source`,
+`reason`, and the next `revision` to `run.requirements.amendments`, then advances
+`run.requirements.revision`. One amendment advances one revision; ordinary code
+fixes and fresh preflight cycles do not. It checks the record's structure, not
+whether its source is genuine or the amendment is semantically justified.
+
+Keep old task/result files intact. New jobs capture the effective revision;
+main includes the applicable original excerpts and confirmed amendments in
+their prompts. Do not rewrite historical jobs to make a later decision appear
+to have been known earlier. Keep the ticket's synchronization status explicit
+in the next packet if its text still differs from the confirmed decision.
 
 ## Create One Task
 
@@ -187,10 +227,13 @@ paths. Put the normal adaptive requested model and approved effort in the draft;
 `agent-run-manifest new-job` applies any run-wide ceiling before the runner sees
 the immutable task.
 
-Include the current contract revision and, for implementation and postflight,
-the approving preflight job ID inside `job.prompt` as part of the self-contained
-packet. These orchestration fields remain in `run.yaml`; do not add unsupported
-keys to the strict `agent-task` v2 document.
+Include both the requirements revision and contract revision and, for
+implementation and postflight, the approving preflight job ID inside
+`job.prompt`. Include stable requirement IDs, exact relevant source excerpts,
+source references, and confirmed amendments separately from main's technical
+hypothesis. Final postflight needs the complete source requirement set.
+These are prompt contents and manifest metadata; do not add unsupported keys
+to the strict `agent-task` v2 document.
 
 ## Role Contracts And Output Envelope
 
@@ -232,6 +275,12 @@ For `implementation-worker`, encode role status `implemented` as universal
 The main thread must interpret the role report. Never equate runner
 `completed` with preflight approval, postflight approval, or successful
 implementation without reading that report.
+
+Keep each cycle's `Requirements coverage` inside `outcome.report`, including
+the revision, IDs, exact effective wording/source, implementation or planned
+owner, validation, status, and any deviation with its decision source. Do not
+add fields to the universal output envelope. Main and reviewers verify this
+content; the generic runner neither interprets nor approves requirements.
 
 ## Permission Mapping
 

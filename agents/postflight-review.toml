@@ -13,6 +13,16 @@ Review the diff like an owner before commits or PR.
 
 Treat the approved task packet and Execution Profile as review inputs. Inspect the actual diff and validation evidence rather than trusting the implementation summary. The effective postflight tier must not be lower than the implementation risk tier.
 
+Independently compare the diff with exact source requirements plus confirmed
+later developer decisions. Main's summary, preflight approval, and existing
+code cannot amend them. Verify the supplied requirement IDs/revision and the
+worker's coverage against source excerpts and actual evidence. A sourced
+developer decision can supersede stale ticket text without another approval.
+Missing source or unresolved contradictions prevent approval; name the exact
+missing evidence or developer decision instead of inventing a requirement.
+Check assigned IDs on each fix cycle and all IDs at final combined postflight.
+Reuse valid evidence for unchanged requirements with its job/revision reference.
+
 Prioritize:
 - correctness bugs and behavioral regressions;
 - architecture, ownership, and boundary drift;
@@ -89,6 +99,13 @@ Optional:
 
 Validation gaps:
 - missing checks, tests, screenshots, evals, smoke tests, migration safety checks, environment blockers, or "none".
+
+Requirements coverage:
+- requirements revision; each reviewed ID and exact effective wording/source
+  -> code location -> independently checked validation evidence -> met | unmet
+  | conflict. Record any deviation and its developer decision source.
+- No required ID may disappear from the final combined review or be declared
+  met solely because a previous agent approved its implementation contract.
 
 Specialist Input:
 - used/not used specialists, key takeaways, or Delegation Requests with Agent, Blocking/Advisory, and prompt.

@@ -184,15 +184,38 @@ choose, combine, or revise the approaches.
 
 ### 5. Approve the scope in two parts
 
-Present and approve these sections separately:
+Before presenting the first approval, perform a final synthesis audit. Re-read
+all user messages and annotations since invocation and rebuild the decision
+ledger from those source messages, not from earlier summaries. The latest
+explicit correction wins. Preserve exact contract decisions such as numeric
+limits, literal UI copy, filenames, permissions, error behavior, and complete
+field or item lists. If a context reset or compaction occurred, use available
+history tools to recover the earlier user messages and annotations before the
+audit; do not treat a compacted summary as the source of truth.
+
+Map every confirmed decision to Product boundary, Output contract, Technical
+direction, Validation, Later work, or Rejected. Resolve contradictions and do
+not present the approval while a confirmed decision remains unmapped. Keep this
+coverage mapping internal unless the user asks to see it.
+
+Present and approve these checkpoints separately:
 
 1. Product boundary: goal, affected user, observable behavior, in scope, out of
-   scope, later work, and acceptance criteria.
+   scope, later work, and acceptance criteria. When the task defines a
+   substantial artifact, schema, API, event, configuration, or data format,
+   include a separate Output contract in the same checkpoint with its exact
+   names, fields, formats, limits, and required content.
 2. Technical direction: repository owner and evidence, chosen approach,
    contracts to preserve, risks, and validation direction.
 
-Keep each section proportional to the task and normally under 250 words. A
-change to the first part invalidates dependent parts of the second.
+Keep the Product boundary concise, but never compress or omit exact decisions
+to meet a word target. Let the Output contract grow to the detail required for
+implementation and approve it together with the Product boundary. A change to
+the first checkpoint invalidates dependent parts of the second.
+
+After both approvals, repeat the synthesis audit for decisions introduced or
+corrected during approval. Generate the canonical scope from the audited
+decision ledger rather than by summarizing the approval messages.
 
 After both approvals, return only the canonical scope defined below. Do not
 append a handoff prompt or start implementation.
@@ -231,6 +254,7 @@ Affected users and problem:
 User-visible behavior:
 Acceptance criteria:
 In scope:
+Output contract:
 Out of scope:
 Later work:
 Relevant repository evidence:

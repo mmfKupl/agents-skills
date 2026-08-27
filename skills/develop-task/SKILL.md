@@ -14,11 +14,20 @@ formats when they conflict with that guidance.
 
 ## Task title
 
-At the start of the workflow, rename the current Codex task with
-`set_thread_title`. Use `[<ticket-id> ]develop: <description>`, where
-`<ticket-id>` is an explicit ticket identifier from the request or available
-task context, when one exists. Write a useful 3-4 word description. Do not
-invent a ticket identifier. For example: `UIB-4442 develop: usage credits report`.
+At the start of the workflow, call `list_threads` and then rename the current
+Codex task with `set_thread_title`. Use `[<ticket-id> ]<description>: develop`,
+where `<ticket-id>` is an explicit ticket identifier from the request or
+available task context, when one exists. Omit it when absent. Write a useful
+3-4 word description. Do not invent a ticket identifier. For example:
+`UIB-4442 usage credits report: develop`.
+
+For an explicit ticket, inspect existing task titles for the same ticket and a
+recognizable `review`, `develop`, or `brainstorm` suffix. Reuse their 3-4 word
+description so related tasks use the same one. Recognize both this title format
+and the legacy `<ticket-id> <type>: <description>` format. If descriptions
+conflict, prefer the most recently listed compatible title. Rename every
+matching task to the canonical description and its own type before renaming the
+current task. Do not rename unrelated tasks.
 
 ## Core Contract
 

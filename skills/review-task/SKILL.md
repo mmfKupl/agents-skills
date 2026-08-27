@@ -12,6 +12,14 @@ Before drafting the final review report, read
 guidance. Preserve user-provided wording, exact quotes, and required report
 formats when they conflict with that guidance.
 
+## Task title
+
+Before starting review work, rename the current Codex task with
+`set_thread_title`. Use `[<ticket-id> ]review: <description>`, where
+`<ticket-id>` is an explicit ticket identifier from the request or available
+task context, when one exists. Write a useful 3-4 word description. Do not
+invent a ticket identifier. For example: `UIB-4442 review: usage credits report`.
+
 ## Core Contract
 
 Audit one already implemented task. Find credible correctness, requirement, testing, runtime, simplicity, and repository-practice issues. `review-task` owns review orchestration, evidence collection, validation selection, and the final risk report.
@@ -54,19 +62,20 @@ the delegation gap.
 2. Read repository instructions such as `AGENTS.md`, inspect `git status --short --untracked-files=all`, and avoid changing the worktree.
 3. Reconstruct intent from available sources: user request, ticket, PR, commit messages, OpenSpec, code comments, and acceptance criteria. Do not invent missing business requirements; report gaps as uncertainty.
 4. Map the implementation: changed files, touched subsystems, contracts, state flow, persistence, UI/runtime paths, validation surface, and likely failure modes.
-5. Collect existing validation evidence before running anything new.
-6. Reuse fresh passed checks when they already cover the current risk. Do not rerun tests just to duplicate credible evidence.
-7. If the ticket, PR, OpenSpec, or review target states a concrete validation bar, satisfy that bar when technically available.
-8. Run only missing focused validation that can materially change confidence. Prefer narrow tests, type/lint checks, targeted integration tests, preview smoke checks, or temporary probes over broad suites.
-9. Use supporting skills or agents when available and useful:
+5. For every potential finding, compare the failure path with the reconstructed task boundary. A credible risk may still be worth reporting when it is outside scope, but call it out as follow-up work rather than an implementation defect unless an explicit requirement or preserved contract covers it.
+6. Collect existing validation evidence before running anything new.
+7. Reuse fresh passed checks when they already cover the current risk. Do not rerun tests just to duplicate credible evidence.
+8. If the ticket, PR, OpenSpec, or review target states a concrete validation bar, satisfy that bar when technically available.
+9. Run only missing focused validation that can materially change confidence. Prefer narrow tests, type/lint checks, targeted integration tests, preview smoke checks, or temporary probes over broad suites.
+10. Use supporting skills or agents when available and useful:
    - `$diff-review`: independent fresh diff pass.
    - `repo-practice-review`: repository conventions, helpers, ownership, and local patterns.
    - `best-practice-review`: general engineering risks and weak precedent challenges.
    - `test-review`: test adequacy, missing regression coverage, and e2e/smoke strategy.
    - `code-simplicity-review`: scope creep, unnecessary code, simpler approaches, helper/library reuse.
-10. If supporting agents are technically unavailable, perform the same checks manually and say that delegation was not available. Do not call delegation unavailable only because the user did not repeat the delegation request outside `$review-task`.
-11. Correlate all evidence yourself. Specialist output is evidence, not the final verdict.
-12. Report findings first, ordered by severity. Include validation evidence and remaining gaps.
+11. If supporting agents are technically unavailable, perform the same checks manually and say that delegation was not available. Do not call delegation unavailable only because the user did not repeat the delegation request outside `$review-task`.
+12. Correlate all evidence yourself. Specialist output is evidence, not the final verdict.
+13. Report findings first, ordered by severity. Include validation evidence and remaining gaps.
 
 ## Passed Check Reuse
 
@@ -160,6 +169,7 @@ Lead with findings:
 - Evidence: files, lines, diff context, runtime result, or test result.
 - Impact: what can break and for whom.
 - Reproduction or check: command, preview path, probe, or reasoning path.
+- Scope assessment: a short prose explanation of whether the finding is in scope, on the boundary, or outside scope, and why.
 - Suggested direction: concise fix strategy, not a full implementation plan unless asked.
 
 Then report:

@@ -12,6 +12,14 @@ Before drafting user-facing prose for this workflow, read
 guidance. Preserve user-provided wording, exact quotes, and required report
 formats when they conflict with that guidance.
 
+## Task title
+
+At the start of the workflow, rename the current Codex task with
+`set_thread_title`. Use `[<ticket-id> ]develop: <description>`, where
+`<ticket-id>` is an explicit ticket identifier from the request or available
+task context, when one exists. Write a useful 3-4 word description. Do not
+invent a ticket identifier. For example: `UIB-4442 develop: usage credits report`.
+
 ## Core Contract
 
 Implement one coherent repository task at a time. Own task framing, model and

@@ -11,6 +11,14 @@ Before drafting user-facing prose, read [`../unslop/SKILL.md`](../unslop/SKILL.m
 and apply its relevant guidance. Preserve the user's terminology and exact
 wording when they affect the task.
 
+## Task title
+
+Before sending the initial brainstorm response, rename the current Codex task
+with `set_thread_title`. Use `[<ticket-id> ]brainstorm: <description>`, where
+`<ticket-id>` is an explicit ticket identifier from the request or available
+task context, when one exists. Write a useful 3-4 word description. Do not
+invent a ticket identifier. For example: `UIB-4442 brainstorm: usage credits report`.
+
 ## Outcome and boundary
 
 Turn an incomplete idea into one repository-grounded task scope. Establish the

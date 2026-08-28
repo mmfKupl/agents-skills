@@ -14,8 +14,11 @@ wording when they affect the task.
 ## Task title
 
 Task titles are a best-effort sidebar indicator, never a workflow gate.
-Use `[<ticket-id> ]<description>: <status> <type>`, for example
-`UIB-5295 Storybook update: W brainstorm`. Omit an unknown ticket ID.
+With a known ticket, use `<ticket-id> <description>: <status> <type>`.
+Without one, use `<description>: <status> <type>`.
+Write the ticket ID as plain text, never in square or round brackets.
+For example: `UIB-5295 Storybook update: W brainstorm`.
+When reusing a title with a bracketed ticket ID, remove those brackets.
 Prefer a two-word description, with three words maximum; describe the subject
 without filler such as "task", "implementation", or "scope".
 

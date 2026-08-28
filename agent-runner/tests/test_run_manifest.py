@@ -2,11 +2,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import shutil
+import stat
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import yaml
 
@@ -25,6 +29,15 @@ class RunManifestTests(unittest.TestCase):
         self.task_path.write_text("kind: agent-task\n", encoding="utf-8")
         self.manifest_path = self.root / "run.yaml"
         self.write_manifest()
+        self.codex_home = self.root / "codex-home"
+        self.rollout = self.codex_home / "sessions" / "rollout-source-thread.jsonl"
+        self.rollout.parent.mkdir(parents=True)
+        environment = patch.dict(os.environ, {
+            "CODEX_THREAD_ID": "source-thread", "CODEX_HOME": str(self.codex_home),
+        })
+        environment.start()
+        self.addCleanup(environment.stop)
+        self.write_invocation()
 
     def tearDown(self) -> None:
         self.temp.cleanup()
@@ -131,6 +144,34 @@ class RunManifestTests(unittest.TestCase):
 
     def read_manifest(self) -> dict[str, object]:
         return yaml.safe_load(self.manifest_path.read_text(encoding="utf-8"))
+
+    def write_invocation(
+        self, message: str = "$develop-task UIB-test", *,
+        model: str | None = "gpt-5.6-terra", turn_id: str = "turn-1", append: bool = False,
+    ) -> None:
+        items = [
+            {"type": "event_msg", "payload": {"type": "task_started", "turn_id": turn_id}},
+            {"type": "turn_context", "payload": {"turn_id": turn_id, "model": model}},
+            {
+                "type": "response_item",
+                "payload": {
+                    "type": "message", "role": "user",
+                    "content": [{"type": "input_text", "text": message}],
+                    "internal_chat_message_metadata_passthrough": {"turn_id": turn_id},
+                },
+            },
+        ]
+        with self.rollout.open("a" if append else "w", encoding="utf-8") as handle:
+            for item in items:
+                handle.write(json.dumps(item) + "\n")
+
+    def init_run(self, **kwargs: str) -> Path:
+        path = run_manifest.init_manifest(str(self.root), **kwargs)
+        self.addCleanup(shutil.rmtree, path.parent)
+        return path
+
+    def read_run(self, path: Path) -> dict:
+        return yaml.safe_load(path.read_text(encoding="utf-8"))
 
     def test_reconcile_marks_job_pending_without_result(self) -> None:
         run_manifest.reconcile_manifest(str(self.manifest_path))
@@ -311,6 +352,7 @@ class RunManifestTests(unittest.TestCase):
         self.assertEqual(job["limited_by"], "explicit_ceiling")
 
     def test_new_job_applies_main_ceiling_without_requesting_a_change(self) -> None:
+        self.write_invocation("$develop-task M UIB-test", model="gpt-5.6-luna")
         manifest = self.manifest_value()
         manifest["run"]["model_policy"] = {  # type: ignore[index]
             "mode": "main_ceiling",
@@ -331,6 +373,251 @@ class RunManifestTests(unittest.TestCase):
         job = self.read_manifest()["jobs"][1]  # type: ignore[index]
         self.assertEqual(job["selected_model"], "gpt-5.6-luna")
         self.assertEqual(job["limited_by"], "main_ceiling")
+
+    def test_init_infers_m_from_actual_desktop_invocation(self) -> None:
+        message = (
+            "[$develop-please](/repo/.codex/skills/develop-please/SKILL.md) + "
+            "[$develop-task](/home/user/.codex/skills/develop-task/SKILL.md) M UIB-5340\n"
+        )
+        self.write_invocation(message)
+        path = self.init_run()
+        document = self.read_run(path)
+        self.assertEqual(document["jobs"], [])
+        self.assertEqual(document["run"]["model_policy"], {
+            "mode": "main_ceiling", "maximum_model": "gpt-5.6-terra",
+        })
+        self.assertEqual(document["run"]["model_policy_source"], {
+            "thread_id": "source-thread", "turn_id": "turn-1",
+            "message_sha256": hashlib.sha256(message.encode("utf-8")).hexdigest(),
+        })
+        self.assertEqual(document["run"]["requirements"], {"revision": 1, "amendments": []})
+        self.assertEqual(document["run"]["workspace"], str(self.root))
+        self.assertEqual(stat.S_IMODE(path.parent.stat().st_mode), 0o700)
+        self.assertNotEqual(path, self.init_run())
+
+    def test_init_rejects_adaptive_override_of_m_before_creating_directory(self) -> None:
+        self.write_invocation("$develop-task M UIB-test")
+        with patch.object(run_manifest.tempfile, "mkdtemp") as create_dir:
+            with self.assertRaisesRegex(run_manifest.ManifestError, "requires main_ceiling"):
+                self.init_run(mode="adaptive")
+            create_dir.assert_not_called()
+
+    def test_init_infers_explicit_ceiling_aliases(self) -> None:
+        for parameter, maximum in (
+            ("E Luna", "gpt-5.6-luna"),
+            ("E: Terra", "gpt-5.6-terra"),
+            ("E gpt-5.6-sol", "gpt-5.6-sol"),
+            ("explicit_ceiling Luna", "gpt-5.6-luna"),
+        ):
+            with self.subTest(parameter=parameter):
+                self.write_invocation(f"$develop-task {parameter} UIB-test")
+                self.assertEqual(self.read_run(self.init_run())["run"]["model_policy"], {
+                    "mode": "explicit_ceiling", "maximum_model": maximum,
+                })
+
+    def test_init_rejects_wrong_or_unresolvable_explicit_ceiling(self) -> None:
+        self.write_invocation("$develop-task E Terra UIB-test")
+        for kwargs in (
+            {"mode": "adaptive"}, {"mode": "main_ceiling"}, {"maximum_model": "Sol"},
+        ):
+            with self.subTest(kwargs=kwargs):
+                with self.assertRaisesRegex(run_manifest.ManifestError, "contradicts source"):
+                    self.init_run(**kwargs)
+        for parameter in ("E", "E gpt-5.5", "E unknown"):
+            with self.subTest(parameter=parameter):
+                self.write_invocation(f"$develop-task {parameter}")
+                with self.assertRaisesRegex(run_manifest.ManifestError, "source E requires"):
+                    self.init_run()
+
+    def test_init_preserves_adaptive_and_contextual_natural_language_resolution(self) -> None:
+        self.assertEqual(self.read_run(self.init_run())["run"]["model_policy"], {
+            "mode": "adaptive", "maximum_model": None,
+        })
+        self.write_invocation("$develop-task не используй сильные модели для этой задачи")
+        self.assertEqual(
+            self.read_run(self.init_run(mode="explicit_ceiling", maximum_model="Luna"))["run"]["model_policy"],
+            {"mode": "explicit_ceiling", "maximum_model": "gpt-5.6-luna"},
+        )
+        self.write_invocation("$develop-task не выше собственной модели")
+        self.assertEqual(self.read_run(self.init_run(mode="main_ceiling"))["run"]["model_policy"], {
+            "mode": "main_ceiling", "maximum_model": "gpt-5.6-terra",
+        })
+
+    def test_init_pins_invocation_turn_not_latest_model_or_followup(self) -> None:
+        self.write_invocation("$develop-task M UIB-test")
+        self.write_invocation("окей делай так", model="gpt-5.6-sol", turn_id="turn-2", append=True)
+        path = self.init_run()
+        self.assertEqual(self.read_run(path)["run"]["model_policy"]["maximum_model"], "gpt-5.6-terra")
+        self.assertEqual(self.read_run(path)["run"]["model_policy_source"]["turn_id"], "turn-1")
+
+    def test_invocation_model_comes_from_turn_context_not_thread_settings(self) -> None:
+        self.write_invocation("$develop-task M UIB-test")
+        items = [json.loads(line) for line in self.rollout.read_text().splitlines()]
+        items.insert(1, {"type": "world_state", "payload": {
+            "state": {"model": "gpt-5.6-sol"},
+        }})
+        items.append({"type": "event_msg", "payload": {
+            "type": "thread_settings_applied", "thread_settings": {"model": "gpt-5.6-sol"},
+        }})
+        self.rollout.write_text("\n".join(json.dumps(item) for item in items) + "\n")
+        path = self.init_run()
+        self.assertEqual(self.read_run(path)["run"]["model_policy"]["maximum_model"], "gpt-5.6-terra")
+        source = self.write_task_source(model="gpt-5.6-sol")
+        task_path = run_manifest.new_job_manifest(str(path), str(source), "preflight-review", 1, None)
+        self.assertEqual(self.read_run(task_path)["agent"]["model"], "gpt-5.6-terra")
+
+    def test_source_reader_handles_user_message_before_turn_context(self) -> None:
+        self.write_invocation("$develop-task M UIB-test")
+        items = [json.loads(line) for line in self.rollout.read_text().splitlines()]
+        items[1], items[2] = items[2], items[1]
+        self.rollout.write_text("\n".join(json.dumps(item) for item in items) + "\n")
+        path = self.init_run()
+        source = self.read_run(path)["run"]["model_policy_source"]
+        self.assertEqual(run_manifest.resolve_invocation(source).model, "gpt-5.6-terra")
+
+    def test_init_requires_recoverable_source_and_supported_main_model(self) -> None:
+        for message, model in (
+            ("No skill invocation", "gpt-5.6-terra"),
+            ("$develop-task M UIB-test", "unknown"),
+            ("$develop-task M UIB-test", None),
+        ):
+            with self.subTest(message=message, model=model):
+                self.write_invocation(message, model=model)
+                with patch.object(run_manifest.tempfile, "mkdtemp") as create_dir:
+                    with self.assertRaises(run_manifest.ManifestError):
+                        self.init_run()
+                    create_dir.assert_not_called()
+
+    def test_source_reader_ignores_injected_skill_and_quoted_examples(self) -> None:
+        message = (
+            "$develop-task change column M\n"
+            "> $develop-task M quoted example\n"
+            "```text\n$develop-task E Sol\n```\n"
+            "The documentation contains `$develop-task M`."
+        )
+        self.write_invocation(message)
+        self.write_invocation(
+            "<skill>\n<name>develop-task</name>\n$develop-task E Sol\n</skill>",
+            append=True,
+        )
+        with self.rollout.open("a", encoding="utf-8") as handle:
+            for role in ("assistant", "developer", "tool"):
+                handle.write(json.dumps({"type": "response_item", "payload": {
+                    "type": "message", "role": role,
+                    "content": [{"type": "input_text", "text": "$develop-task M"}],
+                }}) + "\n")
+        run = self.read_run(self.init_run())["run"]
+        self.assertEqual(run["model_policy"], {"mode": "adaptive", "maximum_model": None})
+        self.assertEqual(run["model_policy_source"]["message_sha256"], hashlib.sha256(message.encode()).hexdigest())
+
+    def test_init_uses_latest_real_invocation_and_rejects_ambiguous_message(self) -> None:
+        self.write_invocation("$develop-task M previous task")
+        self.write_invocation("develop-task next task", turn_id="turn-2", append=True)
+        self.assertEqual(self.read_run(self.init_run())["run"]["model_policy"]["mode"], "adaptive")
+        self.write_invocation("$develop-task M\n$develop-task E Luna")
+        with self.assertRaisesRegex(run_manifest.ManifestError, "one unquoted"):
+            self.init_run()
+
+    def test_new_job_rejects_manual_adaptive_manifest_when_user_requested_m(self) -> None:
+        self.write_invocation("$develop-task M UIB-test")
+        source = self.write_task_source(model="gpt-5.6-sol")
+        original = self.manifest_path.read_bytes()
+        with self.assertRaisesRegex(run_manifest.ManifestError, "requires main_ceiling"):
+            run_manifest.new_job_manifest(str(self.manifest_path), str(source), "preflight-review", 1, None)
+        self.assertEqual(self.manifest_path.read_bytes(), original)
+        self.assertFalse((self.root / "jobs" / "002-implementation").exists())
+
+    def test_new_job_rejects_changed_policy_and_missing_or_changed_source(self) -> None:
+        self.write_invocation("$develop-task M UIB-test")
+        source = self.write_task_source(model="gpt-5.6-sol")
+        for change in ("adaptive", "higher_ceiling", "missing_source", "wrong_hash", "wrong_turn"):
+            with self.subTest(change=change):
+                path = self.init_run()
+                document = self.read_run(path)
+                run = document["run"]
+                if change in {"adaptive", "missing_source"}:
+                    run["model_policy"] = {"mode": "adaptive", "maximum_model": None}
+                    if change == "missing_source":
+                        del run["model_policy_source"]
+                elif change == "higher_ceiling":
+                    run["model_policy"]["maximum_model"] = "gpt-5.6-sol"
+                elif change == "wrong_hash":
+                    run["model_policy_source"]["message_sha256"] = "0" * 64
+                else:
+                    run["model_policy_source"]["turn_id"] = "wrong-turn"
+                path.write_text(yaml.safe_dump(document), encoding="utf-8")
+                original = path.read_bytes()
+                with self.assertRaises(run_manifest.ManifestError):
+                    run_manifest.new_job_manifest(str(path), str(source), "preflight-review", 1, None)
+                self.assertEqual(path.read_bytes(), original)
+                self.assertFalse((path.parent / "jobs").exists())
+
+    def test_new_job_caps_all_roles_and_preserves_reasoning_and_requested_model(self) -> None:
+        self.write_invocation("$develop-task E Luna UIB-test")
+        path = self.init_run()
+        for index, role in enumerate(("preflight-review", "implementation-worker", "postflight-review")):
+            source = self.write_task_source(job_id=f"job-{index}", model="gpt-5.6-sol")
+            task_path = run_manifest.new_job_manifest(str(path), str(source), role, 1, None)
+            task = self.read_run(task_path)
+            self.assertEqual(task["agent"], {"model": "gpt-5.6-luna", "reasoning_effort": "medium"})
+            job = self.read_run(path)["jobs"][-1]
+            self.assertEqual(job["requested_model"], "gpt-5.6-sol")
+            self.assertEqual(job["selected_model"], "gpt-5.6-luna")
+            self.assertEqual(job["limited_by"], "explicit_ceiling")
+
+    def test_new_job_preserves_default_adaptive_routing(self) -> None:
+        path = self.init_run()
+        source = self.write_task_source(model="gpt-5.6-sol")
+        task_path = run_manifest.new_job_manifest(str(path), str(source), "preflight-review", 1, None)
+        self.assertEqual(self.read_run(task_path)["agent"]["model"], "gpt-5.6-sol")
+        self.assertIsNone(self.read_run(path)["jobs"][0]["limited_by"])
+
+    def test_resumed_run_keeps_original_source_even_after_new_invocation(self) -> None:
+        self.write_invocation("$develop-task M UIB-test")
+        path = self.init_run()
+        original_source = self.read_run(path)["run"]["model_policy_source"]
+        run_manifest.finish_manifest(str(path), "completed")
+        self.write_invocation("$develop-task E Sol next task", model="gpt-5.6-sol", turn_id="turn-2", append=True)
+        run_manifest.resume_manifest(str(path))
+        source = self.write_task_source(model="gpt-5.6-sol")
+        task_path = run_manifest.new_job_manifest(str(path), str(source), "preflight-review", 1, None)
+        self.assertEqual(self.read_run(task_path)["agent"]["model"], "gpt-5.6-terra")
+        self.assertEqual(self.read_run(path)["run"]["model_policy_source"], original_source)
+
+    def test_new_job_requires_source_but_old_results_remain_readable(self) -> None:
+        self.rollout.unlink()
+        run_manifest.reconcile_manifest(str(self.manifest_path))
+        source = self.write_task_source()
+        original = self.manifest_path.read_bytes()
+        with self.assertRaisesRegex(run_manifest.ManifestError, "cannot find rollout"):
+            run_manifest.new_job_manifest(str(self.manifest_path), str(source), "preflight-review", 1, None)
+        self.assertEqual(self.manifest_path.read_bytes(), original)
+
+    def test_new_job_binds_legacy_source_only_after_matching_policy(self) -> None:
+        self.write_invocation("$develop-task E Terra UIB-test")
+        manifest = self.manifest_value()
+        manifest["run"]["model_policy"] = {  # type: ignore[index]
+            "mode": "explicit_ceiling", "maximum_model": "gpt-5.6-terra",
+        }
+        manifest["jobs"][0]["model"] = "gpt-5.6-terra"  # type: ignore[index]
+        self.write_manifest(manifest)
+        source = self.write_task_source(model="gpt-5.6-sol")
+        run_manifest.new_job_manifest(str(self.manifest_path), str(source), "preflight-review", 1, None)
+        run = self.read_manifest()["run"]
+        self.assertEqual(run["model_policy_source"]["turn_id"], "turn-1")  # type: ignore[index]
+
+    def test_init_cli_prints_only_absolute_manifest_path(self) -> None:
+        self.write_invocation("$develop-task M UIB-test")
+        completed = subprocess.run(
+            [sys.executable, str(Path(run_manifest.__file__).resolve()), "init", "--workspace", str(self.root)],
+            check=False, capture_output=True, text=True,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertEqual(completed.stderr, "")
+        path = Path(completed.stdout.strip())
+        self.addCleanup(shutil.rmtree, path.parent)
+        self.assertTrue(path.is_absolute())
+        self.assertEqual(self.read_run(path)["run"]["model_policy"]["maximum_model"], "gpt-5.6-terra")
 
     def test_new_job_rejects_model_outside_ceiling_order(self) -> None:
         manifest = self.manifest_value()

@@ -1,6 +1,6 @@
 # Codex agent runner
 
-`agent-runner` is a foreground CLI for exactly one immutable YAML task. It starts one private Codex App Server through the stable Python SDK, runs one ephemeral worker at a time, writes one unique YAML result, prints that result's absolute path to stdout, and exits. `agent-run-manifest` is a separate one-shot companion that resolves the current main-chat model, applies a run-wide model ceiling, validates and registers immutable tasks, reconciles their results into a develop-task `run.yaml`, and finalizes the run. Launch separate runner processes for independent parallel work; there is no daemon, queue, scheduler, MCP server, or persistent conversation history.
+`agent-runner` is a foreground CLI for exactly one immutable YAML task. It starts one private Codex App Server through the stable Python SDK, runs one ephemeral worker at a time, writes one unique YAML result, prints that result's absolute path to stdout, and exits. `agent-run-manifest` is a separate one-shot companion that initializes runs from the source chat invocation, applies a run-wide model ceiling, validates and registers immutable tasks, reconciles their results into a develop-task `run.yaml`, and finalizes the run. Launch separate runner processes for independent parallel work; there is no daemon, queue, scheduler, MCP server, or persistent conversation history.
 
 ## Install and run
 
@@ -9,6 +9,8 @@ Requirements: Python 3.10 or newer on POSIX. Advisory locking uses `fcntl`, so W
 ```bash
 python3.12 -m venv .venv
 .venv/bin/pip install ./agent-runner
+.venv/bin/agent-run-manifest init --workspace /absolute/worktree/path
+# Use the printed run.yaml path in the following calls.
 .venv/bin/agent-run-manifest new-job /absolute/path/to/run.yaml /absolute/path/to/task-draft.yaml \
   --role implementation-worker --contract-revision 1 --approved-by-preflight 001-preflight
 .venv/bin/agent-runner /absolute/path/to/jobs/002-implementation/task.yaml
@@ -104,7 +106,7 @@ task:
   sha256: 64-hex-digest
   job_id: fix-widget-test
 runner:
-  version: 1.6.0
+  version: 1.7.0
   sdk_version: 0.147.0
   sdk_package: openai-codex
   runtime_package: openai-codex-cli-bin==0.147.0
@@ -143,7 +145,53 @@ Read-only runs take no lock and can overlap. `workspace_write` and `danger_full_
 
 ## Run manifest companion
 
-`agent-run-manifest` operates on a strict `develop-task-run` schema v1 `run.yaml`. An optional `run.model_policy` is backward-compatible; missing policy means `adaptive`. New runs record `adaptive`, `explicit_ceiling`, or `main_ceiling` plus a resolved maximum GPT-5.6 model. `new-job` validates a complete `agent-task` v2 draft, requires its workspace to match the run, caps the requested model when needed, creates the final immutable `jobs/<job.id>/task.yaml`, and atomically registers the pending entry. Each new job records `requested_model`, `selected_model`, and `limited_by`; the legacy `model` field equals `selected_model`. Its stdout is the final task path. The companion later scans that task's sibling `results/` directory, verifies the task path, SHA-256, job ID, result schema, and execution status, then copies only `result_path`, `status`, `execution_id`, and `usage` into the job entry.
+`agent-run-manifest` operates on a strict `develop-task-run` schema v1 `run.yaml`.
+Run `init --workspace /absolute/worktree/path` from the main Codex chat. It creates
+a unique platform-temporary directory with mode `0700` and prints its absolute
+manifest path. No App Server is started by the helper.
+
+`init` reads the latest unquoted develop-task invocation from the user messages
+in the rollout selected by `CODEX_THREAD_ID` under the configured Codex home.
+It ignores injected skills/context, fenced code, inline code, and block quotes.
+Both `$develop-task` / `develop-task` and the Markdown skill-link form work.
+Parameters immediately after the skill name are authoritative:
+
+- `M` / `main_ceiling` uses the supported model recorded in that invocation's
+  `turn_context`, not a later turn's model;
+- `E Luna`, `E: Terra`, or `explicit_ceiling gpt-5.6-sol` selects the named ceiling;
+- no restriction keeps `adaptive`.
+
+Main still interprets natural-language constraints. It may pass
+`--mode main_ceiling`, or `--mode explicit_ceiling --maximum-model Luna` with
+the contextually selected model. These options cannot override explicit `M`/`E`.
+Ambiguous/missing source, unknown ceiling, and conflicting options fail before
+creating a run. `current-model` remains a diagnostic for the latest model, not
+the source-turn snapshot.
+
+New runs record `run.model_policy` (`mode`, `maximum_model`) and
+`run.model_policy_source` (`thread_id`, `turn_id`, `message_sha256`). The source
+identifies the original user message without copying the chat into the manifest.
+Every `new-job` re-reads that source and verifies explicit parameters and the
+invocation model before dispatch; editing `M` to `adaptive` fails. Later user
+messages, model changes, and `resume` do not replace the pinned source. Free-form
+language interpretation remains main's responsibility, not a natural-language
+parser in the helper. This protects the normal helper path, not arbitrary direct
+runner or native-subagent calls that bypass it.
+
+Legacy manifests remain readable, with missing policy interpreted as `adaptive`
+for reconciliation. To add a job to a legacy/manual manifest without a source,
+`new-job` first performs the same source check from the calling chat and records
+the source only if its existing policy agrees. Missing policy cannot bypass an
+explicit `M`/`E`; no worker starts on a mismatch or unavailable source.
+
+`new-job` also validates a complete `agent-task` v2 draft, requires its workspace
+to match the run, caps the requested model when needed, creates the final immutable
+`jobs/<job.id>/task.yaml`, and atomically registers the pending entry. Each job
+records `requested_model`, `selected_model`, and `limited_by`; the legacy `model`
+field equals `selected_model`. Its stdout is the final task path. The companion
+later scans that task's sibling `results/` directory, verifies the task path,
+SHA-256, job ID, result schema, and execution status, then copies only
+`result_path`, `status`, `execution_id`, and `usage` into the job entry.
 
 Use exactly one job directory per runner invocation. Reconciliation rejects multiple result files for one job instead of guessing which execution is authoritative. Updates take a short `fcntl` lock beside `run.yaml` and use a same-directory temporary file, file `fsync`, `os.replace`, and directory `fsync`.
 
@@ -171,8 +219,8 @@ their schemas are unchanged. Stop affected workers before amending, and resume
 a terminal run first.
 
 ```bash
-# Only when creating a main_ceiling run:
-agent-run-manifest current-model
+agent-run-manifest init --workspace /absolute/worktree/path
+# Use the printed path below, including for M/E runs; do not hand-write run.yaml.
 agent-run-manifest new-job /absolute/path/to/run.yaml /absolute/path/to/task-draft.yaml \
   --role implementation-worker \
   --contract-revision 1 \

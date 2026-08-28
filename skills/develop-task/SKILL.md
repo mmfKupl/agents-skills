@@ -80,6 +80,10 @@ Implement one coherent repository task at a time. Own task framing, model and
 agent routing, integration, validation evidence, review coordination, and final
 lifecycle actions. Do not invent business requirements.
 
+Before the first gate, resolve the invocation's model policy under Model Ceiling.
+In runner mode, create the run through `agent-run-manifest init`; do not hand-write
+`run.yaml` or replace an explicit `M`/`E` with the default policy.
+
 For every implementation task, including a Fast change:
 
 1. Obtain `preflight-review` approval before the first implementation edit.
@@ -261,12 +265,19 @@ The ceiling is an explicit user constraint, not a reason to request an upgrade:
 - if the bounded workflow cannot succeed within the ceiling, report that
   terminal outcome without proposing a model-policy change.
 
-In runner mode, write the resolved policy under `run.model_policy`; prepare each
-task with its adaptive requested model and let `agent-run-manifest new-job`
-apply the ceiling before creating immutable `task.yaml`. For `M`, resolve the
-main model with `agent-run-manifest current-model` before creating `run.yaml`.
-If that command cannot return one of the three supported models, stop before the
-first job rather than guessing.
+In runner mode, call `agent-run-manifest init --workspace <absolute-worktree>`
+as described in `references/agent-runner.md`. It reads the actual user invocation
+from the current thread's rollout, resolves explicit `M`/`E` itself, and prints
+the new manifest path. For `M`, the ceiling is the model of the invocation turn,
+not a later model switch. Only use `--mode` / `--maximum-model` to express your
+interpretation of a natural-language constraint; they cannot override explicit
+invocation parameters. Read the generated policy before reporting it.
+
+Prepare each task with its adaptive requested model. `agent-run-manifest new-job`
+checks the policy against its pinned source before applying the ceiling and
+creating immutable `task.yaml`. Do not change the source or policy to bypass an
+error. Recover a missing source/runtime record; never fall back to `adaptive`
+when a constrained invocation cannot be resolved.
 
 In direct-subagent mode, apply the same comparison before every `spawn_agent`
 call and pass only the selected model. Include the requested and selected model

@@ -9,9 +9,11 @@ import fcntl
 import hashlib
 import json
 import os
+import re
 import sys
 import tempfile
 from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator
@@ -40,6 +42,9 @@ MODEL_ORDER = (
 )
 MODEL_RANK = {model: rank for rank, model in enumerate(MODEL_ORDER)}
 MODEL_POLICY_MODES = {"adaptive", "explicit_ceiling", "main_ceiling"}
+DEVELOP_TASK_INVOCATION = re.compile(
+    r"(?<![\w/.-])(?:\[\$?develop-task\]\([^\n)]*\)|\$?develop-task)(?![\w/-])"
+)
 
 
 class ManifestError(ValueError):
@@ -188,12 +193,7 @@ def _load_yaml(path: Path, location: str) -> dict[str, Any]:
     return value
 
 
-def resolve_main_model(
-    thread_id: str | None = None, codex_home: Path | None = None
-) -> str:
-    resolved_thread_id = _nonempty(
-        thread_id or os.environ.get("CODEX_THREAD_ID"), "CODEX_THREAD_ID"
-    )
+def _rollout_path(thread_id: str, codex_home: Path | None = None) -> Path:
     if codex_home is None:
         configured_home = os.environ.get("CODEX_HOME")
         codex_home = (
@@ -205,50 +205,222 @@ def resolve_main_model(
     candidates = sorted(
         path
         for path in sessions_dir.rglob("*.jsonl")
-        if resolved_thread_id in path.name
+        if thread_id in path.name
     )
     if not candidates:
         raise ManifestError(
-            f"cannot find rollout for CODEX_THREAD_ID {resolved_thread_id!r} "
+            f"cannot find rollout for CODEX_THREAD_ID {thread_id!r} "
             f"under {sessions_dir}"
         )
     if len(candidates) != 1:
         raise ManifestError(
-            f"found multiple rollouts for CODEX_THREAD_ID {resolved_thread_id!r}"
+            f"found multiple rollouts for CODEX_THREAD_ID {thread_id!r}"
         )
+    return candidates[0]
 
-    model: str | None = None
+
+def _rollout_items(path: Path) -> Iterator[dict[str, Any]]:
     try:
-        with candidates[0].open(encoding="utf-8") as handle:
+        with path.open(encoding="utf-8") as handle:
             for line in handle:
                 try:
                     item = json.loads(line)
                 except json.JSONDecodeError:
                     continue
-                payload = item.get("payload")
-                if not isinstance(payload, dict):
-                    continue
-                candidate: Any = None
-                if item.get("type") == "turn_context":
-                    candidate = payload.get("model")
-                elif (
-                    item.get("type") == "event_msg"
-                    and payload.get("type") == "thread_settings_applied"
-                ):
-                    settings = payload.get("thread_settings")
-                    if isinstance(settings, dict):
-                        candidate = settings.get("model")
-                elif item.get("type") == "world_state":
-                    state = payload.get("state")
-                    if isinstance(state, dict):
-                        candidate = state.get("model")
-                if isinstance(candidate, str) and candidate.strip():
-                    model = candidate
+                if isinstance(item, dict) and isinstance(item.get("payload"), dict):
+                    yield item
     except OSError as exc:
-        raise ManifestError(f"cannot read rollout {candidates[0]}: {exc}") from exc
+        raise ManifestError(f"cannot read rollout {path}: {exc}") from exc
+
+
+def _recorded_model(item: dict[str, Any]) -> str | None:
+    payload = item["payload"]
+    candidate: Any = None
+    if item.get("type") == "turn_context":
+        candidate = payload.get("model")
+    elif (
+        item.get("type") == "event_msg"
+        and payload.get("type") == "thread_settings_applied"
+    ):
+        settings = payload.get("thread_settings")
+        if isinstance(settings, dict):
+            candidate = settings.get("model")
+    elif item.get("type") == "world_state":
+        state = payload.get("state")
+        if isinstance(state, dict):
+            candidate = state.get("model")
+    return candidate if isinstance(candidate, str) and candidate.strip() else None
+
+
+def resolve_main_model(
+    thread_id: str | None = None, codex_home: Path | None = None
+) -> str:
+    thread_id = _nonempty(
+        thread_id or os.environ.get("CODEX_THREAD_ID"), "CODEX_THREAD_ID"
+    )
+    path = _rollout_path(thread_id, codex_home)
+    model = None
+    for item in _rollout_items(path):
+        model = _recorded_model(item) or model
     if model is None:
-        raise ManifestError(f"rollout {candidates[0]} does not record the current model")
+        raise ManifestError(f"rollout {path} does not record the current model")
     return model
+
+
+def _invocation_text(message: str) -> str:
+    # Skill/context injections and quoted examples are not user invocations.
+    if message.lstrip().startswith(
+        ("<skill>", "<environment_context>", "<recommended_plugins>", "# AGENTS.md")
+    ):
+        return ""
+    if "<response-annotations>" in message:
+        message = message.partition("## My request:")[2]
+    lines = []
+    fence = None
+    for line in message.splitlines():
+        marker = re.match(r"^\s*(`{3,}|~{3,})", line)
+        if marker:
+            token = marker.group(1)
+            if fence is None:
+                fence = token
+            elif token[0] == fence[0] and len(token) >= len(fence):
+                fence = None
+            continue
+        if fence is None and not line.lstrip().startswith(">"):
+            lines.append(re.sub(r"`+[^`\n]*`+", "", line))
+    return "\n".join(lines)
+
+
+@dataclass(frozen=True)
+class Invocation:
+    thread_id: str
+    turn_id: str
+    message: str
+    model: str | None
+
+    @property
+    def source(self) -> dict[str, str]:
+        return {
+            "thread_id": self.thread_id,
+            "turn_id": self.turn_id,
+            "message_sha256": hashlib.sha256(self.message.encode("utf-8")).hexdigest(),
+        }
+
+
+def resolve_invocation(source: dict[str, Any] | None = None) -> Invocation:
+    thread_id = _nonempty(
+        source["thread_id"] if source is not None else os.environ.get("CODEX_THREAD_ID"),
+        "source thread_id / CODEX_THREAD_ID",
+    )
+    path = _rollout_path(thread_id)
+    turn_id = None
+    turn_models: dict[str, str] = {}
+    selected: Invocation | None = None
+    for item in _rollout_items(path):
+        payload = item["payload"]
+        if item.get("type") == "turn_context" or (
+            item.get("type") == "event_msg" and payload.get("type") == "task_started"
+        ):
+            turn_id = payload.get("turn_id") or turn_id
+        # Use the model of the invocation turn, never a later turn's settings.
+        if item.get("type") == "turn_context":
+            model = _recorded_model(item)
+            if model and turn_id:
+                turn_models.setdefault(turn_id, model)
+        if not (
+            item.get("type") == "response_item"
+            and payload.get("type") == "message"
+            and payload.get("role") == "user"
+        ):
+            continue
+        message = "\n".join(
+            part["text"]
+            for part in payload.get("content", [])
+            if isinstance(part, dict) and isinstance(part.get("text"), str)
+        )
+        if not DEVELOP_TASK_INVOCATION.search(_invocation_text(message)):
+            continue
+        metadata = payload.get("internal_chat_message_metadata_passthrough") or {}
+        message_turn_id = metadata.get("turn_id") or turn_id
+        candidate = Invocation(thread_id, message_turn_id, message, None)
+        if source is not None and candidate.source != source:
+            continue
+        selected = candidate
+        if source is not None and message_turn_id in turn_models:
+            break
+    if selected is None:
+        raise ManifestError(f"cannot find the source develop-task invocation in {path}")
+    return Invocation(
+        thread_id,
+        _nonempty(selected.turn_id, "invocation turn_id"),
+        selected.message,
+        turn_models.get(selected.turn_id),
+    )
+
+
+def _model_id(value: str | None) -> str | None:
+    if value is None:
+        return None
+    aliases = {model.removeprefix("gpt-5.6-"): model for model in MODEL_ORDER}
+    return aliases.get(value.lower(), value.lower())
+
+
+def _invocation_policy(
+    invocation: Invocation, mode: str | None = None, maximum_model: str | None = None
+) -> dict[str, Any]:
+    text = _invocation_text(invocation.message)
+    matches = list(DEVELOP_TASK_INVOCATION.finditer(text))
+    if len(matches) != 1:
+        raise ManifestError("source message must contain one unquoted develop-task invocation")
+    suffix = text[matches[0].end():]
+    parameter = re.match(
+        r"\s+(M|E|main_ceiling|explicit_ceiling|adaptive)(?=\s|:|,|$)", suffix
+    )
+    explicit_maximum = None
+    if parameter:
+        explicit_mode = {"M": "main_ceiling", "E": "explicit_ceiling"}.get(
+            parameter[1], parameter[1]
+        )
+        if mode is not None and mode != explicit_mode:
+            raise ManifestError(
+                f"model policy contradicts source invocation: requires {explicit_mode}, not {mode}"
+            )
+        mode = explicit_mode
+        if mode == "explicit_ceiling":
+            model_token = re.match(r"\s*:?\s*([^\s,;]+)", suffix[parameter.end():])
+            explicit_maximum = _model_id(model_token[1]) if model_token else None
+            if explicit_maximum not in MODEL_RANK:
+                raise ManifestError(
+                    "source E requires Luna, Terra, Sol, or a full supported model ID"
+                )
+    mode = mode or "adaptive"
+    maximum_model = _model_id(maximum_model)
+    expected_maximum = explicit_maximum
+    if mode == "main_ceiling":
+        expected_maximum = invocation.model
+        if expected_maximum not in MODEL_RANK:
+            raise ManifestError(
+                "source invocation turn does not record a supported main model"
+            )
+    if expected_maximum is not None:
+        if maximum_model is not None and maximum_model != expected_maximum:
+            raise ManifestError(
+                f"model ceiling contradicts source invocation: requires {expected_maximum}"
+            )
+        maximum_model = expected_maximum
+    return _validate_model_policy(
+        {"mode": mode, "maximum_model": maximum_model}, "resolved model policy"
+    )
+
+
+def _verify_model_policy(run: dict[str, Any]) -> None:
+    # Legacy/manual manifests get the same source check, not an adaptive bypass.
+    invocation = resolve_invocation(run.get("model_policy_source"))
+    policy = _model_policy(run)
+    if _invocation_policy(invocation, **policy) != policy:
+        raise ManifestError("run.model_policy does not match its source invocation")
+    run["model_policy"] = policy
+    run["model_policy_source"] = invocation.source
 
 
 def _validate_manifest(value: dict[str, Any], path: Path) -> dict[str, Any]:
@@ -262,7 +434,7 @@ def _validate_manifest(value: dict[str, Any], path: Path) -> dict[str, Any]:
         root["run"],
         "run",
         {"id", "backend", "workspace", "status", "started_at", "finished_at"},
-        {"model_policy", "requirements"},
+        {"model_policy", "model_policy_source", "requirements"},
     )
     _nonempty(run["id"], "run.id")
     if run["backend"] != "runner":
@@ -274,6 +446,18 @@ def _validate_manifest(value: dict[str, Any], path: Path) -> dict[str, Any]:
     if run["finished_at"] is not None and not isinstance(run["finished_at"], str):
         raise ManifestError("run.finished_at must be a string or null")
     policy = _model_policy(run)
+    if "model_policy_source" in run:
+        source = _mapping(
+            run["model_policy_source"],
+            "run.model_policy_source",
+            {"thread_id", "turn_id", "message_sha256"},
+        )
+        for key in ("thread_id", "turn_id", "message_sha256"):
+            _nonempty(source[key], f"run.model_policy_source.{key}")
+        if not re.fullmatch(r"[0-9a-f]{64}", source["message_sha256"]):
+            raise ManifestError(
+                "run.model_policy_source.message_sha256 must be a SHA-256 digest"
+            )
     requirements = _requirements(run)
 
     jobs = root["jobs"]
@@ -558,6 +742,36 @@ def _locked_manifest(path: Path) -> Iterator[dict[str, Any]]:
         _atomic_write(path, document)
 
 
+def init_manifest(
+    workspace_argument: str, mode: str | None = None, maximum_model: str | None = None
+) -> Path:
+    workspace = _absolute_path(workspace_argument, "workspace").resolve()
+    if not workspace.is_dir():
+        raise ManifestError(f"workspace is not a directory: {workspace}")
+    invocation = resolve_invocation()
+    policy = _invocation_policy(invocation, mode, maximum_model)
+    run_dir = Path(tempfile.mkdtemp(prefix="codex-agent-run-")).resolve()
+    path = run_dir / "run.yaml"
+    document = {
+        "kind": "develop-task-run",
+        "schema_version": 1,
+        "run": {
+            "id": run_dir.name,
+            "backend": "runner",
+            "workspace": str(workspace),
+            "status": "running",
+            "started_at": _utc_now(),
+            "finished_at": None,
+            "model_policy": policy,
+            "model_policy_source": invocation.source,
+            "requirements": {"revision": 1, "amendments": []},
+        },
+        "jobs": [],
+    }
+    _atomic_write(path, document)
+    return path
+
+
 def reconcile_manifest(path_argument: str) -> Path:
     path = Path(os.path.abspath(os.path.expanduser(path_argument)))
     with _locked_manifest(path) as document:
@@ -594,6 +808,7 @@ def new_job_manifest(
         manifest = _reconcile_document(document, path)
         if manifest["run"]["status"] != "running":
             raise ManifestError("cannot add a job to a terminal run; resume it first")
+        _verify_model_policy(manifest["run"])
         unregistered = _unregistered_task_paths(manifest, path)
         if unregistered:
             raise ManifestError(
@@ -704,11 +919,22 @@ def _argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="agent-run-manifest",
         description=(
-            "Resolve the main model or atomically register, amend, reconcile, and finalize "
+            "Initialize, register, amend, reconcile, and finalize "
             "one develop-task run.yaml."
         ),
     )
     commands = parser.add_subparsers(dest="command", required=True)
+    initialize = commands.add_parser(
+        "init", help="create a private run directory with a source-verified model policy"
+    )
+    initialize.add_argument("--workspace", required=True, help="absolute worktree path")
+    initialize.add_argument(
+        "--mode", choices=sorted(MODEL_POLICY_MODES),
+        help="interpret a natural-language constraint; cannot override explicit M/E",
+    )
+    initialize.add_argument(
+        "--maximum-model", help="ceiling for a natural-language E constraint"
+    )
     commands.add_parser(
         "current-model", help="print the model recorded for the current Codex thread"
     )
@@ -740,7 +966,9 @@ def _argument_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = _argument_parser().parse_args(argv)
     try:
-        if args.command == "current-model":
+        if args.command == "init":
+            output = str(init_manifest(args.workspace, args.mode, args.maximum_model))
+        elif args.command == "current-model":
             output = resolve_main_model()
         elif args.command == "new-job":
             path = new_job_manifest(

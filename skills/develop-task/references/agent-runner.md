@@ -22,26 +22,44 @@ as the selected runner, then from `PATH`. Require `agent-run-manifest --help`
 to succeed before creating `run.yaml`. It is a one-shot YAML helper, not a
 daemon or scheduler.
 
-When model policy `M` is selected, resolve the main chat model before creating
-the manifest:
+## Initialize The Run And Model Policy
+
+Once the target worktree is known, initialize the run before the first job:
 
 ```bash
-agent-run-manifest current-model
+agent-run-manifest init --workspace /absolute/worktree/path
 ```
 
-The command reads the current Codex rollout identified by `CODEX_THREAD_ID` and
-prints only its current model ID. Require one of `gpt-5.6-luna`,
-`gpt-5.6-terra`, or `gpt-5.6-sol`; do not infer a replacement if resolution
-fails.
+The command creates a unique private temporary directory and prints only its
+absolute `run.yaml` path. Keep that path for all later helper calls. It reads the
+latest unquoted develop-task invocation from actual user messages in the rollout
+identified by `CODEX_THREAD_ID`, excluding injected skill/context text and quoted
+examples. Parameters directly after `$develop-task` (including its Markdown-link
+form), or plain `develop-task`, are resolved by the helper:
+
+- `M` / `main_ceiling`: pin the supported model recorded for that invocation's
+  turn, not the current model of a later follow-up;
+- `E Luna`, `E: Terra`, or `explicit_ceiling gpt-5.6-sol`: pin the named model;
+- no restriction: preserve `adaptive`.
+
+For a natural-language constraint, main still interprets the user's meaning and
+passes `--mode main_ceiling`, or `--mode explicit_ceiling --maximum-model Luna`
+(using the contextually chosen model). These options cannot contradict an
+explicit `M`/`E`. Do not pass an invented/default policy over a recognized alias.
+Read the generated policy and report it before the first job. Missing source,
+ambiguous invocation, unsupported ceiling, or conflicting options fail before
+the run is created; recover the evidence, not an unconstrained substitute.
+
+`current-model` remains a diagnostic command for the latest recorded model. It
+does not initialize a run or replace the invocation-turn snapshot.
 
 ## Run Directory And Ownership
 
-Create one private temporary run directory outside the repository and target
-worktree. Prefer the platform temporary directory and permissions no broader
-than `0700`.
+`init` creates one private run directory in the platform temporary directory
+with mode `0700`. Keep it outside the repository and target worktree.
 
 ```text
-<temporary-root>/codex-agent-runs/<run-id>/
+<temporary-root>/codex-agent-run-<unique-id>/
 ├── run.yaml
 └── jobs/
     ├── 001-preflight/
@@ -55,7 +73,7 @@ than `0700`.
         └── results/<execution-id>.yaml
 ```
 
-The main thread creates `run.yaml`, prepares each task document, and owns the
+The helper creates `run.yaml`; main prepares each task document and owns the
 semantic job plan. `agent-run-manifest new-job` validates the task, creates its
 final immutable job directory and `task.yaml`, and atomically registers the
 pending entry. The runner exclusively creates result files. The manifest helper
@@ -68,7 +86,8 @@ directories. Treat a task file as immutable after its process starts. Create a
 new job directory for every retry, gate challenge, specialist result
 interpretation, postflight cycle, or writer fix instead of editing an old task.
 
-Maintain this compact run index:
+The generated run index and later registered jobs have this shape (not a
+template to hand-write):
 
 ```yaml
 kind: develop-task-run
@@ -83,6 +102,10 @@ run:
   model_policy:
     mode: adaptive # adaptive | explicit_ceiling | main_ceiling
     maximum_model: null # null, gpt-5.6-luna, gpt-5.6-terra, or gpt-5.6-sol
+  model_policy_source:
+    thread_id: <originating thread ID>
+    turn_id: <invocation turn ID>
+    message_sha256: <SHA-256 of the original user message>
   requirements:
     revision: 1
     amendments: []
@@ -119,12 +142,19 @@ jobs:
     reasoning_effort: medium
 ```
 
-Initialize a new manifest with `jobs: []`. Missing `run.model_policy` remains
-compatible and means `adaptive`, but every new develop-task run must write the
-resolved policy explicitly. The policy is immutable for that run. For each
-new run also initialize `run.requirements` as shown. A legacy manifest without
-it means revision 1 with no recorded amendments; old jobs without
-`requirements_revision` remain readable, not retroactively certified.
+`init` starts with `jobs: []` and requirements revision 1. The policy and its
+source are immutable for that run, including retries and resumes. `new-job`
+re-reads the pinned user message and invocation model; a contradictory policy
+is rejected before a worker can start. Legacy manifests remain readable. Before
+adding a job to a legacy/manual manifest without a source, the helper performs
+the same check using the calling chat's invocation and only then records its
+source. Missing policy is not an escape from a source `M`/`E`; a conflicting
+legacy policy is rejected, not silently rewritten. Do not copy old manifests
+to another chat to bypass source resolution.
+
+A legacy manifest without `run.requirements` means revision 1 with no recorded
+amendments; old jobs without `requirements_revision` remain readable, not
+retroactively certified.
 For each invocation, prepare the
 strict task YAML at a temporary path outside `jobs/`, then register it:
 
@@ -137,7 +167,7 @@ agent-run-manifest new-job /absolute/path/to/run.yaml /absolute/path/to/task-dra
 
 Omit `--approved-by-preflight` for the initial preflight. The command validates
 the complete task schema before creating anything, requires its workspace to
-match the run, applies the run's model ceiling, creates
+match the run, verifies the model-policy source, applies the ceiling, creates
 `jobs/<job.id>/task.yaml`, atomically appends the pending entry, and prints the
 final task path for the foreground runner call. When capped, the immutable task
 contains the selected model while the manifest records the requested model,

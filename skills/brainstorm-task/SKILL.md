@@ -1,6 +1,6 @@
 ---
 name: brainstorm-task
-description: Turn rough notes, voice-dump transcripts, or an ambiguous repository engineering idea into a concise task scope through repository research, independent repository-practice and best-practice review, requirements interviewing, and solution comparison. Use only when the user explicitly invokes $brainstorm-task; never activate it from a natural-language request alone. Supports an interactive brainstorm mode by default and an explicit autopilot mode with no user questions. Do not use when requirements are settled and the user asks to implement or review the change.
+description: Create or revise a concise engineering task scope from rough notes, voice-dump transcripts, an ambiguous idea, or an existing specification through repository research, independent repository-practice and best-practice review, requirements interviewing, and solution comparison. When revising an existing scope, return both the complete new version and its meaningful changes. Use only when the user explicitly invokes $brainstorm-task; never activate it from a natural-language request alone. Supports an interactive brainstorm mode by default and an explicit autopilot mode with no user questions. Do not use when requirements are settled and the user asks to implement or review the change.
 ---
 
 # Brainstorm task
@@ -125,6 +125,28 @@ detailed input.
 
 Maintain a compact decision ledger with confirmed, assumed, open, rejected,
 and later-work items. Show it only at checkpoints or when the user asks.
+
+## Revising an existing scope
+
+When the user asks to update an existing specification, scope, or prior
+brainstorm result, treat the latest complete version they supplied, referenced,
+or previously approved in the conversation as the baseline. Recover the exact
+baseline from the source artifact or conversation history when available. Do
+not reconstruct it from a loose summary. If no complete baseline is accessible,
+ask the user for it before claiming an exact comparison.
+
+Run the normal workflow, but focus research and questions on the proposed
+changes and anything they invalidate. Preserve unchanged confirmed decisions.
+Do not reopen them merely to repeat the original interview. Revisit an older
+decision only when a new detail contradicts it, changes its consequences, or
+makes its supporting repository evidence stale.
+
+Maintain a baseline-to-current change ledger alongside the decision ledger.
+Track meaningful requirement and contract changes as Added, Changed, or
+Removed. For Changed items, retain both the old and new value. Ignore wording,
+ordering, formatting, and section moves that do not change meaning. Never infer
+that an omitted baseline item was removed unless the user explicitly removes it
+or an approved new decision makes it impossible.
 
 ## Repository and practice research
 
@@ -279,8 +301,9 @@ After both approvals, repeat the synthesis audit for decisions introduced or
 corrected during approval. Generate the canonical scope from the audited
 decision ledger rather than by summarizing the approval messages.
 
-After both approvals, return only the canonical scope defined below. Do not
-append a handoff prompt or start implementation.
+After both approvals, return the revision summary defined below when a baseline
+exists, followed by the canonical scope. For a new scope, return only the
+canonical scope. Do not append a handoff prompt or start implementation.
 
 ## Autopilot mode
 
@@ -303,8 +326,22 @@ assumption.
 Return a structured report whose length follows task complexity without
 repetition. Include the repository/practice comparison, all viable approaches,
 the recommendation, later work, assumptions, unresolved risks, and the
-canonical scope. The recommendation is the agent's working conclusion, not
+canonical scope. When a baseline exists, include the same revision summary as
+interactive mode. The recommendation is the agent's working conclusion, not
 user approval.
+
+## Revision summary
+
+Before the complete canonical scope, show `Changes from previous version` with
+only meaningful Added, Changed, and Removed items. Omit empty categories. Keep
+it compact, but preserve exact names, values, limits, and contract details. For
+each Changed item, use `old -> new` so the user does not need to compare two
+full documents. If nothing material changed, say so explicitly.
+
+Derive this summary from the audited baseline-to-current ledger, not by diffing
+the final prose. The complete canonical scope remains authoritative. The change
+summary is a review aid and must not contain requirements missing from the full
+scope.
 
 ## Canonical scope
 

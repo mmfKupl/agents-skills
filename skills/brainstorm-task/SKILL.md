@@ -110,11 +110,18 @@ detailed input.
   works, or another question the repository can answer.
 - Ask the user only about intent or a choice: desired behavior, user outcome,
   boundary, constraint, priority, risk tolerance, or completion evidence.
-- Keep ordinary brainstorm messages under roughly 120 words and at most five
-  short bullets. The user may ask for more detail.
-- Introduce at most one new mechanism, design concept, or decision in a
-  message. Do not surface speculative technical subproblems unless resolving
-  them can change the task boundary, user-visible behavior, or chosen approach.
+- Do not optimize brainstorm messages for a word count. Give enough context to
+  understand the current point without decoding compressed phrasing. Keep each
+  message focused on one mechanism, design concept, or decision. Do not surface
+  speculative technical subproblems unless resolving them can change the task
+  boundary, user-visible behavior, or chosen approach.
+- Use the user's vocabulary and established repository or domain names. Do not
+  coin umbrella terms, abbreviations, or architecture labels merely to shorten
+  an explanation. When an exact repository identifier matters, first describe
+  its concrete behavior and then give its name.
+- Do not replace a prose explanation with formulas, arrow chains, pseudocode,
+  or dense shorthand. A diagram may support an explanation after the behavior
+  has been stated plainly, but it must not be the only explanation.
 - Do not paste raw repository notes or specialist reports. Surface only facts
   that affect the decision.
 - When the user corrects a premise, discard unapproved conclusions that depend
@@ -174,7 +181,8 @@ recursive delegation. If either role is technically unavailable, stop and name
 the missing role. The main agent must not imitate the missing independent
 review.
 
-Synthesize one compact comparison before generating solution options:
+Synthesize one focused comparison with enough context to understand the
+consequences before generating solution options:
 
 - how the repository currently handles the problem;
 - what strong general practice would normally do;
@@ -195,9 +203,10 @@ Do not refine an oversized idea as one task. Identify the independent pieces,
 their dependency order, and the smallest useful first slice. Preserve the
 remaining pieces as later work rather than silently dropping them.
 
-- In brainstorm mode, show the short decomposition and ask the user to choose
-  one current task. This is one interview question. Repeat affected repository
-  and specialist research after the choice when the boundary changes.
+- In brainstorm mode, explain the decomposition with enough context to
+  distinguish the pieces, then ask the user to choose one current task. This is
+  one interview question. Repeat affected repository and specialist research
+  after the choice when the boundary changes.
 - In autopilot mode, choose the smallest independently valuable first slice,
   explain the choice, and list the other slices as later work.
 
@@ -214,16 +223,19 @@ Wait for confirmation. A correction replaces the provisional understanding.
 
 ### 2. Research and compare
 
-Run the repository and practice research above. Show the compact comparison and
-wait for the user's reaction before the requirements interview. Do not show
-solution options yet.
+Run the repository and practice research above. Show the focused comparison
+with enough explanation to understand its consequences, then wait for the
+user's reaction before the requirements interview. Do not show solution options
+yet.
 
 ### 3. Interview one decision at a time
 
 Run a requirements interview even when the initial description seems detailed.
 Ask exactly one focused question per message. Do not repeat facts already
-settled by the user or repository. Use the interview to establish every
-relevant high-impact decision among:
+settled by the user or repository. The one-question rule limits how many
+decisions are discussed at once; it does not limit the explanation needed
+before the question. Use the interview to establish every relevant high-impact
+decision among:
 
 - desired outcome and affected users;
 - observable behavior and important current behavior to preserve;
@@ -244,9 +256,10 @@ Before asking about a new mechanism, label, or abstract tradeoff:
 
 Do not ask the user to approve an unexplained term such as a policy, marker,
 lifecycle, or opt-in. Do not use "does that make sense?" as a substitute for
-the actual decision question. If the required context does not fit concisely,
-explain one premise first and defer the decision rather than compressing
-several new ideas into a wall of text.
+the actual decision question. Do not compress prerequisites merely to reach the
+question. Explain every linked premise needed for the current decision in full.
+Split the explanation across turns only when a premise itself requires a user
+decision; never split it only to satisfy a length target.
 
 Questions have no numeric quota. Ask another only when its answer can change
 the goal, boundary, approach, risk, or acceptance criteria. Even when all fields
@@ -260,11 +273,12 @@ reviews. Show the corrected comparison before continuing toward options.
 ### 4. Compare approaches
 
 After the interview is complete, present two or three genuinely different
-viable approaches in one concise set. For each include its basic shape, the
-tradeoff that distinguishes it, and any tension with repository practice or an
-explicit constraint. Lead with a recommendation and explain why it fits the
-confirmed goal. Include a smaller approach when credible. Ask the user to
-choose, combine, or revise the approaches.
+viable approaches with enough context to understand each one without relying
+on shorthand. For each include its basic shape, the tradeoff that distinguishes
+it, and any tension with repository practice or an explicit constraint. Lead
+with a recommendation and explain why it fits the confirmed goal. Include a
+smaller approach when credible. Ask the user to choose, combine, or revise the
+approaches.
 
 ### 5. Approve the scope in two parts
 

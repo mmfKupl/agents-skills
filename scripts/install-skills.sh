@@ -56,7 +56,7 @@ remove_obsolete_skills() {
   local skills_dir="${codex_home}/skills"
   local obsolete_skill
 
-  for obsolete_skill in develop-loop openspec-workflow; do
+  for obsolete_skill in delegation-prompt develop-loop openspec-workflow; do
     if [[ -d "${skills_dir}/${obsolete_skill}" ]]; then
       rm -rf "${skills_dir:?}/${obsolete_skill}"
       echo "Removed obsolete skill ${obsolete_skill} from ${skills_dir}"

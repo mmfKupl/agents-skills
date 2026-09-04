@@ -272,13 +272,32 @@ reviews. Show the corrected comparison before continuing toward options.
 
 ### 4. Compare approaches
 
-After the interview is complete, present two or three genuinely different
-viable approaches with enough context to understand each one without relying
-on shorthand. For each include its basic shape, the tradeoff that distinguishes
-it, and any tension with repository practice or an explicit constraint. Lead
-with a recommendation and explain why it fits the confirmed goal. Include a
-smaller approach when credible. Ask the user to choose, combine, or revise the
-approaches.
+After the interview is complete, generate possible approaches and filter them
+before showing any to the user. An approach is viable only when it satisfies
+the confirmed goal, every hard constraint, required behavior preservation, and
+the approved task boundary. Discard anything already rejected by the user or
+the research. A technically possible workaround is not viable when it widens
+the task, changes behavior that must stay unchanged, or adds risk without a
+benefit relevant to the confirmed goal.
+
+Never manufacture alternatives to reach a quota:
+
+- If two or more materially different viable approaches remain, present only
+  those whose tradeoffs could realistically change the decision. Normally this
+  will be two or three. Explain each without shorthand, lead with a
+  recommendation, and ask the user to choose, combine, or revise them.
+- If exactly one viable approach remains, say that the confirmed constraints
+  leave one direction and present only that direction. Mention discarded ideas
+  under Rejected only when their exclusion needs to be recorded. Do not format
+  them as choices.
+- If no viable approach remains, return to the affected research or interview
+  decision instead of weakening a confirmed constraint silently.
+
+When the user already confirmed the same technical direction after seeing the
+evidence and consequences, record it as chosen and proceed to scope approval.
+Do not reopen a settled choice merely because this workflow has reached the
+approach stage. Ask for confirmation only when it can still change the
+direction.
 
 ### 5. Approve the scope in two parts
 
@@ -329,8 +348,9 @@ Do not send intermediate questions or approval checkpoints. Internally:
 4. Generate the same requirements questions and answer each from, in order,
    the user's words, repository evidence, and explicit assumptions.
 5. Re-run affected research when an internal answer changes the boundary.
-6. Identify all genuinely viable approaches, compare them, and choose a
-   recommendation.
+6. Apply the same viability filter as interactive mode. Compare materially
+   different approaches when more than one survives; when only one survives,
+   choose it without inventing alternatives.
 
 When two interpretations remain equally plausible, choose the smaller
 independently useful scope. Never let best-practice guidance invent product

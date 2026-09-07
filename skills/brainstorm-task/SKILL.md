@@ -299,7 +299,7 @@ Do not reopen a settled choice merely because this workflow has reached the
 approach stage. Ask for confirmation only when it can still change the
 direction.
 
-### 5. Approve the scope in two parts
+### 5. Approve the scope
 
 Before presenting the first approval, perform a final synthesis audit. Re-read
 all user messages and annotations since invocation and rebuild the decision
@@ -310,33 +310,38 @@ field or item lists. If a context reset or compaction occurred, use available
 history tools to recover the earlier user messages and annotations before the
 audit; do not treat a compacted summary as the source of truth.
 
-Map every confirmed decision to Product boundary, Output contract, Technical
-direction, Validation, Later work, or Rejected. Resolve contradictions and do
-not present the approval while a confirmed decision remains unmapped. Keep this
-coverage mapping internal unless the user asks to see it.
+Map every confirmed decision to Goal, Requirements, Validation, Output
+contract, Implementation constraints, Out of scope, Later work, Open questions,
+Assumptions, or Rejected. Resolve contradictions and do not present the approval
+while a confirmed decision remains unmapped. Keep this coverage mapping
+internal unless the user asks to see it. Repository facts, practice findings,
+possible risks, and rejected ideas are not confirmed requirements merely
+because they appeared during research.
 
-Present and approve these checkpoints separately:
+Present no more approval checkpoints than the task needs:
 
-1. Product boundary: goal, affected user, observable behavior, in scope, out of
-   scope, later work, and acceptance criteria. When the task defines a
-   substantial artifact, schema, API, event, configuration, or data format,
-   include a separate Output contract in the same checkpoint with its exact
-   names, fields, formats, limits, and required content.
-2. Technical direction: repository owner and evidence, chosen approach,
-   contracts to preserve, risks, and validation direction.
+1. Requirements checkpoint: Goal, Requirements, Validation, and an Output
+   contract only when the task defines a substantial artifact, schema, API,
+   event, configuration, or data format. Preserve its exact names, fields,
+   formats, limits, and required content.
+2. Technical direction checkpoint only when an unresolved implementation
+   choice or hard technical constraint could materially change the result.
+   Include only the repository evidence needed to understand that decision.
+   Skip this checkpoint when the direction has already been confirmed or no
+   meaningful technical constraint remains.
 
-Keep the Product boundary concise, but never compress or omit exact decisions
-to meet a word target. Let the Output contract grow to the detail required for
-implementation and approve it together with the Product boundary. A change to
-the first checkpoint invalidates dependent parts of the second.
+Keep the requirements checkpoint concise, but never compress or omit an exact
+decision to meet a word target. Let a real Output contract grow to the detail
+required for implementation. A requirements change invalidates dependent
+technical decisions.
 
-After both approvals, repeat the synthesis audit for decisions introduced or
-corrected during approval. Generate the canonical scope from the audited
-decision ledger rather than by summarizing the approval messages.
+After the required approvals, repeat the synthesis audit for decisions
+introduced or corrected during approval. Generate the canonical scope from the
+audited decision ledger rather than by summarizing the approval messages.
 
-After both approvals, return the revision summary defined below when a baseline
-exists, followed by the canonical scope. For a new scope, return only the
-canonical scope. Do not append a handoff prompt or start implementation.
+Then return the revision summary defined below when a baseline exists, followed
+by the canonical scope. For a new scope, return only the canonical scope. Do
+not append a handoff prompt or start implementation.
 
 ## Autopilot mode
 
@@ -358,11 +363,11 @@ requirements. Mark every answer not supported by the user or repository as an
 assumption.
 
 Return a structured report whose length follows task complexity without
-repetition. Include the repository/practice comparison, all viable approaches,
-the recommendation, later work, assumptions, unresolved risks, and the
-canonical scope. When a baseline exists, include the same revision summary as
-interactive mode. The recommendation is the agent's working conclusion, not
-user approval.
+repetition. Keep repository/practice findings and approach reasoning separate
+from the canonical scope. Include only the findings needed to justify the
+recommendation, followed by the canonical scope. When a baseline exists,
+include the same revision summary as interactive mode. The recommendation is
+the agent's working conclusion, not user approval.
 
 ## Revision summary
 
@@ -379,25 +384,44 @@ scope.
 
 ## Canonical scope
 
-Use this shape, omitting empty fields when that improves readability:
+The canonical scope is an implementation task specification, not a record of
+the research process. Always include Goal, Requirements, and Validation. Add
+the other sections only when their stated condition applies:
 
 ```text
 Goal:
-Affected users and problem:
-User-visible behavior:
-Acceptance criteria:
-In scope:
-Output contract:
-Out of scope:
-Later work:
-Relevant repository evidence:
-Repository versus best practice:
-Chosen direction:
-Contracts and constraints:
-Validation expectations:
-Assumptions and unresolved risks:
+Requirements:
+Validation:
+Output contract:            [only for a substantial exact artifact or contract]
+Implementation constraints: [only for approved constraints that prevent a wrong implementation]
+Out of scope:               [only for explicit or credible boundary ambiguities]
+Later work:                 [only for explicitly deferred work]
+Open questions:             [only when unresolved]
+Assumptions:                [only in autopilot or when a decision could not be obtained]
 ```
 
-Acceptance criteria must describe observable evidence, not implementation
-activity. Keep confirmed decisions separate from assumptions. The result must
-be short enough to review without rereading the discovery conversation.
+Write Goal as one outcome sentence. Put user-visible behavior, permissions,
+compatibility rules, boundaries, and other accepted behavior in Requirements.
+Put observable completion evidence, required test levels, permission matrices,
+and edge cases in Validation. Do not reduce Validation to generic activities
+such as "add tests" when exact scenarios were agreed.
+
+Implementation constraints contain only approved technical rules whose
+omission could lead to a materially wrong solution. A repository owner, file,
+class, helper, or test location is not a constraint by default. Include an exact
+location only when the user required it or the location itself is part of the
+approved boundary.
+
+Do not include repository evidence, general-practice commentary, rejected
+approaches, generic risks, or lists of files and unrelated subsystems that need
+no change. Keep those in the research discussion and internal ledger. Put an
+item in Out of scope only when it records an explicit user decision or resolves
+a credible ambiguity considered during the brainstorm. Do not manufacture
+negative requirements by listing everything the implementation should leave
+untouched.
+
+State each decision once in the most specific section. Do not repeat the same
+rule as a user problem, behavior, acceptance criterion, scope item, contract,
+and risk. Keep confirmed decisions separate from assumptions. The result must
+be short enough to review without rereading the discovery conversation, while
+preserving every exact requirement and required validation case.

@@ -35,10 +35,11 @@ invent product requirements.
    and lifecycle. In runner mode it delegates every implementation; in the
    direct-subagent fallback it may write code only for a confirmed Fast profile.
 4. Use one generic `implementation-worker` role for every runner-mode task and
-   for Standard and Deep direct-subagent work. Fast and Standard work normally
-   uses one job. A multi-surface Deep or Critical contract may use several
-   ordered fresh jobs of that same role, each owning one bounded slice. Do not
-   add language-specific workers.
+   for all non-Fast direct-subagent work. Fast and Standard work normally
+   uses one job. A multi-area Deep, Critical, or Exceptional contract may use
+   several ordered fresh jobs of that same role, each owning one bounded slice.
+   Each slice names the interfaces it consumes and produces. Do not add
+   language-specific workers.
 5. At most one agent may mutate a shared worktree at a time. Code writing and
    potentially write-producing validation are serialized through the same
    authorized-mutator state.
@@ -99,29 +100,33 @@ invent product requirements.
     security/correctness failure at the changed boundary. Hypothetical future
     use and generic best practice do not justify code.
 21. Model routing has three run-wide modes. `adaptive` preserves the matrix;
-    `explicit_ceiling` (`E`) caps every delegated job at a user-selected GPT-5.6
-    model; `main_ceiling` (`M`) caps every delegated job at the model selected
-    for the main chat. A ceiling is strict and never triggers a request to lift
-    it. Runner mode records and enforces it in `run.yaml`; direct-subagent mode
+    `explicit_ceiling` (`E`) caps every delegated job at a user-selected
+    supported model; `main_ceiling` (`M`) caps every delegated job at the model
+    selected for the main chat. A ceiling is strict and never triggers a request
+    to lift it. Runner mode records and enforces it in `run.yaml`; direct-subagent mode
     checks it before every spawn.
 
 ## Execution Profiles
 
 Every delegated job receives one exact model and effort, never a range.
+`Critical` describes impact and reversibility. `Exceptional` describes the rare
+reasoning need that justifies Astra, so one does not imply the other.
 
 | Profile | Typical shape | Preflight | Implementation | Postflight |
 | --- | --- | --- | --- | --- |
 | Fast | Established local pattern, low blast radius, narrow validation | `gpt-5.6-terra` medium | Runner worker on `gpt-5.6-luna` medium; direct fallback uses main or a Luna worker | `gpt-5.6-terra` medium |
 | Standard | Clear requirements, non-trivial but bounded logic | `gpt-5.6-terra` high | Worker on `gpt-5.6-terra` medium by default | `gpt-5.6-terra` high |
 | Deep | Cross-layer, novel, ambiguous, high-risk, or hard to validate | `gpt-5.6-sol` high by default | Worker on `gpt-5.6-terra` high by default | `gpt-5.6-sol` high by default |
-| Deep + Critical | Multiple critical risks, costly failure, low reversibility, or failed lower-tier reasoning | `gpt-5.6-sol` xhigh by default | Bounded known-pattern slice on `gpt-5.6-terra` high; evidence-based promotion to Sol | `gpt-5.6-sol` xhigh by default |
+| Critical | Multiple critical risks, costly failure, low reversibility, or failed lower-tier reasoning | `gpt-5.6-sol` xhigh by default | Bounded known-pattern slice on `gpt-5.6-terra` high; evidence-based promotion to Sol | `gpt-5.6-sol` xhigh by default |
+| Exceptional | Evidenced reasoning difficulty beyond Critical, such as novel coupled architecture or a prior Sol conceptual failure | `gpt-6-astra` high by default | Ordinary slices use `gpt-5.6-sol` high; only the exact exceptional slice uses Astra | `gpt-6-astra` high by default |
 
 Routing adjustments:
 
 - Apply the routing matrix first to obtain the requested model. When `E` or `M`
-  is active, select the lower model in the fixed Luna < Terra < Sol order and
-  preserve the matrix's reasoning effort. Record both models when they differ.
-  Preflight and later promotions do not cross or request removal of the ceiling.
+  is active, select the lower model in the fixed Luna < Terra < Sol < Astra
+  order and preserve the matrix's reasoning effort. Record both models when
+  they differ. Preflight and later promotions do not cross or request removal
+  of the ceiling.
 
 - Raise Standard implementation to `gpt-5.6-terra` high only when preflight
   names concrete reasoning uncertainty, unfamiliar patterns, or difficult
@@ -134,13 +139,18 @@ Routing adjustments:
 - Use Sol xhigh for implementation only when several promotion factors combine
   or Sol high has already failed conceptually. Reserve max for exceptional
   quality-first work after a lower Sol tier conceptual failure.
+- Use Astra only for evidenced Exceptional reasoning. Ordinary implementation
+  slices in an Exceptional task stay on Sol high. Astra xhigh requires several
+  inseparable Exceptional factors or a conceptual failure by Astra high; never
+  select Astra max automatically.
 - Do not silently downgrade when a selected model or role is unavailable. Use
   an equivalent-or-stronger approved route or stop explicitly.
 
 Known deterministic validation commands run directly after writer ownership is
 released. A log-classification-only agent may use Luna low or medium; semantic
 gates retain their configured tier. Diagnosis uses Terra high for Fast or
-Standard, Sol high for Deep, and Sol xhigh for a Critical unresolved cause.
+Standard, Sol high for Deep, Sol xhigh for a Critical unresolved cause, and
+Astra high for an Exceptional cause.
 Evaluate routing with existing run artifacts: role/model/effort counts,
 uncached input and output, cached input, promotions, first-pass postflight
 approval, and repeated fix cycles.
@@ -156,7 +166,7 @@ main orchestrator
   -> optional parallel read-only discovery jobs
   -> mandatory read-only preflight job
   -> one implementation writer job for Fast/Standard
-     or ordered bounded writer jobs for an approved multi-surface Deep/Critical plan
+     or ordered bounded writer jobs for an approved multi-area Deep/Critical/Exceptional plan
   -> focused validation under controlled mutation ownership
   -> mandatory independent read-only postflight job
   -> classify next mutation
@@ -184,6 +194,9 @@ The writer receives:
 Goal:
 Acceptance criteria:
 Owned paths/responsibility:
+Slice dependencies:
+Interfaces consumed:
+Interfaces to produce:
 Out of scope:
 Relevant repository evidence:
 Contracts to preserve:
@@ -197,6 +210,8 @@ Expected return:
 Strict fields are goal, acceptance criteria, ownership, out-of-scope boundary,
 preserved contracts, validation expectations, and replan triggers. The
 implementation hypothesis is intentionally revisable inside those boundaries.
+For multi-slice work, dependencies and consumed or produced interfaces are also
+strict.
 
 The worker returns one of:
 

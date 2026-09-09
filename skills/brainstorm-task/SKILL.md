@@ -1,6 +1,6 @@
 ---
 name: brainstorm-task
-description: Create or revise a concise engineering task scope from rough notes, voice-dump transcripts, an ambiguous idea, or an existing specification through repository research, independent repository-practice and best-practice review, requirements interviewing, and solution comparison. When revising an existing scope, return both the complete new version and its meaningful changes. Use only when the user explicitly invokes $brainstorm-task; never activate it from a natural-language request alone. Supports an interactive brainstorm mode by default and an explicit autopilot mode with no user questions. Do not use when requirements are settled and the user asks to implement or review the change.
+description: Create or revise a proportionate engineering task scope or feasibility recommendation from rough notes, voice-dump transcripts, an ambiguous idea, or an existing specification. Classify work as Spike, Bounded, or Architectural; scale repository and practice research to that class; and define delivery-slice interfaces when one coherent task spans separable responsibilities. When revising an existing scope, return both the complete new version and its meaningful changes. Use only when the user explicitly invokes $brainstorm-task; never activate it from a natural-language request alone. Supports an interactive brainstorm mode by default and an explicit autopilot mode with no user questions. Do not use when requirements are settled and the user asks to implement or review the change.
 ---
 
 # Brainstorm task
@@ -37,8 +37,10 @@ Use only these statuses:
   dependency. Use R instead when the next step is a user decision.
 - `D` Done: the requested work is complete, not simply the current turn.
 
-For interactive brainstorm, D requires the approved canonical scope; in
-explicit autopilot mode it means the requested report is complete, not approved.
+For interactive Bounded or Architectural work, D requires the approved
+canonical scope. For a Spike, D means the requested feasibility findings and
+recommendation are complete. In explicit autopilot mode it means the requested
+report is complete, not approved.
 Use W again when work resumes. Recoverable errors remain W while being handled;
 there is no E status. A title-tool failure never changes the work's status.
 
@@ -75,10 +77,12 @@ they do not authorize ticket, PR, code, or other external changes.
 
 ## Outcome and boundary
 
-Turn an incomplete idea into one repository-grounded task scope. Establish the
-product intent, compare local practice with general engineering practice,
-consider viable approaches, and make the boundary clear enough for a later
-implementation workflow.
+Turn an incomplete idea or feasibility question into a proportionate,
+repository-grounded result. A Spike ends with evidence and a recommendation. A
+Bounded or Architectural path establishes the product intent, compares local
+practice with general engineering practice when that comparison can change the
+decision, considers viable approaches, and makes the boundary clear enough for
+a later implementation workflow.
 
 This is a read-only discovery workflow. Do not edit product code, tests,
 configuration, tickets, or external systems. Do not start implementation,
@@ -99,6 +103,28 @@ detailed input.
   per interview turn.
 - `autopilot` performs the same research, decomposition, interview, and option
   analysis internally. It asks no questions and waits for no approvals.
+
+## Scope depth
+
+After the initial understanding is confirmed in brainstorm mode, or internally
+in autopilot mode, classify the work before choosing research and review depth:
+
+- `Spike`: a feasibility or investigation question whose requested result is
+  evidence and a recommendation, not implementation scope. Use the narrowest
+  probe that can answer it. Do not manufacture a canonical implementation task.
+- `Bounded`: one coherent change to an existing repository flow with a clear
+  owner, limited blast radius, and no new subsystem or consequential interface
+  redesign. Produce a concise scope in chat.
+- `Architectural`: a new subsystem, a material restructuring, or a coherent
+  task that changes multiple consequential interfaces or requires design
+  choices whose tradeoffs affect later implementation. Use the full workflow.
+
+In brainstorm mode, name the selected path and one concrete reason after the
+user confirms the initial understanding. This is not a separate approval gate;
+continue with the matching research, and let the user correct the classification
+at the next checkpoint. When evidence exposes hidden complexity, upgrade the
+path before continuing and explain why. Do not use a heavier path merely because
+more ceremony is possible.
 
 ## Shared rules
 
@@ -168,18 +194,27 @@ in autopilot mode:
    Inspect recent history when it helps establish the current pattern.
 4. Distinguish strong local practice from weak, copied, inconsistent,
    outdated, or absent precedent.
-5. Dispatch `repo-practice-review` with the user intent and focused repository
-   question. Require repository evidence.
-6. Dispatch `best-practice-review` with the user intent, repository evidence,
-   and repo-practice result. Require it to identify where local practice should
-   be followed or challenged.
 
-Both specialists are mandatory for repository tasks. Use `gpt-5.6-terra` high
-by default and `gpt-5.6-sol` high for novel, cross-layer, high-risk, or
-difficult-to-validate tasks. Keep both specialists read-only and prohibit
-recursive delegation. If either role is technically unavailable, stop and name
-the missing role. The main agent must not imitate the missing independent
-review.
+Choose specialist depth from the classified path:
+
+- For a Spike, do not dispatch a specialist by default. Request one only for a
+  concrete repository-practice or general-practice question whose answer can
+  change feasibility or the recommendation.
+- For Bounded repository work, dispatch `repo-practice-review` with the user
+  intent and a focused repository question. Add `best-practice-review` only
+  when local precedent is absent, weak, inconsistent, disputed, or creates a
+  meaningful tradeoff that can change the scope or solution.
+- For Architectural repository work, dispatch both roles. Give
+  `best-practice-review` the user intent, repository evidence, and
+  repo-practice result, and require it to identify where local practice should
+  be followed or challenged.
+
+Use `gpt-5.6-terra` high by default and `gpt-5.6-sol` high for novel,
+cross-layer, high-risk, or difficult-to-validate questions. Keep specialists
+read-only and prohibit recursive delegation. If a role required by the selected
+path is technically unavailable, stop and name it. Do not imitate a missing
+required independent review. An optional specialist being unavailable does not
+block the path.
 
 Synthesize one focused comparison with enough context to understand the
 consequences before generating solution options:
@@ -200,15 +235,35 @@ outcomes, independently deployable subsystems, unrelated owners, or a boundary
 too large to validate as one change.
 
 Do not refine an oversized idea as one task. Identify the independent pieces,
-their dependency order, and the smallest useful first slice. Preserve the
+their dependency order, and the smallest useful first task. Preserve the
 remaining pieces as later work rather than silently dropping them.
 
 - In brainstorm mode, explain the decomposition with enough context to
   distinguish the pieces, then ask the user to choose one current task. This is
   one interview question. Repeat affected repository and specialist research
   after the choice when the boundary changes.
-- In autopilot mode, choose the smallest independently valuable first slice,
+- In autopilot mode, choose the smallest independently valuable first task,
   explain the choice, and list the other slices as later work.
+
+## Define delivery slices
+
+Do not confuse independently valuable tasks with implementation slices. Keep
+separate user outcomes as separate current or later tasks under the
+decomposition rule above. Within one coherent Bounded or Architectural task,
+define delivery slices only when implementation still spans multiple separable
+responsibilities that must be completed in dependency order.
+
+Each delivery slice states:
+
+- `Outcome`: the independently understandable result it establishes;
+- `Consumes`: exact behavior or contracts required from earlier slices;
+- `Produces`: exact behavior or contracts later slices may rely on;
+- `Depends on`: earlier slices, or `none`;
+- `Validation`: observable evidence that the slice delivered its contract.
+
+Describe behavioral and interface contracts, not 2-5 minute coding steps. Do
+not prescribe files, helpers, or code shape unless the user approved them as a
+real constraint. Omit Delivery slices for one small coherent implementation.
 
 ## Brainstorm mode
 
@@ -221,16 +276,25 @@ that response.
 
 Wait for confirmation. A correction replaces the provisional understanding.
 
-### 2. Research and compare
+### 2. Classify, research, and compare
 
-Run the repository and practice research above. Show the focused comparison
-with enough explanation to understand its consequences, then wait for the
-user's reaction before the requirements interview. Do not show solution options
-yet.
+Name the path and reason, then run the matching repository and practice research
+above.
+
+For a Spike, establish the exact question and evidence needed to answer it,
+asking one intent question only when necessary. Complete the targeted read-only
+investigation, return the findings and recommendation, and stop. Do not continue
+into implementation requirements, scope approval, or delivery slices unless the
+user turns the result into a build request.
+
+For Bounded or Architectural work, show the focused comparison with enough
+explanation to understand its consequences, then wait for the user's reaction
+before the requirements interview. Do not show solution options yet.
 
 ### 3. Interview one decision at a time
 
-Run a requirements interview even when the initial description seems detailed.
+For Bounded and Architectural work, run a requirements interview even when the
+initial description seems detailed.
 Ask exactly one focused question per message. Do not repeat facts already
 settled by the user or repository. The one-question rule limits how many
 decisions are discussed at once; it does not limit the explanation needed
@@ -267,13 +331,16 @@ appear answered, use at least one question to confirm the highest-impact
 assumption.
 
 If an answer changes the repository boundary or the basis of the practice
-comparison, repeat the affected repository inspection and both independent
-reviews. Show the corrected comparison before continuing toward options.
+comparison, repeat the affected repository inspection and any specialist
+reviews required by the current path. Show the corrected comparison before
+continuing toward options.
 
 ### 4. Compare approaches
 
 After the interview is complete, generate possible approaches and filter them
-before showing any to the user. An approach is viable only when it satisfies
+before showing any to the user. Bounded work needs only materially different
+directions that can change the outcome; Architectural work warrants a broader
+comparison when real alternatives exist. An approach is viable only when it satisfies
 the confirmed goal, every hard constraint, required behavior preservation, and
 the approved task boundary. Discard anything already rejected by the user or
 the research. A technically possible workaround is not viable when it widens
@@ -320,15 +387,14 @@ because they appeared during research.
 
 Present no more approval checkpoints than the task needs:
 
-1. Requirements checkpoint: Goal, Requirements, Validation, and an Output
-   contract only when the task defines a substantial artifact, schema, API,
-   event, configuration, or data format. Preserve its exact names, fields,
-   formats, limits, and required content.
-2. Technical direction checkpoint only when an unresolved implementation
-   choice or hard technical constraint could materially change the result.
-   Include only the repository evidence needed to understand that decision.
-   Skip this checkpoint when the direction has already been confirmed or no
-   meaningful technical constraint remains.
+- For Bounded work, present one compact scope checkpoint containing Goal,
+  Requirements, Validation, and any necessary Output contract or still-open
+  technical direction. Do not create a second approval checkpoint.
+- For Architectural work, first present that requirements checkpoint. Add a
+  separate technical direction checkpoint only when an unresolved
+  implementation choice or hard technical constraint could materially change
+  the result. Include only the repository evidence needed to understand that
+  decision, and skip it when the direction is already confirmed.
 
 Keep the requirements checkpoint concise, but never compress or omit an exact
 decision to meet a word target. Let a real Output contract grow to the detail
@@ -348,12 +414,15 @@ not append a handoff prompt or start implementation.
 Do not send intermediate questions or approval checkpoints. Internally:
 
 1. Form the same provisional understanding.
-2. Complete repository and practice research.
-3. Decompose an oversized idea and select the smallest useful first slice.
-4. Generate the same requirements questions and answer each from, in order,
+2. Classify the path and complete its matching repository and practice research.
+3. For a Spike, complete the targeted investigation and return evidence plus a
+   recommendation without generating a canonical implementation scope.
+4. For Bounded or Architectural work, decompose an oversized idea and select
+   the smallest useful first task.
+5. Generate the same requirements questions and answer each from, in order,
    the user's words, repository evidence, and explicit assumptions.
-5. Re-run affected research when an internal answer changes the boundary.
-6. Apply the same viability filter as interactive mode. Compare materially
+6. Re-run affected research when an internal answer changes the boundary.
+7. Apply the same viability filter as interactive mode. Compare materially
    different approaches when more than one survives; when only one survives,
    choose it without inventing alternatives.
 
@@ -363,11 +432,12 @@ requirements. Mark every answer not supported by the user or repository as an
 assumption.
 
 Return a structured report whose length follows task complexity without
-repetition. Keep repository/practice findings and approach reasoning separate
-from the canonical scope. Include only the findings needed to justify the
-recommendation, followed by the canonical scope. When a baseline exists,
-include the same revision summary as interactive mode. The recommendation is
-the agent's working conclusion, not user approval.
+repetition. A Spike ends with its evidence and recommendation. For Bounded or
+Architectural work, keep repository/practice findings and approach reasoning
+separate from the canonical scope; include only the findings needed to justify
+the recommendation, followed by that scope. When a baseline exists, include the
+same revision summary as interactive mode. The recommendation is the agent's
+working conclusion, not user approval.
 
 ## Revision summary
 
@@ -394,6 +464,7 @@ Requirements:
 Validation:
 Output contract:            [only for a substantial exact artifact or contract]
 Implementation constraints: [only for approved constraints that prevent a wrong implementation]
+Delivery slices:            [only for one coherent task with separable dependent responsibilities]
 Out of scope:               [only for explicit or credible boundary ambiguities]
 Later work:                 [only for explicitly deferred work]
 Open questions:             [only when unresolved]
@@ -411,6 +482,12 @@ omission could lead to a materially wrong solution. A repository owner, file,
 class, helper, or test location is not a constraint by default. Include an exact
 location only when the user required it or the location itself is part of the
 approved boundary.
+
+When Delivery slices are present, give every slice an Outcome, Consumes,
+Produces, Depends on, and Validation entry. Keep exact approved names, values,
+formats, and relationships. This section defines implementation handoffs, not a
+file-by-file coding plan; leave local code shape to the later implementation
+workflow.
 
 Do not include repository evidence, general-practice commentary, rejected
 approaches, generic risks, or lists of files and unrelated subsystems that need

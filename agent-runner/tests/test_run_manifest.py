@@ -407,6 +407,8 @@ class RunManifestTests(unittest.TestCase):
             ("E Luna", "gpt-5.6-luna"),
             ("E: Terra", "gpt-5.6-terra"),
             ("E gpt-5.6-sol", "gpt-5.6-sol"),
+            ("E Astra", "gpt-6-astra"),
+            ("E gpt-6-astra", "gpt-6-astra"),
             ("explicit_ceiling Luna", "gpt-5.6-luna"),
         ):
             with self.subTest(parameter=parameter):
@@ -556,21 +558,28 @@ class RunManifestTests(unittest.TestCase):
         self.write_invocation("$develop-task E Luna UIB-test")
         path = self.init_run()
         for index, role in enumerate(("preflight-review", "implementation-worker", "postflight-review")):
-            source = self.write_task_source(job_id=f"job-{index}", model="gpt-5.6-sol")
+            source = self.write_task_source(job_id=f"job-{index}", model="gpt-6-astra")
             task_path = run_manifest.new_job_manifest(str(path), str(source), role, 1, None)
             task = self.read_run(task_path)
             self.assertEqual(task["agent"], {"model": "gpt-5.6-luna", "reasoning_effort": "medium"})
             job = self.read_run(path)["jobs"][-1]
-            self.assertEqual(job["requested_model"], "gpt-5.6-sol")
+            self.assertEqual(job["requested_model"], "gpt-6-astra")
             self.assertEqual(job["selected_model"], "gpt-5.6-luna")
             self.assertEqual(job["limited_by"], "explicit_ceiling")
 
     def test_new_job_preserves_default_adaptive_routing(self) -> None:
         path = self.init_run()
-        source = self.write_task_source(model="gpt-5.6-sol")
+        source = self.write_task_source(model="gpt-6-astra")
         task_path = run_manifest.new_job_manifest(str(path), str(source), "preflight-review", 1, None)
-        self.assertEqual(self.read_run(task_path)["agent"]["model"], "gpt-5.6-sol")
+        self.assertEqual(self.read_run(task_path)["agent"]["model"], "gpt-6-astra")
         self.assertIsNone(self.read_run(path)["jobs"][0]["limited_by"])
+
+    def test_init_main_ceiling_accepts_astra(self) -> None:
+        self.write_invocation("$develop-task M UIB-test", model="gpt-6-astra")
+        path = self.init_run()
+        self.assertEqual(self.read_run(path)["run"]["model_policy"], {
+            "mode": "main_ceiling", "maximum_model": "gpt-6-astra",
+        })
 
     def test_resumed_run_keeps_original_source_even_after_new_invocation(self) -> None:
         self.write_invocation("$develop-task M UIB-test")
@@ -683,7 +692,7 @@ class RunManifestTests(unittest.TestCase):
             },
             {
                 "type": "turn_context",
-                "payload": {"model": "gpt-5.6-sol"},
+                "payload": {"model": "gpt-6-astra"},
             },
         ]
         rollout.write_text(
@@ -692,7 +701,7 @@ class RunManifestTests(unittest.TestCase):
 
         self.assertEqual(
             run_manifest.resolve_main_model("thread-123", codex_home),
-            "gpt-5.6-sol",
+            "gpt-6-astra",
         )
 
     def test_new_job_rejects_invalid_task_without_changing_manifest(self) -> None:

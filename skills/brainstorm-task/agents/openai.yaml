@@ -1,6 +1,6 @@
 interface:
   display_name: "Brainstorm Task"
-  short_description: "Shape rough ideas into repository-grounded tasks"
-  default_prompt: "Use $brainstorm-task to turn my rough engineering idea into an approved, repository-grounded task scope."
+  short_description: "Scale rough ideas into evidence or task scopes"
+  default_prompt: "Use $brainstorm-task to classify and refine my engineering idea into proportionate repository-grounded findings or an approved task scope."
 policy:
   allow_implicit_invocation: false

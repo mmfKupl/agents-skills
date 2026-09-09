@@ -26,13 +26,16 @@ Your approval changes the implementation plan, not the product requirements.
 
 Check:
 - whether the task is an implementation task or actually needs business/product requirements discovery;
-- whether the preliminary Fast, Standard, or Deep Execution Profile matches the evidence;
+- whether the preliminary Fast, Standard, Deep, Critical, or Exceptional
+  Execution Profile matches the evidence;
 - whether critical security, auth, permissions, billing, persistence, migration, concurrency, public-contract, destructive, irreversible, or low-validatability risks are present;
 - whether the proposed writer and model/reasoning tier are strong enough;
 - owner, layer, entry boundary, and smallest correct surface;
-- whether a Deep or Critical change spans independently bounded responsibilities
-  that require ordered fresh-worker implementation slices instead of one broad
-  worker packet;
+- whether a Deep, Critical, or Exceptional change spans independently bounded
+  responsibilities that require ordered fresh-worker implementation slices
+  instead of one broad worker packet;
+- whether approved Delivery slices retain their exact dependencies, consumed
+  interfaces, produced interfaces, and validation contracts;
 - canonical path and local contracts;
 - whether repository practice and general best practice need specialist review;
 - whether test strategy or validation depth needs specialist review;
@@ -75,17 +78,37 @@ Execution routing:
 - Use Standard for clear requirements with non-trivial but bounded implementation.
 - Use Deep for cross-layer, novel, ambiguous, high-risk, or difficult-to-validate work.
 - Mark Deep as Critical when failure is costly, difficult to reverse, or combines critical risks.
-- Use the concrete model IDs and deterministic defaults supplied by the workflow: Fast preflight/postflight use `gpt-5.6-terra` medium and Fast implementation uses `gpt-5.6-luna` medium; Standard gates use `gpt-5.6-terra` high and its writer uses Terra medium; Deep gates use `gpt-5.6-sol` high and its writer uses Terra high; Critical gates use Sol xhigh while a bounded known-pattern writer slice starts on Terra high.
+- Use Exceptional only when evidence shows reasoning difficulty beyond Critical:
+  several coupled critical contracts without a reliable local pattern and with
+  difficult validation or rollback; novel architecture across tightly coupled
+  subsystems; or a prior conceptual failure by Sol high or xhigh despite enough
+  context. A familiar critical domain alone is not Exceptional.
+- Use the concrete model IDs and deterministic defaults supplied by the
+  workflow: Fast preflight/postflight use `gpt-5.6-terra` medium and Fast
+  implementation uses `gpt-5.6-luna` medium; Standard gates use
+  `gpt-5.6-terra` high and its writer uses Terra medium; Deep gates use
+  `gpt-5.6-sol` high and its writer uses Terra high; Critical gates use Sol
+  xhigh while a bounded known-pattern writer slice starts on Terra high;
+  Exceptional gates use `gpt-6-astra` high while ordinary implementation
+  slices start on Sol high.
 - Promote a Deep or Critical implementation slice to `gpt-5.6-sol` high only for concrete evidence of novel architecture without a strong local precedent, security/auth reasoning, concurrency, a complex migration, a costly public contract, inseparable coupled layers, difficult validation or rollback, or a prior Terra conceptual failure. A lint, type, formatting, build, or ordinary test failure is not a promotion reason.
 - Use Sol xhigh for implementation only when several promotion factors combine or Sol high has already failed conceptually. Reserve max for exceptional quality-first work after a lower Sol tier conceptual failure.
+- Use `gpt-6-astra` high only for the exact Exceptional implementation slice.
+  Use Astra xhigh only after Astra high makes a conceptual error or when several
+  inseparable Exceptional factors are present. Never select Astra max
+  automatically.
 - When the task packet includes a model ceiling, determine the requested route from the normal matrix first, then cap the effective preflight, implementation, specialist, diagnosis, and postflight models at that ceiling. Treat the ceiling as an explicit user constraint. Do not ask to raise or remove it, and do not return `upgrade required` solely because the requested route is above it. Record both models when the ceiling changes the route.
 - When the task packet selects the runner backend, require `implementation-worker` for every lane, including Fast.
 - Confirm one implementation job for ordinary Fast and Standard work. For a
-  multi-surface Deep or Critical task, confirm an exact ordered slice plan with
-  one responsibility, owned paths, dependencies, focused validation, and
-  replan triggers per slice. Reject arbitrary file-count splitting and a single
-  broad worker packet that combines separable critical layers.
-- When the task packet selects direct subagents, allow the main agent to write only a confirmed Fast change and require `implementation-worker` for Standard and Deep.
+  multi-area Deep, Critical, or Exceptional task, confirm an exact ordered
+  slice plan with one responsibility, owned paths, dependencies, consumed and
+  produced interfaces, focused validation, and replan triggers per slice.
+  Preserve approved source Delivery slices unless repository evidence proves a
+  handoff impossible or unsafe. Reject arbitrary file-count splitting and a
+  single broad worker packet that combines separable critical layers.
+- When the task packet selects direct subagents, allow the main agent to write
+  only a confirmed Fast change and require `implementation-worker` for every
+  other profile.
 - Return `upgrade required` when the current preflight model/tier is too weak; it always implies `Decision: revise first` and implementation must wait for upgraded preflight.
 - Return `Decision: proceed` only with `Routing status: confirmed` and no unresolved Blocking Delegation Request. A pending Blocking specialist request requires `revise first`, or `blocked` when the specialist is required but unavailable.
 
@@ -108,8 +131,9 @@ Requirements coverage:
   unresolved conflict prevents proceed.
 
 Execution Profile:
-- Lane: fast | standard | deep.
+- Profile: fast | standard | deep | critical | exceptional.
 - Critical flags: concrete flags, or "none".
+- Exceptional evidence: concrete qualifying evidence, or "none".
 - Writer: main | implementation-worker.
 - Model ceiling: adaptive | E <model> | M <model>.
 - Requested implementation model/effort: the normal adaptive route.
@@ -119,7 +143,8 @@ Execution Profile:
 - Routing status: confirmed | upgrade required.
 - Replan triggers: concrete evidence that must stop implementation.
 - Implementation slices: `single job`, or an ordered list of exact slice
-  responsibilities, dependencies, validation, and replan triggers.
+  responsibilities, dependencies, consumed interfaces, produced interfaces,
+  validation, and replan triggers.
 
 Specialist Input:
 - used/not used specialists, key takeaways, or Delegation Requests with Agent, Blocking/Advisory, and prompt.

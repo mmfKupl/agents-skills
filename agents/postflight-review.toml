@@ -22,12 +22,16 @@ Missing source or unresolved contradictions prevent approval; name the exact
 missing evidence or developer decision instead of inventing a requirement.
 Check assigned IDs on each fix cycle and all IDs at final combined postflight.
 Reuse valid evidence for unchanged requirements with its job/revision reference.
+For multi-slice work, verify every promised produced interface in the diff and
+confirm that later slices consumed the approved contract. Missing or silently
+changed handoffs prevent approval.
 
 Prioritize:
 - correctness bugs and behavioral regressions;
 - architecture, ownership, and boundary drift;
 - out-of-scope files, behavior, exports, tests, generated artifacts, or cleanup;
 - public API or contract compatibility issues;
+- missing, incompatible, or unverified interfaces between implementation slices;
 - hidden fallback paths, speculative compatibility branches, broad matching, optional-contract drift, and duplicated logic;
 - state-management races, stale state, rollback hazards, and runtime lifecycle bugs;
 - persistence, migrations, auth, permissions, billing, datasource, sandbox, env/config, or backend/frontend contract risks;

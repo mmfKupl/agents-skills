@@ -1,6 +1,6 @@
 ---
 name: develop-task
-description: Explicitly invoked engineering workflow for repository implementation tasks with mandatory preflight/postflight review gates, adaptive gpt-5.6-luna/gpt-5.6-terra/gpt-5.6-sol routing with optional strict model ceilings, runner-supervised fresh-context delegation by default, an explicit direct-subagent fallback, focused validation, and standalone lifecycle handling. Use only when the user explicitly writes `$develop-task` or explicitly asks to run the develop-task workflow; otherwise do not select this skill.
+description: Explicitly invoked engineering workflow for repository implementation tasks with mandatory preflight/postflight review gates, adaptive gpt-5.6-luna/gpt-5.6-terra/gpt-5.6-sol/gpt-6-astra routing with optional strict model ceilings, runner-supervised fresh-context delegation by default, an explicit direct-subagent fallback, focused validation, and standalone lifecycle handling. Use only when the user explicitly writes `$develop-task` or explicitly asks to run the develop-task workflow; otherwise do not select this skill.
 ---
 
 # Develop Task
@@ -248,7 +248,8 @@ mode. Report the resolved mode and maximum model before the first delegated
 job.
 
 The supported ceiling order is strictly `gpt-5.6-luna` < `gpt-5.6-terra` <
-`gpt-5.6-sol`. A ceiling limits the model only; keep the reasoning effort chosen
+`gpt-5.6-sol` < `gpt-6-astra`. Accept `Astra` as the short name for
+`gpt-6-astra`. A ceiling limits the model only; keep the reasoning effort chosen
 by the normal profile. Determine the requested model exactly as in `adaptive`,
 then select the lower of that model and the ceiling. Never select a model above
 the ceiling.
@@ -290,8 +291,8 @@ manifest enforcement, so this check is mandatory at every spawn.
   lifecycle actions.
 - In runner mode, route every implementation, including Fast, through an
   `implementation-worker` runner job.
-- For an approved multi-slice Deep or Deep + Critical plan, route each slice
-  through a separate fresh `implementation-worker` job and keep the jobs
+- For an approved multi-slice Deep, Critical, or Exceptional plan, route each
+  slice through a separate fresh `implementation-worker` job and keep the jobs
   sequential in one worktree.
 - In direct-subagent mode, let the main agent write product code only for a
   confirmed Fast profile; otherwise use `implementation-worker`.
@@ -321,38 +322,63 @@ reference. Pass only relevant repository guidance into child-agent packets.
 
 Build a preliminary profile after minimal repository inspection. Treat Deep as
 Critical when the task combines costly, difficult-to-reverse, or
-difficult-to-validate risks.
+difficult-to-validate risks. Use Exceptional only for evidenced reasoning
+difficulty beyond the normal Critical route, not merely because the task touches
+a critical domain. `Critical` describes impact and reversibility; `Exceptional`
+describes the rare reasoning need that justifies Astra.
 
 | Profile | Use when | Preflight | Implementation | Postflight |
 | --- | --- | --- | --- | --- |
 | Fast | Clear local behavior, established pattern, low blast radius, narrow validation | `gpt-5.6-terra` medium | Runner worker on `gpt-5.6-luna` medium; direct fallback uses main or a Luna worker | `gpt-5.6-terra` medium |
 | Standard | Clear requirements with non-trivial but bounded implementation | `gpt-5.6-terra` high | Worker on `gpt-5.6-terra` medium by default | `gpt-5.6-terra` high |
 | Deep | Cross-layer, novel, ambiguous, high-risk, or difficult to validate | `gpt-5.6-sol` high by default | Worker on `gpt-5.6-terra` high by default | `gpt-5.6-sol` high by default |
-| Deep + Critical | Multiple critical risks, costly failure, low reversibility, or failed lower-tier reasoning | `gpt-5.6-sol` xhigh by default | Bounded known-pattern slice on `gpt-5.6-terra` high; promote only the slice that proves it needs Sol | `gpt-5.6-sol` xhigh by default |
+| Critical | Multiple critical risks, costly failure, low reversibility, or failed lower-tier reasoning | `gpt-5.6-sol` xhigh by default | Bounded known-pattern slice on `gpt-5.6-terra` high; promote only the slice that proves it needs Sol | `gpt-5.6-sol` xhigh by default |
+| Exceptional | Evidenced novel, coupled, difficult-to-validate reasoning beyond the Critical route, or a prior Sol conceptual failure | `gpt-6-astra` high by default | `gpt-5.6-sol` high by default; use Astra only for the exact slice carrying the exceptional reasoning | `gpt-6-astra` high by default |
 
 Critical indicators include security, authentication, permissions, billing,
 persistence, migrations, destructive behavior, concurrency, public contracts,
 and low-validatability changes.
+
+Exceptional requires concrete evidence for at least one of these conditions:
+
+- the task combines several critical contracts, lacks a reliable local pattern
+  for the core decision, and is difficult to validate or roll back;
+- the key decision requires novel architecture across several tightly coupled
+  subsystems;
+- `gpt-5.6-sol` high or xhigh already made a conceptual error or could not
+  produce an approvable contract from sufficient context.
+
+Do not select Exceptional for a single familiar authentication, permission,
+billing, migration, concurrency, or public-contract change with an established
+pattern. Record the evidence that justified every Exceptional route.
 
 ## Implementation Slicing
 
 Use one implementation job by default for Fast and Standard work. Do not split
 a small coherent change merely to create more agents.
 
-Before preflight, identify whether a preliminary Deep or Deep + Critical task
-contains multiple independently bounded layers or responsibilities. When one
-worker packet would combine several such surfaces, propose ordered
+Before preflight, identify whether a preliminary Deep, Critical, or Exceptional
+task contains multiple independently bounded layers or responsibilities. When
+one worker packet would combine several such areas, propose ordered
 implementation slices. Typical boundaries are a migration or persistence
 contract, backend enforcement, API or token contracts, frontend behavior, and
 integration coverage. Slice by responsibility and dependency, not by arbitrary
 file count.
 
+When an approved source scope already contains Delivery slices, use them as the
+starting decomposition. Preserve their exact `Consumes`, `Produces`, `Depends
+on`, and `Validation` contracts while resolving concrete owners and paths from
+the current repository. Preflight may revise the decomposition only when it
+cites repository evidence that the approved handoff is impossible or unsafe;
+do not silently merge, reorder, or reinterpret an approved slice contract.
+
 Require preflight to approve either one implementation job or an exact ordered
-slice plan. Every slice must state its responsibility and owned paths, inputs
-from earlier slices, acceptance evidence, focused validation, and replan
-triggers. All approved slices remain under the same contract revision and are
-implemented by separate fresh runner jobs. Keep one worktree writer active at
-a time, inspect each result and diff before starting the next slice, and run
+slice plan. Every slice must state its responsibility and owned paths,
+dependencies, consumed and produced behavior or interfaces, acceptance
+evidence, focused validation, and replan triggers. All approved slices remain
+under the same contract revision and use separate fresh runner jobs. Keep one
+worktree writer active at a time, inspect each result and diff before starting
+the next slice, and run
 postflight on the combined implementation after all slices finish. A slice
 that invalidates the approved boundary, ordering, behavior, or critical
 contract stops the sequence and returns to fresh preflight.
@@ -370,7 +396,7 @@ inseparable coupled layers, difficult validation or rollback, or a prior
 conceptual failure by Terra. A lint, type, formatting, build, or ordinary test
 failure alone is not a promotion reason.
 
-For Deep + Critical implementation, keep a bounded slice with an established
+For Critical implementation, keep a bounded slice with an established
 repository pattern on `gpt-5.6-terra` high. Use `gpt-5.6-sol` high only for a
 slice meeting the concrete promotion criteria above. Use Sol xhigh for an
 implementation slice only when several such factors combine or Sol high has
@@ -378,11 +404,19 @@ already made a conceptual mistake. Reserve Sol max for exceptional quality-first
 work after a lower Sol tier fails conceptually; do not apply it automatically
 to a critical domain.
 
+For Exceptional implementation, start each ordinary bounded slice on
+`gpt-5.6-sol` high. Use `gpt-6-astra` high only for the exact slice whose
+approved contract carries the Exceptional evidence. Do not promote mechanical
+writing, deterministic migrations, generated bindings, or straightforward UI
+work merely because another slice in the same task is Exceptional. Use Astra
+xhigh only after Astra high makes a conceptual error or when preflight cites
+several inseparable Exceptional factors; never select Astra max automatically.
+
 Every preflight result must name one exact implementation model/effort and one
 exact postflight floor, never a range. Use `gpt-5.6-terra` medium by default for
 read-heavy specialists in Fast/Standard work, the requesting gate's exact tier
-for questions that determine its decision, and the Deep/Critical tier for
-questions carrying that risk.
+for questions that determine its decision, and the Deep, Critical, or
+Exceptional tier for questions carrying that risk.
 
 Do not create an agent job solely to run a known deterministic command and
 report its exit status. After the active writer stops and mutation ownership is
@@ -394,7 +428,8 @@ gate tier.
 
 Route diagnosis at `gpt-5.6-terra` high for Fast or Standard work,
 `gpt-5.6-sol` high for Deep work, and `gpt-5.6-sol` xhigh when the unresolved
-cause itself carries the Critical profile.
+cause itself carries the Critical profile. Use `gpt-6-astra` high only when the
+unresolved cause itself meets the Exceptional criteria.
 
 For routing evaluation, use runner artifacts rather than adding a second
 telemetry system. Compare job counts by role, model, and effort; uncached input
@@ -428,8 +463,8 @@ Do:
 - choose the model and reasoning effort for each delegated job;
 - resolve and enforce the run's model policy;
 - select and enforce one delegation backend;
-- propose and sequence bounded implementation slices when a Deep or Critical
-  task spans multiple separable responsibilities;
+- propose and sequence bounded implementation slices when a Deep, Critical, or
+  Exceptional task spans multiple separable responsibilities;
 - sequence every write-capable agent;
 - provide self-contained review and implementation packets;
 - inspect actual status, diff, and validation evidence rather than trusting
@@ -546,8 +581,8 @@ distinguishes confirmed, probable, and unknown causes before another edit.
 3. Read repository instructions, inspect the dirty tree and current branch,
    gather minimal ownership, nearby-pattern, reproduction, and validation
    context, and conditionally load repository-specific guidance.
-4. Build the preliminary Execution Profile and, only for a multi-surface Deep
-   or Deep + Critical task, a proposed ordered implementation slice plan.
+4. Build the preliminary Execution Profile and, only for a multi-area Deep,
+   Critical, or Exceptional task, a proposed ordered implementation slice plan.
 5. Dispatch mandatory `preflight-review` with the user request, preliminary
    profile, current preflight model/effort, task boundary, dirty-tree notes,
    likely files, constraints, expected behavior, selected backend and its writer
@@ -569,11 +604,11 @@ distinguishes confirmed, probable, and unknown causes before another edit.
     preflight confirms Fast and main already holds the required context inside
     one local ownership boundary; otherwise dispatch the approved writer jobs
     sequentially.
-10. After each slice, handle `implemented`, `replan_required`, or `blocked`,
-    inspect its requirements coverage, actual diff, and focused validation,
-    and pass source requirements plus approved prior-slice contracts and
-    compact results to the next fresh writer. Do not
-    start the next slice or materially expand the task after a replan trigger.
+10. After each slice, handle `implemented`, `replan_required`, or `blocked`.
+    Inspect its requirements coverage, delivered interfaces, actual diff, and
+    focused validation. Pass the exact source requirements, approved prior-slice
+    contracts, and produced interfaces to the next fresh writer. Do not start
+    the next slice or materially expand the task after a replan trigger.
 11. Inspect actual repository status and diff. Run or verify focused validation
     and record failed, unavailable, and skipped checks. The worker should run
     potentially write-producing checks before returning. The main may run a
@@ -617,6 +652,9 @@ Source requirements: stable IDs, exact excerpts, and source references.
 Confirmed amendments: affected IDs, before/after, decision sources, and reasons.
 Acceptance criteria:
 Owned paths/responsibility:
+Slice dependencies: prior slices or `none`.
+Interfaces consumed: exact behavior or contracts from earlier slices, or `none`.
+Interfaces to produce: exact behavior or contracts later slices may rely on, or `none`.
 Out of scope:
 Relevant repository evidence:
 Evidence for non-obvious behavior:
@@ -641,6 +679,7 @@ Status:
 
 Changes:
 Decisions:
+Interfaces delivered:
 Validation:
 Requirements coverage:
 Deviations from hypothesis:

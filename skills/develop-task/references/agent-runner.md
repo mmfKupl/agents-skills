@@ -39,7 +39,8 @@ form), or plain `develop-task`, are resolved by the helper:
 
 - `M` / `main_ceiling`: pin the supported model recorded for that invocation's
   turn, not the current model of a later follow-up;
-- `E Luna`, `E: Terra`, or `explicit_ceiling gpt-5.6-sol`: pin the named model;
+- `E Luna`, `E: Terra`, `E Astra`, or `explicit_ceiling gpt-5.6-sol`: pin the
+  named model;
 - no restriction: preserve `adaptive`.
 
 For a natural-language constraint, main still interprets the user's meaning and
@@ -101,7 +102,7 @@ run:
   finished_at: null
   model_policy:
     mode: adaptive # adaptive | explicit_ceiling | main_ceiling
-    maximum_model: null # null, gpt-5.6-luna, gpt-5.6-terra, or gpt-5.6-sol
+    maximum_model: null # null or a supported model through gpt-6-astra
   model_policy_source:
     thread_id: <originating thread ID>
     turn_id: <invocation turn ID>
@@ -340,7 +341,12 @@ Use these profile defaults:
 | Fast | 155,000 tokens | 180,000 tokens | 20 | 2 |
 | Standard | 155,000 tokens | 180,000 tokens | 30 | 3 |
 | Deep | 210,000 tokens | 240,000 tokens | 45 | 4 |
-| Deep + Critical | 350,000 tokens | 400,000 tokens | 60 | 5 |
+| Critical | 350,000 tokens | 400,000 tokens | 60 | 5 |
+| Exceptional | 220,000 tokens | 250,000 tokens | 60 | 5 |
+
+Exceptional raises the reasoning tier, not the allowed job size. Keep its
+individual Astra job bounded and split separable responsibilities before
+preflight instead of giving one premium worker a Critical-sized packet.
 
 Use the requesting gate's effective profile for specialists. A changed profile
 or a materially larger task packet requires a new preflight decision before
@@ -431,12 +437,13 @@ role, approved model/effort, ownership, and decision responsibility with all
 relevant prior artifacts supplied explicitly; it never means a resumed hidden
 thread.
 
-An approved multi-slice Deep or Deep + Critical implementation uses a separate
-fresh runner job for every ordered slice. Keep those writer jobs sequential in
-one worktree and link each to the same approving preflight and contract
-revision. Pass a later slice only its approved contract, repository state, and
-compact prior-slice results. Fast and Standard work remains one implementation
-job unless preflight upgrades the task profile; do not micro-slice it.
+An approved multi-slice Deep, Critical, or Exceptional implementation uses a
+separate fresh runner job for every ordered slice. Keep those writer jobs
+sequential in one worktree and link each to the same approving preflight and
+contract revision. Pass a later slice its approved contract, repository state,
+and exact consumed interfaces with compact prior-slice evidence. Fast and
+Standard work remains one implementation job unless preflight upgrades the task
+profile; do not micro-slice it.
 
 A `mechanical` fix may keep the current `contract_revision`. Before a
 `substantive` or `replan` fix, create the next revision, dispatch a fresh

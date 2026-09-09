@@ -39,6 +39,7 @@ MODEL_ORDER = (
     "gpt-5.6-luna",
     "gpt-5.6-terra",
     "gpt-5.6-sol",
+    "gpt-6-astra",
 )
 MODEL_RANK = {model: rank for rank, model in enumerate(MODEL_ORDER)}
 MODEL_POLICY_MODES = {"adaptive", "explicit_ceiling", "main_ceiling"}
@@ -361,7 +362,7 @@ def resolve_invocation(source: dict[str, Any] | None = None) -> Invocation:
 def _model_id(value: str | None) -> str | None:
     if value is None:
         return None
-    aliases = {model.removeprefix("gpt-5.6-"): model for model in MODEL_ORDER}
+    aliases = {model.rsplit("-", 1)[-1]: model for model in MODEL_ORDER}
     return aliases.get(value.lower(), value.lower())
 
 
@@ -391,7 +392,7 @@ def _invocation_policy(
             explicit_maximum = _model_id(model_token[1]) if model_token else None
             if explicit_maximum not in MODEL_RANK:
                 raise ManifestError(
-                    "source E requires Luna, Terra, Sol, or a full supported model ID"
+                    "source E requires Luna, Terra, Sol, Astra, or a full supported model ID"
                 )
     mode = mode or "adaptive"
     maximum_model = _model_id(maximum_model)

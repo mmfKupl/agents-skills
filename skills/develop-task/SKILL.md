@@ -268,9 +268,10 @@ The ceiling is an explicit user constraint, not a reason to request an upgrade:
 
 In runner mode, call `agent-run-manifest init --workspace <absolute-worktree>`
 as described in `references/agent-runner.md`. It reads the actual user invocation
-from the current thread's rollout, resolves explicit `M`/`E` itself, and prints
-the new manifest path. For `M`, the ceiling is the model of the invocation turn,
-not a later model switch. Only use `--mode` / `--maximum-model` to express your
+from all matching rollouts for the current thread, resolves explicit `M`/`E`
+itself, and prints the new manifest path. For `M`, the ceiling is the model of
+the invocation turn, not a later model switch. Do not delete or move session
+files after compaction. Only use `--mode` / `--maximum-model` to express your
 interpretation of a natural-language constraint; they cannot override explicit
 invocation parameters. Read the generated policy before reporting it.
 

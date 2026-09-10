@@ -32,10 +32,12 @@ agent-run-manifest init --workspace /absolute/worktree/path
 
 The command creates a unique private temporary directory and prints only its
 absolute `run.yaml` path. Keep that path for all later helper calls. It reads the
-latest unquoted develop-task invocation from actual user messages in the rollout
-identified by `CODEX_THREAD_ID`, excluding injected skill/context text and quoted
-examples. Parameters directly after `$develop-task` (including its Markdown-link
-form), or plain `develop-task`, are resolved by the helper:
+latest unquoted develop-task invocation from actual user messages across every
+rollout identified by `CODEX_THREAD_ID`, excluding injected skill/context text
+and quoted examples. Multiple matching files after compaction are normal; never
+delete or move them to initialize a run. Parameters directly after
+`$develop-task` (including its Markdown-link form), or plain `develop-task`, are
+resolved by the helper:
 
 - `M` / `main_ceiling`: pin the supported model recorded for that invocation's
   turn, not the current model of a later follow-up;

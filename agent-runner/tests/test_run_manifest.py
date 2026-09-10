@@ -148,6 +148,7 @@ class RunManifestTests(unittest.TestCase):
     def write_invocation(
         self, message: str = "$develop-task UIB-test", *,
         model: str | None = "gpt-5.6-terra", turn_id: str = "turn-1", append: bool = False,
+        rollout: Path | None = None, timestamp: str | None = None,
     ) -> None:
         items = [
             {"type": "event_msg", "payload": {"type": "task_started", "turn_id": turn_id}},
@@ -161,7 +162,12 @@ class RunManifestTests(unittest.TestCase):
                 },
             },
         ]
-        with self.rollout.open("a" if append else "w", encoding="utf-8") as handle:
+        if timestamp is not None:
+            for item in items:
+                item["timestamp"] = timestamp
+        target = rollout or self.rollout
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with target.open("a" if append else "w", encoding="utf-8") as handle:
             for item in items:
                 handle.write(json.dumps(item) + "\n")
 
@@ -451,6 +457,56 @@ class RunManifestTests(unittest.TestCase):
         path = self.init_run()
         self.assertEqual(self.read_run(path)["run"]["model_policy"]["maximum_model"], "gpt-5.6-terra")
         self.assertEqual(self.read_run(path)["run"]["model_policy_source"]["turn_id"], "turn-1")
+
+    def test_compacted_rollouts_select_and_preserve_the_latest_invocation(self) -> None:
+        self.write_invocation(
+            "$develop-task E Luna previous task",
+            model="gpt-5.6-luna",
+            timestamp="2026-09-10T20:04:29.000Z",
+        )
+        compacted = (
+            self.codex_home / "sessions" / "2026" / "09" / "10"
+            / "rollout-2026-09-10T20-32-32-source-thread_turn-2.jsonl"
+        )
+        self.write_invocation(
+            "$develop-task M current task",
+            model="gpt-5.6-terra",
+            turn_id="turn-2",
+            rollout=compacted,
+            timestamp="2026-09-10T20:32:36.000Z",
+        )
+
+        path = self.init_run()
+        run = self.read_run(path)["run"]
+        self.assertEqual(run["model_policy"], {
+            "mode": "main_ceiling", "maximum_model": "gpt-5.6-terra",
+        })
+        self.assertEqual(run["model_policy_source"]["turn_id"], "turn-2")
+
+        followup = compacted.with_name(
+            "rollout-2026-09-10T20-40-00-source-thread_turn-3.jsonl"
+        )
+        self.write_invocation(
+            "continue",
+            model="gpt-5.6-sol",
+            turn_id="turn-3",
+            rollout=followup,
+            timestamp="2026-09-10T20:40:00.000Z",
+        )
+        self.assertEqual(
+            run_manifest.resolve_main_model("source-thread", self.codex_home),
+            "gpt-5.6-sol",
+        )
+
+        source = self.write_task_source(model="gpt-6-astra")
+        task_path = run_manifest.new_job_manifest(
+            str(path), str(source), "preflight-review", 1, None
+        )
+        self.assertEqual(self.read_run(task_path)["agent"]["model"], "gpt-5.6-terra")
+        self.assertEqual(
+            self.read_run(path)["run"]["model_policy_source"],
+            run["model_policy_source"],
+        )
 
     def test_invocation_model_comes_from_turn_context_not_thread_settings(self) -> None:
         self.write_invocation("$develop-task M UIB-test")

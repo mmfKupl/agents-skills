@@ -194,7 +194,7 @@ def _load_yaml(path: Path, location: str) -> dict[str, Any]:
     return value
 
 
-def _rollout_path(thread_id: str, codex_home: Path | None = None) -> Path:
+def _rollout_paths(thread_id: str, codex_home: Path | None = None) -> list[Path]:
     if codex_home is None:
         configured_home = os.environ.get("CODEX_HOME")
         codex_home = (
@@ -213,11 +213,7 @@ def _rollout_path(thread_id: str, codex_home: Path | None = None) -> Path:
             f"cannot find rollout for CODEX_THREAD_ID {thread_id!r} "
             f"under {sessions_dir}"
         )
-    if len(candidates) != 1:
-        raise ManifestError(
-            f"found multiple rollouts for CODEX_THREAD_ID {thread_id!r}"
-        )
-    return candidates[0]
+    return candidates
 
 
 def _rollout_items(path: Path) -> Iterator[dict[str, Any]]:
@@ -259,12 +255,25 @@ def resolve_main_model(
     thread_id = _nonempty(
         thread_id or os.environ.get("CODEX_THREAD_ID"), "CODEX_THREAD_ID"
     )
-    path = _rollout_path(thread_id, codex_home)
+    paths = _rollout_paths(thread_id, codex_home)
     model = None
-    for item in _rollout_items(path):
-        model = _recorded_model(item) or model
+    model_order: tuple[str, int, int] | None = None
+    for path_index, path in enumerate(paths):
+        for item_index, item in enumerate(_rollout_items(path)):
+            candidate = _recorded_model(item)
+            if candidate is None:
+                continue
+            timestamp = item.get("timestamp")
+            order = (
+                timestamp if isinstance(timestamp, str) else "",
+                path_index,
+                item_index,
+            )
+            if model_order is None or order > model_order:
+                model = candidate
+                model_order = order
     if model is None:
-        raise ManifestError(f"rollout {path} does not record the current model")
+        raise ManifestError("matching rollouts do not record the current model")
     return model
 
 
@@ -313,44 +322,55 @@ def resolve_invocation(source: dict[str, Any] | None = None) -> Invocation:
         source["thread_id"] if source is not None else os.environ.get("CODEX_THREAD_ID"),
         "source thread_id / CODEX_THREAD_ID",
     )
-    path = _rollout_path(thread_id)
-    turn_id = None
+    paths = _rollout_paths(thread_id)
     turn_models: dict[str, str] = {}
     selected: Invocation | None = None
-    for item in _rollout_items(path):
-        payload = item["payload"]
-        if item.get("type") == "turn_context" or (
-            item.get("type") == "event_msg" and payload.get("type") == "task_started"
-        ):
-            turn_id = payload.get("turn_id") or turn_id
-        # Use the model of the invocation turn, never a later turn's settings.
-        if item.get("type") == "turn_context":
-            model = _recorded_model(item)
-            if model and turn_id:
-                turn_models.setdefault(turn_id, model)
-        if not (
-            item.get("type") == "response_item"
-            and payload.get("type") == "message"
-            and payload.get("role") == "user"
-        ):
-            continue
-        message = "\n".join(
-            part["text"]
-            for part in payload.get("content", [])
-            if isinstance(part, dict) and isinstance(part.get("text"), str)
-        )
-        if not DEVELOP_TASK_INVOCATION.search(_invocation_text(message)):
-            continue
-        metadata = payload.get("internal_chat_message_metadata_passthrough") or {}
-        message_turn_id = metadata.get("turn_id") or turn_id
-        candidate = Invocation(thread_id, message_turn_id, message, None)
-        if source is not None and candidate.source != source:
-            continue
-        selected = candidate
-        if source is not None and message_turn_id in turn_models:
-            break
+    selected_order: tuple[str, int, int] | None = None
+    for path_index, path in enumerate(paths):
+        turn_id = None
+        for item_index, item in enumerate(_rollout_items(path)):
+            payload = item["payload"]
+            if item.get("type") == "turn_context" or (
+                item.get("type") == "event_msg"
+                and payload.get("type") == "task_started"
+            ):
+                turn_id = payload.get("turn_id") or turn_id
+            # Use the model of the invocation turn, never a later turn's settings.
+            if item.get("type") == "turn_context":
+                model = _recorded_model(item)
+                if model and turn_id:
+                    turn_models.setdefault(turn_id, model)
+            if not (
+                item.get("type") == "response_item"
+                and payload.get("type") == "message"
+                and payload.get("role") == "user"
+            ):
+                continue
+            message = "\n".join(
+                part["text"]
+                for part in payload.get("content", [])
+                if isinstance(part, dict) and isinstance(part.get("text"), str)
+            )
+            if not DEVELOP_TASK_INVOCATION.search(_invocation_text(message)):
+                continue
+            metadata = payload.get("internal_chat_message_metadata_passthrough") or {}
+            message_turn_id = metadata.get("turn_id") or turn_id
+            candidate = Invocation(thread_id, message_turn_id, message, None)
+            if source is not None and candidate.source != source:
+                continue
+            timestamp = item.get("timestamp")
+            order = (
+                timestamp if isinstance(timestamp, str) else "",
+                path_index,
+                item_index,
+            )
+            if selected_order is None or order > selected_order:
+                selected = candidate
+                selected_order = order
     if selected is None:
-        raise ManifestError(f"cannot find the source develop-task invocation in {path}")
+        raise ManifestError(
+            "cannot find the source develop-task invocation in matching rollouts"
+        )
     return Invocation(
         thread_id,
         _nonempty(selected.turn_id, "invocation turn_id"),

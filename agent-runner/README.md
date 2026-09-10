@@ -106,7 +106,7 @@ task:
   sha256: 64-hex-digest
   job_id: fix-widget-test
 runner:
-  version: 1.8.0
+  version: 1.8.1
   sdk_version: 0.147.0
   sdk_package: openai-codex
   runtime_package: openai-codex-cli-bin==0.147.0
@@ -151,9 +151,12 @@ a unique platform-temporary directory with mode `0700` and prints its absolute
 manifest path. No App Server is started by the helper.
 
 `init` reads the latest unquoted develop-task invocation from the user messages
-in the rollout selected by `CODEX_THREAD_ID` under the configured Codex home.
-It ignores injected skills/context, fenced code, inline code, and block quotes.
-Both `$develop-task` / `develop-task` and the Markdown skill-link form work.
+in every rollout matching `CODEX_THREAD_ID` under the configured Codex home.
+Codex may create another matching rollout after compaction; this is normal and
+does not require deleting or moving session files. The helper orders candidates
+by their event timestamps, ignores injected skills/context, fenced code, inline
+code, and block quotes, and pins the selected message and turn. Both
+`$develop-task` / `develop-task` and the Markdown skill-link form work.
 Parameters immediately after the skill name are authoritative:
 
 - `M` / `main_ceiling` uses the supported model recorded in that invocation's

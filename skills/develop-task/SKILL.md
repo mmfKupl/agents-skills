@@ -1,6 +1,6 @@
 ---
 name: develop-task
-description: Explicitly invoked engineering workflow for repository implementation tasks with mandatory preflight/postflight review gates, adaptive gpt-5.6-luna/gpt-5.6-terra/gpt-5.6-sol/gpt-6-astra routing with optional strict model ceilings, runner-supervised fresh-context delegation by default, an explicit direct-subagent fallback, focused validation, and standalone lifecycle handling. Use only when the user explicitly writes `$develop-task` or explicitly asks to run the develop-task workflow; otherwise do not select this skill.
+description: Explicitly invoked engineering workflow for repository implementation tasks with mandatory preflight/postflight review gates, D/A gpt-5.6-luna/gpt-5.6-terra/gpt-5.6-sol/gpt-6-astra routing with optional strict model ceilings, runner-supervised fresh-context delegation by default, an explicit direct-subagent fallback, focused validation, and standalone lifecycle handling. Use only when the user explicitly writes `$develop-task` or explicitly asks to run the develop-task workflow; otherwise do not select this skill.
 ---
 
 # Develop Task
@@ -80,7 +80,8 @@ Implement one coherent repository task at a time. Own task framing, model and
 agent routing, integration, validation evidence, review coordination, and final
 lifecycle actions. Do not invent business requirements.
 
-Before the first gate, resolve the invocation's model policy under Model Ceiling.
+Before the first gate, resolve the routing matrix and the independent model
+policy under Routing Matrix and Model Ceiling.
 In runner mode, create the run through `agent-run-manifest init`; do not hand-write
 `run.yaml` or replace an explicit `M`/`E` with the default policy.
 
@@ -231,11 +232,32 @@ the selected backend. Core gate semantics, evidence requirements, review
 independence, bounded loops, and lifecycle rules are identical across both
 backends.
 
+## Routing Matrix
+
+Choose one matrix at invocation and keep it for the whole run, including
+retries, handoffs, and resumes:
+
+- `$develop-task` or `$develop-task D`: default matrix D, preserving the existing
+  routing and promotion rules.
+- `$develop-task A`: matrix A, using Astra earlier for complex work.
+
+Put D/A immediately after the skill name, before an optional ceiling:
+`$develop-task A E Terra`, `$develop-task A M`, or `$develop-task D E Sol`.
+Matrix selection and the model ceiling are independent. First choose the
+requested model/effort from the selected matrix, then apply the ceiling to the
+model only. A is not an alias for `adaptive`. Do not silently switch matrices.
+
+Report the matrix together with the backend and model policy before delegation.
+Include it and the relevant exact routing rules in every job packet. Runner
+`init` resolves D/A from the invocation and records `run.routing_matrix` using
+the same pinned source as the ceiling; read it before dispatch. A legacy run
+without this field means D. Direct subagents use the same selection rules.
+
 ## Model Ceiling
 
 Resolve one immutable model policy at the start of the run, before preflight:
 
-- `adaptive` is the default and preserves the routing matrix below unchanged;
+- `adaptive` is the default and applies no ceiling to the selected D/A matrix;
 - `explicit_ceiling`, alias `E`, uses the model named by the user, for example
   `E Terra`, `E: Luna`, or "не выше модели Terra";
 - `main_ceiling`, alias `M`, uses the model selected for the main chat, for
@@ -326,7 +348,10 @@ Critical when the task combines costly, difficult-to-reverse, or
 difficult-to-validate risks. Use Exceptional only for evidenced reasoning
 difficulty beyond the normal Critical route, not merely because the task touches
 a critical domain. `Critical` describes impact and reversibility; `Exceptional`
-describes the rare reasoning need that justifies Astra.
+describes reasoning difficulty beyond Critical. In D it justifies Astra; in A
+Astra is already available from Deep without changing the risk profile.
+
+### Matrix D (default)
 
 | Profile | Use when | Preflight | Implementation | Postflight |
 | --- | --- | --- | --- | --- |
@@ -335,6 +360,22 @@ describes the rare reasoning need that justifies Astra.
 | Deep | Cross-layer, novel, ambiguous, high-risk, or difficult to validate | `gpt-5.6-sol` high by default | Worker on `gpt-5.6-terra` high by default | `gpt-5.6-sol` high by default |
 | Critical | Multiple critical risks, costly failure, low reversibility, or failed lower-tier reasoning | `gpt-5.6-sol` xhigh by default | Bounded known-pattern slice on `gpt-5.6-terra` high; promote only the slice that proves it needs Sol | `gpt-5.6-sol` xhigh by default |
 | Exceptional | Evidenced novel, coupled, difficult-to-validate reasoning beyond the Critical route, or a prior Sol conceptual failure | `gpt-6-astra` high by default | `gpt-5.6-sol` high by default; use Astra only for the exact slice carrying the exceptional reasoning | `gpt-6-astra` high by default |
+
+### Matrix A
+
+Use the same profile definitions and task boundaries as D, with these routes:
+
+| Profile | Preflight | Implementation | Postflight |
+| --- | --- | --- | --- |
+| Fast | `gpt-5.6-terra` medium | Runner worker on `gpt-5.6-luna` medium; direct fallback uses main or a Luna worker | `gpt-5.6-terra` medium |
+| Standard | `gpt-5.6-terra` high | `gpt-5.6-terra` medium by default | `gpt-5.6-terra` high |
+| Deep | `gpt-6-astra` high | `gpt-6-astra` low for ordinary slices; medium for a complex slice | `gpt-6-astra` medium |
+| Critical | `gpt-6-astra` high | `gpt-6-astra` medium for a known-pattern slice; high for a complex slice | `gpt-6-astra` high |
+| Exceptional | `gpt-6-astra` high | `gpt-6-astra` high for the exceptional part; `gpt-5.6-terra` high for ordinary bounded slices | `gpt-6-astra` high |
+
+`light` means the supported effort `low`, never a literal API effort. Matrix A
+is an experimental route, not a promise of lower cost. Sol is not a required
+intermediate step in A; a user ceiling may still select it.
 
 Critical indicators include security, authentication, permissions, billing,
 persistence, migrations, destructive behavior, concurrency, public contracts,
@@ -389,6 +430,8 @@ implementation, raise `gpt-5.6-terra` from medium to high only when preflight
 names concrete reasoning uncertainty, unfamiliar repository patterns, or
 difficult validation.
 
+The following Deep/Critical/Exceptional implementation rules apply to **D**.
+
 For Deep implementation, promote the default `gpt-5.6-terra` high writer to
 `gpt-5.6-sol` high only when that exact slice has evidence of novel architecture
 without a strong local precedent, security or authentication reasoning,
@@ -413,6 +456,18 @@ work merely because another slice in the same task is Exceptional. Use Astra
 xhigh only after Astra high makes a conceptual error or when preflight cites
 several inseparable Exceptional factors; never select Astra max automatically.
 
+For **A**, use its table instead of the D implementation rules above. Classify
+a slice as complex using the same concrete promotion evidence listed for D:
+novel architecture, security/auth reasoning, concurrency, complex migration,
+costly public contracts, inseparable coupled layers, difficult validation or
+rollback, or a prior conceptual failure. Do not promote for ordinary lint,
+type, formatting, build, or test failures alone. A conceptual failure at Astra
+low can justify medium, and at medium can justify high, without a Sol detour.
+Use Astra xhigh only after a conceptual failure at high or when preflight cites
+several inseparable Exceptional factors; never select max automatically.
+Ordinary bounded Exceptional slices stay on Terra high unless their own
+reasoning warrants Astra high. Preserve existing single-writer and review gates.
+
 Every preflight result must name one exact implementation model/effort and one
 exact postflight floor, never a range. Use `gpt-5.6-terra` medium by default for
 read-heavy specialists in Fast/Standard work, the requesting gate's exact tier
@@ -427,14 +482,18 @@ or medium unless the interpretation itself carries the effective risk tier.
 Semantic preflight, diagnosis, and postflight decisions keep their configured
 gate tier.
 
-Route diagnosis at `gpt-5.6-terra` high for Fast or Standard work,
+In **D**, route diagnosis at `gpt-5.6-terra` high for Fast or Standard work,
 `gpt-5.6-sol` high for Deep work, and `gpt-5.6-sol` xhigh when the unresolved
 cause itself carries the Critical profile. Use `gpt-6-astra` high only when the
 unresolved cause itself meets the Exceptional criteria.
+In **A**, use Terra high for Fast/Standard diagnosis and Astra high for
+Deep/Critical/Exceptional diagnosis, based on the unresolved cause. For factual
+lookup specialists use Terra medium; for decision-determining questions use the
+requesting gate's exact model/effort. Always apply the selected ceiling.
 
 For routing evaluation, use runner artifacts rather than adding a second
-telemetry system. Compare job counts by role, model, and effort; uncached input
-and output with cached input reported separately; promotions; first-pass
+telemetry system. Compare D and A using job counts by role, model, and effort;
+uncached input and output with cached input reported separately; promotions; first-pass
 postflight approval; and repeated fix cycles. A cheaper writer route is
 successful only when it reduces usage without increasing conceptual failures
 or review cycles.
@@ -881,6 +940,36 @@ After every postflight response, report in the main chat:
 - requirements revision, coverage gaps, and confirmed amendments, or `none`;
 - Approval and review cycle.
 
+## Agent Usage At Handoff And Completion
+
+Main must provide a concise cumulative agent-usage summary at each handoff and
+in the final report, for both D and A. Include the matrix, execution profile,
+and any model ceiling. Account for every launched job, including failed,
+interrupted, and retried jobs. Distinguish jobs from their individual attempts.
+
+Use one compact table with job ID/role, actual model/effort, execution status,
+attempt count, uncached input, cached input, and output tokens. When available,
+show reasoning as a breakdown of output, never add it again. If the source's
+input includes cached input, subtract cached input for the uncached column.
+Preserve cache-write usage separately when supplied; do not assume it is an
+additional token total without checking the source semantics.
+
+Add cumulative totals for jobs, attempts, tokens, and fix/review cycles. Count
+each job/attempt once across repeated handoffs, never sum previous summaries.
+Report main's own usage separately when available. Show unavailable values as
+`n/a`, not zero, and incomplete usage as partial; totals must disclose missing
+coverage. Runner zero-initialized counters without observed usage are not
+proof of zero consumption. Do not invent unavailable direct-subagent telemetry.
+
+Use existing runner results and the reconciled manifest, or available direct
+subagent telemetry. The runner's aggregate already sums per-attempt totals;
+do not add both aggregates and attempts or sum cumulative usage snapshots.
+Retain job IDs and artifact paths in internal handoff context so a successor
+can continue accounting. Do not put a `run.yaml` link or path in the user-facing
+summary or final report. Do not introduce a separate telemetry system.
+Only estimate cost when the applicable tariff is known, label it an estimate,
+and never infer subscription allowance percentages from tokens.
+
 ## Report Format
 
 When done, report:
@@ -893,7 +982,7 @@ When done, report:
 - Preflight and postflight results and cycle count;
 - implementation-contract revisions and their approving preflight jobs;
 - Replans or promotions, or `none`;
-- delegation backend and, for runner mode, the `run.yaml` path;
+- delegation backend, selected D/A matrix, and the Agent Usage summary;
 - PR URL/state, or why no PR was created;
 - branch and uncommitted/committed/pushed state;
 - whether user approval or another decision remains.

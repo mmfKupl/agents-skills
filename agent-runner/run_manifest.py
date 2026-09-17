@@ -386,14 +386,32 @@ def _model_id(value: str | None) -> str | None:
     return aliases.get(value.lower(), value.lower())
 
 
-def _invocation_policy(
-    invocation: Invocation, mode: str | None = None, maximum_model: str | None = None
-) -> dict[str, Any]:
+def _invocation_routing(invocation: Invocation) -> tuple[str, str]:
+    """Read the optional matrix prefix before the independent ceiling policy."""
     text = _invocation_text(invocation.message)
     matches = list(DEVELOP_TASK_INVOCATION.finditer(text))
     if len(matches) != 1:
         raise ManifestError("source message must contain one unquoted develop-task invocation")
     suffix = text[matches[0].end():]
+    matrix = re.match(r"\s+(D|A)(?=\s|$)", suffix)
+    if matrix:
+        suffix = suffix[matrix.end():]
+        if re.match(r"\s+(D|A)(?=\s|$)", suffix):
+            raise ManifestError("source invocation must select only one routing matrix")
+    return matrix[1] if matrix else "D", suffix
+
+
+def _routing_matrix(run: dict[str, Any]) -> str:
+    matrix = run.get("routing_matrix", "D")
+    if matrix not in ("D", "A"):
+        raise ManifestError("run.routing_matrix must be D or A")
+    return matrix
+
+
+def _invocation_policy(
+    invocation: Invocation, mode: str | None = None, maximum_model: str | None = None
+) -> dict[str, Any]:
+    _, suffix = _invocation_routing(invocation)
     parameter = re.match(
         r"\s+(M|E|main_ceiling|explicit_ceiling|adaptive)(?=\s|:|,|$)", suffix
     )
@@ -440,6 +458,10 @@ def _verify_model_policy(run: dict[str, Any]) -> None:
     policy = _model_policy(run)
     if _invocation_policy(invocation, **policy) != policy:
         raise ManifestError("run.model_policy does not match its source invocation")
+    matrix, _ = _invocation_routing(invocation)
+    if _routing_matrix(run) != matrix:
+        raise ManifestError("run.routing_matrix does not match its source invocation")
+    run["routing_matrix"] = matrix
     run["model_policy"] = policy
     run["model_policy_source"] = invocation.source
 
@@ -455,7 +477,7 @@ def _validate_manifest(value: dict[str, Any], path: Path) -> dict[str, Any]:
         root["run"],
         "run",
         {"id", "backend", "workspace", "status", "started_at", "finished_at"},
-        {"model_policy", "model_policy_source", "requirements"},
+        {"model_policy", "model_policy_source", "requirements", "routing_matrix"},
     )
     _nonempty(run["id"], "run.id")
     if run["backend"] != "runner":
@@ -467,6 +489,7 @@ def _validate_manifest(value: dict[str, Any], path: Path) -> dict[str, Any]:
     if run["finished_at"] is not None and not isinstance(run["finished_at"], str):
         raise ManifestError("run.finished_at must be a string or null")
     policy = _model_policy(run)
+    _routing_matrix(run)
     if "model_policy_source" in run:
         source = _mapping(
             run["model_policy_source"],
@@ -771,6 +794,7 @@ def init_manifest(
         raise ManifestError(f"workspace is not a directory: {workspace}")
     invocation = resolve_invocation()
     policy = _invocation_policy(invocation, mode, maximum_model)
+    matrix, _ = _invocation_routing(invocation)
     run_dir = Path(tempfile.mkdtemp(prefix="codex-agent-run-")).resolve()
     path = run_dir / "run.yaml"
     document = {
@@ -784,6 +808,7 @@ def init_manifest(
             "started_at": _utc_now(),
             "finished_at": None,
             "model_policy": policy,
+            "routing_matrix": matrix,
             "model_policy_source": invocation.source,
             "requirements": {"revision": 1, "amendments": []},
         },

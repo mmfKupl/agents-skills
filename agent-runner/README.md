@@ -106,7 +106,7 @@ task:
   sha256: 64-hex-digest
   job_id: fix-widget-test
 runner:
-  version: 1.8.1
+  version: 1.8.2
   sdk_version: 0.147.0
   sdk_package: openai-codex
   runtime_package: openai-codex-cli-bin==0.147.0
@@ -159,6 +159,8 @@ code, and block quotes, and pins the selected message and turn. Both
 `$develop-task` / `develop-task` and the Markdown skill-link form work.
 Parameters immediately after the skill name are authoritative:
 
+- `D` / `A`: select the routing matrix, with D as the default. Place it before
+  any ceiling, for example `$develop-task A M` or `$develop-task A E Terra`;
 - `M` / `main_ceiling` uses the supported model recorded in that invocation's
   `turn_context`, not a later turn's model;
 - `E Luna`, `E: Terra`, `E Astra`, or `explicit_ceiling gpt-5.6-sol` selects the
@@ -170,26 +172,29 @@ Supported ceilings follow this order: `gpt-5.6-luna`, `gpt-5.6-terra`,
 
 Main still interprets natural-language constraints. It may pass
 `--mode main_ceiling`, or `--mode explicit_ceiling --maximum-model Luna` with
-the contextually selected model. These options cannot override explicit `M`/`E`.
+the contextually selected model. These options cannot override explicit M/E
+parameters following a D/A prefix.
 Ambiguous/missing source, unknown ceiling, and conflicting options fail before
 creating a run. `current-model` remains a diagnostic for the latest model, not
 the source-turn snapshot.
 
-New runs record `run.model_policy` (`mode`, `maximum_model`) and
+New runs record `run.routing_matrix` (`D` or `A`), `run.model_policy`
+(`mode`, `maximum_model`) and
 `run.model_policy_source` (`thread_id`, `turn_id`, `message_sha256`). The source
 identifies the original user message without copying the chat into the manifest.
-Every `new-job` re-reads that source and verifies explicit parameters and the
-invocation model before dispatch; editing `M` to `adaptive` fails. Later user
+Every `new-job` re-reads that source and verifies the matrix, explicit
+parameters, and the invocation model before dispatch; editing `M` to `adaptive` fails. Later user
 messages, model changes, and `resume` do not replace the pinned source. Free-form
 language interpretation remains main's responsibility, not a natural-language
 parser in the helper. This protects the normal helper path, not arbitrary direct
 runner or native-subagent calls that bypass it.
 
-Legacy manifests remain readable, with missing policy interpreted as `adaptive`
-for reconciliation. To add a job to a legacy/manual manifest without a source,
+Legacy manifests remain readable, with missing matrix interpreted as D and
+missing policy interpreted as `adaptive` for reconciliation. To add a job to a legacy/manual manifest without a source,
 `new-job` first performs the same source check from the calling chat and records
-the source only if its existing policy agrees. Missing policy cannot bypass an
-explicit `M`/`E`; no worker starts on a mismatch or unavailable source.
+the source only if its existing matrix and policy agree. Missing fields cannot
+bypass a source M/E ceiling or A matrix; no worker starts on a mismatch or
+unavailable source.
 
 `new-job` also validates a complete `agent-task` v2 draft, requires its workspace
 to match the run, caps the requested model when needed, creates the final immutable
@@ -244,3 +249,10 @@ unregistered `jobs/*/task.yaml`. Terminal run statuses are `completed`,
 `blocked`, `needs_user_input`, and `stopped`. `resume` reconciles, resets the run
 to `running`, and clears `finished_at`. The helper does not interpret gate
 reports or decide whether earlier failed jobs were semantically resolved.
+
+Matrix selection is pinned independently of the model ceiling. The manifest
+helper does not choose a semantic role/profile route; main supplies the
+requested model/effort from D or A before the helper caps it. Usage summaries
+come from existing job results: count each attempt once, distinguish unavailable
+zero-initialized counters from measured usage, and keep the manifest path out of
+user-facing handoff/final reports. See develop-task for the report requirements.

@@ -401,6 +401,82 @@ class RunManifestTests(unittest.TestCase):
         self.assertEqual(stat.S_IMODE(path.parent.stat().st_mode), 0o700)
         self.assertNotEqual(path, self.init_run())
 
+    def test_routing_matrix_defaults_and_explicit_prefixes(self) -> None:
+        for prefix, matrix in (("", "D"), ("D", "D"), ("A", "A")):
+            for skill in ("$develop-task", "[$develop-task](/skills/develop-task/SKILL.md)"):
+                with self.subTest(prefix=prefix, skill=skill):
+                    self.write_invocation(f"{skill} {prefix} UIB-test")
+                    run = self.read_run(self.init_run())["run"]
+                    self.assertEqual(run["routing_matrix"], matrix)
+                    self.assertEqual(run["model_policy"], {
+                        "mode": "adaptive", "maximum_model": None,
+                    })
+
+    def test_matrix_ceiling_combinations_cap_jobs_and_preserve_effort(self) -> None:
+        for matrix in ("D", "A"):
+            for ceiling in ("M", "E Terra", "E: Terra"):
+                with self.subTest(matrix=matrix, ceiling=ceiling):
+                    self.write_invocation(f"$develop-task {matrix} {ceiling} UIB-test")
+                    path = self.init_run()
+                    self.write_invocation("continue", model="gpt-6-astra", turn_id="turn-2", append=True)
+                    source = self.write_task_source(model="gpt-6-astra")
+                    task_path = run_manifest.new_job_manifest(
+                        str(path), str(source), "implementation-worker", 1, None,
+                    )
+                    task = self.read_run(task_path)
+                    self.assertEqual(task["agent"], {
+                        "model": "gpt-5.6-terra", "reasoning_effort": "medium",
+                    })
+                    run = self.read_run(path)
+                    self.assertEqual(run["run"]["routing_matrix"], matrix)
+                    self.assertEqual(run["jobs"][0]["requested_model"], "gpt-6-astra")
+
+    def test_matrix_prefix_does_not_allow_ceiling_override(self) -> None:
+        for suffix in ("A M", "D M", "A E Terra", "D E Terra"):
+            with self.subTest(suffix=suffix):
+                self.write_invocation(f"$develop-task {suffix}")
+                with patch.object(run_manifest.tempfile, "mkdtemp") as create_dir:
+                    with self.assertRaisesRegex(run_manifest.ManifestError, "contradicts source"):
+                        self.init_run(mode="adaptive")
+                    create_dir.assert_not_called()
+
+    def test_routing_matrix_is_pinned_across_resume(self) -> None:
+        self.write_invocation("$develop-task A")
+        path = self.init_run()
+        run_manifest.finish_manifest(str(path), "completed")
+        self.write_invocation("$develop-task D", turn_id="turn-2", append=True)
+        run_manifest.resume_manifest(str(path))
+        source = self.write_task_source(model="gpt-6-astra")
+        run_manifest.new_job_manifest(str(path), str(source), "preflight-review", 1, None)
+        self.assertEqual(self.read_run(path)["run"]["routing_matrix"], "A")
+
+    def test_new_job_rejects_changed_or_removed_astra_matrix(self) -> None:
+        self.write_invocation("$develop-task A")
+        source = self.write_task_source()
+        for value in ("D", None, "unknown"):
+            with self.subTest(value=value):
+                path = self.init_run()
+                document = self.read_run(path)
+                if value is None:
+                    del document["run"]["routing_matrix"]
+                else:
+                    document["run"]["routing_matrix"] = value
+                path.write_text(yaml.safe_dump(document))
+                original = path.read_bytes()
+                with self.assertRaisesRegex(run_manifest.ManifestError, "routing_matrix"):
+                    run_manifest.new_job_manifest(str(path), str(source), "preflight-review", 1, None)
+                self.assertEqual(path.read_bytes(), original)
+                self.assertFalse((path.parent / "jobs").exists())
+
+    def test_rejects_multiple_matrix_prefixes_before_creating_run(self) -> None:
+        for suffix in ("A D", "D A", "A A"):
+            with self.subTest(suffix=suffix):
+                self.write_invocation(f"$develop-task {suffix}")
+                with patch.object(run_manifest.tempfile, "mkdtemp") as create_dir:
+                    with self.assertRaisesRegex(run_manifest.ManifestError, "only one routing matrix"):
+                        self.init_run()
+                    create_dir.assert_not_called()
+
     def test_init_rejects_adaptive_override_of_m_before_creating_directory(self) -> None:
         self.write_invocation("$develop-task M UIB-test")
         with patch.object(run_manifest.tempfile, "mkdtemp") as create_dir:

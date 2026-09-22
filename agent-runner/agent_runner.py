@@ -12,6 +12,7 @@ import json
 import math
 import os
 import platform
+import shutil
 import signal
 import subprocess
 import sys
@@ -33,7 +34,7 @@ from openai_codex import (
 )
 
 
-RUNNER_VERSION = "1.8.3"
+RUNNER_VERSION = "1.8.4"
 CLEANUP_GRACE_SECONDS = 5.0
 SIGNAL_POLL_SECONDS = 0.1
 HEARTBEAT_INTERVAL_SECONDS = 5.0
@@ -401,7 +402,7 @@ def _initial_result(execution_id: str, task_path: Path, task_sha256: str | None)
             "version": RUNNER_VERSION,
             "sdk_version": CODEX_SDK_VERSION,
             "sdk_package": "openai-codex",
-            "runtime_package": "openai-codex-cli-bin==0.147.0",
+            "codex_bin": None,
             "python_version": platform.python_version(),
             "pyyaml_version": yaml.__version__,
         },
@@ -917,8 +918,16 @@ async def _execute_sdk(
     entered = False
     carry: dict[str, Any] | None = None
     try:
+        codex_bin = shutil.which("codex")
+        if codex_bin is None:
+            raise FileNotFoundError("Codex CLI not found on PATH; install Codex or add it to PATH.")
+        codex_bin = str(Path(codex_bin).resolve())
+        result["runner"]["codex_bin"] = codex_bin
+        _touch(result, writer)
         config = CodexConfig(
-            config_overrides=_config_overrides(task), cwd=task["workspace"]["cwd"]
+            codex_bin=codex_bin,
+            config_overrides=_config_overrides(task),
+            cwd=task["workspace"]["cwd"],
         )
         codex = sdk_factory(config)
         await _await_controlled(codex.__aenter__(), signals)

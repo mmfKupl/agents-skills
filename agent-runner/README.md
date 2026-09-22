@@ -4,7 +4,7 @@
 
 ## Install and run
 
-Requirements: Python 3.10 or newer on POSIX. Advisory locking uses `fcntl`, so Windows is not supported.
+Requirements: Python 3.10 or newer on POSIX and an installed `codex` CLI on `PATH`. Advisory locking uses `fcntl`, so Windows is not supported.
 
 ```bash
 python3.12 -m venv .venv
@@ -17,7 +17,7 @@ python3.12 -m venv .venv
 .venv/bin/agent-run-manifest reconcile /absolute/path/to/run.yaml
 ```
 
-The runtime dependencies are exactly `openai-codex==0.147.0` and `PyYAML==6.0.3`. The SDK installs its pinned `openai-codex-cli-bin==0.147.0` runtime and reuses existing Codex authentication. stdout contains only the absolute result path. Diagnostics go to stderr. Every successfully finalized, trustworthy result exits 0, regardless of its semantic status. Failure to create or finalize a reliable result exits 3. The YAML result—not the process exit code or console text—is the semantic source of truth.
+The Python dependencies are exactly `openai-codex==0.147.0` and `PyYAML==6.0.3`. Each invocation resolves `codex` from `PATH` and passes its absolute, resolved executable path to the SDK. Updating that CLI therefore updates the runtime used by subsequent runner jobs. The SDK's bundled runtime is not selected; a missing CLI produces a failed result with a clear error. The selected path is recorded as `runner.codex_bin`, and existing Codex authentication is reused. stdout contains only the absolute result path. Diagnostics go to stderr. Every successfully finalized, trustworthy result exits 0, regardless of its semantic status. Failure to create or finalize a reliable result exits 3. The YAML result—not the process exit code or console text—is the semantic source of truth.
 
 The main agent or caller must place the task and its derived `results/` directory outside the target workspace and repository, normally under a private temporary job directory. The runner always derives results beside the supplied task and intentionally does not enforce that location policy.
 
@@ -106,10 +106,10 @@ task:
   sha256: 64-hex-digest
   job_id: fix-widget-test
 runner:
-  version: 1.8.3
+  version: 1.8.4
   sdk_version: 0.147.0
   sdk_package: openai-codex
-  runtime_package: openai-codex-cli-bin==0.147.0
+  codex_bin: /absolute/path/to/codex
   python_version: 3.12.13
   pyyaml_version: 6.0.3
 effective_configuration: {}

@@ -200,6 +200,16 @@ class RunnerTestCase(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.workspace = self.root / "workspace"
         self.workspace.mkdir()
+        self.cli_dir = self.root / "bin"
+        self.cli_dir.mkdir()
+        self.codex_bin = self.cli_dir / "codex"
+        self.codex_bin.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        self.codex_bin.chmod(0o755)
+        path_patch = mock.patch.dict(
+            os.environ, {"PATH": f"{self.cli_dir}{os.pathsep}{os.environ.get('PATH', '')}"}
+        )
+        path_patch.start()
+        self.addCleanup(path_patch.stop)
 
     def tearDown(self) -> None:
         self.temp.cleanup()
@@ -350,6 +360,25 @@ class ValidationTests(RunnerTestCase):
 
 
 class ResultAndSdkTests(RunnerTestCase):
+    def test_installed_codex_is_passed_to_sdk_and_recorded(self) -> None:
+        invocation, result, codex, _ = self.run_with(
+            [{"events": [message_event(worker_output()), completed_event()]}]
+        )
+        self.assertEqual(invocation.status, "completed")
+        self.assertEqual(codex.config.codex_bin, str(self.codex_bin.resolve()))
+        self.assertEqual(result["runner"]["codex_bin"], codex.config.codex_bin)
+
+    def test_missing_codex_fails_without_starting_bundled_runtime(self) -> None:
+        path = self.write_task()
+        factory = Factory([])
+        with mock.patch.dict(os.environ, {"PATH": str(self.workspace)}):
+            invocation = runner.run_invocation(str(path), sdk_factory=factory)
+        result = yaml.safe_load(invocation.path.read_text(encoding="utf-8"))
+        self.assertEqual(invocation.status, "failed")
+        self.assertIn("Codex CLI not found on PATH", result["error"]["message"])
+        self.assertEqual(factory.instances, [])
+        self.assertIsNone(result["runner"]["codex_bin"])
+
     def test_agent_message_deltas_use_rate_limited_result_heartbeats(self) -> None:
         writes = 0
         original_write = runner.AtomicResultWriter.write

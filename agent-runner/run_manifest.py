@@ -36,12 +36,12 @@ RESULT_STATUSES = {
 }
 ACTIVE_JOB_STATUSES = {"pending", "running"}
 MODEL_ORDER = (
-    "gpt-5.6-luna",
-    "gpt-5.6-terra",
-    "gpt-5.6-sol",
+    "gpt-6-luna",
+    "gpt-6-sol",
     "gpt-6-astra",
 )
 MODEL_RANK = {model: rank for rank, model in enumerate(MODEL_ORDER)}
+LEGACY_MODELS = {"gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"}
 MODEL_POLICY_MODES = {"adaptive", "explicit_ceiling", "main_ceiling"}
 DEVELOP_TASK_INVOCATION = re.compile(
     r"(?<![\w/.-])(?:\[\$?develop-task\]\([^\n)]*\)|\$?develop-task)(?![\w/-])"
@@ -114,7 +114,9 @@ def _absolute_path(value: Any, location: str) -> Path:
     return path
 
 
-def _validate_model_policy(value: Any, location: str) -> dict[str, Any]:
+def _validate_model_policy(
+    value: Any, location: str, *, allow_historical: bool = False
+) -> dict[str, Any]:
     policy = _mapping(value, location, {"mode", "maximum_model"})
     mode = policy["mode"]
     if mode not in MODEL_POLICY_MODES:
@@ -123,7 +125,7 @@ def _validate_model_policy(value: Any, location: str) -> dict[str, Any]:
     if mode == "adaptive":
         if maximum_model is not None:
             raise ManifestError(f"{location}.maximum_model must be null in adaptive mode")
-    elif maximum_model not in MODEL_RANK:
+    elif maximum_model not in (set(MODEL_ORDER) | (LEGACY_MODELS if allow_historical else set())):
         supported = ", ".join(MODEL_ORDER)
         raise ManifestError(
             f"{location}.maximum_model must be one of {supported} in {mode} mode"
@@ -135,7 +137,7 @@ def _model_policy(run: dict[str, Any]) -> dict[str, Any]:
     value = run.get("model_policy")
     if value is None:
         return {"mode": "adaptive", "maximum_model": None}
-    return _validate_model_policy(value, "run.model_policy")
+    return _validate_model_policy(value, "run.model_policy", allow_historical=True)
 
 
 def _requirements(run: dict[str, Any]) -> dict[str, Any]:
@@ -160,19 +162,24 @@ def _requirements(run: dict[str, Any]) -> dict[str, Any]:
 
 
 def _select_model(
-    requested_model: str, policy: dict[str, Any]
+    requested_model: str, policy: dict[str, Any], *, allow_historical: bool = False
 ) -> tuple[str, str | None]:
     requested_model = _nonempty(requested_model, "requested model")
     mode = policy["mode"]
+    if requested_model not in MODEL_RANK and not allow_historical:
+        raise ManifestError(f"unsupported requested model for a new job: {requested_model!r}")
     if mode == "adaptive":
         return requested_model, None
-    if requested_model not in MODEL_RANK:
-        supported = ", ".join(MODEL_ORDER)
-        raise ManifestError(
-            f"cannot apply {mode} to unsupported requested model {requested_model!r}; "
-            f"supported models: {supported}"
-        )
     maximum_model = policy["maximum_model"]
+    if maximum_model not in MODEL_RANK and not allow_historical:
+        raise ManifestError(f"legacy model ceiling cannot dispatch a new job: {maximum_model!r}")
+    if allow_historical and (requested_model not in MODEL_RANK or maximum_model not in MODEL_RANK):
+        historical_order = ("gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol", "gpt-6-astra")
+        if requested_model in historical_order and maximum_model in historical_order:
+            if historical_order.index(requested_model) > historical_order.index(maximum_model):
+                return maximum_model, mode
+            return requested_model, None
+        raise ManifestError("cannot validate historical model selection")
     if MODEL_RANK[requested_model] > MODEL_RANK[maximum_model]:
         return maximum_model, mode
     return requested_model, None
@@ -430,7 +437,7 @@ def _invocation_policy(
             explicit_maximum = _model_id(model_token[1]) if model_token else None
             if explicit_maximum not in MODEL_RANK:
                 raise ManifestError(
-                    "source E requires Luna, Terra, Sol, Astra, or a full supported model ID"
+                    "source E requires Luna, Sol, Astra, or a supported GPT-6 model ID"
                 )
     mode = mode or "adaptive"
     maximum_model = _model_id(maximum_model)
@@ -569,7 +576,7 @@ def _validate_manifest(value: dict[str, Any], path: Path) -> dict[str, Any]:
             selected_model = _nonempty(
                 job["selected_model"], f"jobs[{index}].selected_model"
             )
-            expected_model, expected_limit = _select_model(requested_model, policy)
+            expected_model, expected_limit = _select_model(requested_model, policy, allow_historical=True)
             if selected_model != expected_model:
                 raise ManifestError(
                     f"jobs[{index}].selected_model does not match run.model_policy"
@@ -583,7 +590,7 @@ def _validate_manifest(value: dict[str, Any], path: Path) -> dict[str, Any]:
                     f"jobs[{index}].model must equal jobs[{index}].selected_model"
                 )
         else:
-            selected_model, _ = _select_model(model, policy)
+            selected_model, _ = _select_model(model, policy, allow_historical=True)
             if selected_model != model:
                 raise ManifestError(f"jobs[{index}].model exceeds run.model_policy")
         if "execution_id" in job and job["execution_id"] is not None:

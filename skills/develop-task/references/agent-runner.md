@@ -40,16 +40,16 @@ delete or move them to initialize a run. Parameters directly after
 resolved by the helper:
 
 - `D` / `A`: select the routing matrix, with D as the default. Place it before
-  any ceiling, for example `$develop-task A M` or `$develop-task A E Terra`;
+  any ceiling, for example `$develop-task A M` or `$develop-task A E Sol`;
 - `M` / `main_ceiling`: pin the supported model recorded for that invocation's
   turn, not the current model of a later follow-up;
-- `E Luna`, `E: Terra`, `E Astra`, or `explicit_ceiling gpt-5.6-sol`: pin the
+- `E Luna`, `E: Sol`, `E Astra`, or `explicit_ceiling gpt-6-sol`: pin the
   named model;
 - no restriction: preserve `adaptive`.
 
 For a natural-language constraint, main still interprets the user's meaning and
 passes `--mode main_ceiling`, or `--mode explicit_ceiling --maximum-model Luna`
-(using the contextually chosen model). These options cannot contradict an
+(using the contextually chosen model). These options cannot contradict
 explicit M/E parameters following a D/A prefix. Do not pass an invented/default
 policy over a recognized alias.
 Read the generated policy and report it before the first job. Missing source,
@@ -127,9 +127,9 @@ jobs:
     status: completed
     execution_id: <runner execution id>
     usage: <result usage mapping>
-    model: gpt-5.6-terra # effective compatibility field
-    requested_model: gpt-5.6-terra
-    selected_model: gpt-5.6-terra
+    model: gpt-6-sol # effective compatibility field
+    requested_model: gpt-6-sol
+    selected_model: gpt-6-sol
     limited_by: null
     reasoning_effort: high
   - id: 002-implementation
@@ -142,9 +142,9 @@ jobs:
     status: pending
     execution_id: null
     usage: null
-    model: gpt-5.6-luna
-    requested_model: gpt-5.6-luna
-    selected_model: gpt-5.6-luna
+    model: gpt-6-luna
+    requested_model: gpt-6-luna
+    selected_model: gpt-6-luna
     limited_by: null
     reasoning_effort: medium
 ```
@@ -247,7 +247,7 @@ job:
 workspace:
   cwd: /absolute/worktree/path
 agent:
-  model: gpt-5.6-terra
+  model: gpt-6-sol
   reasoning_effort: high
   developer_instructions: |
     <role contract plus runner output-envelope instructions>

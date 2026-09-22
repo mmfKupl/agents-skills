@@ -106,7 +106,7 @@ task:
   sha256: 64-hex-digest
   job_id: fix-widget-test
 runner:
-  version: 1.8.2
+  version: 1.8.3
   sdk_version: 0.147.0
   sdk_package: openai-codex
   runtime_package: openai-codex-cli-bin==0.147.0
@@ -160,15 +160,16 @@ code, and block quotes, and pins the selected message and turn. Both
 Parameters immediately after the skill name are authoritative:
 
 - `D` / `A`: select the routing matrix, with D as the default. Place it before
-  any ceiling, for example `$develop-task A M` or `$develop-task A E Terra`;
+  any ceiling, for example `$develop-task A M` or `$develop-task A E Sol`;
 - `M` / `main_ceiling` uses the supported model recorded in that invocation's
   `turn_context`, not a later turn's model;
-- `E Luna`, `E: Terra`, `E Astra`, or `explicit_ceiling gpt-5.6-sol` selects the
+- `E Luna`, `E: Sol`, `E Astra`, or `explicit_ceiling gpt-6-sol` selects the
   named ceiling;
 - no restriction keeps `adaptive`.
 
-Supported ceilings follow this order: `gpt-5.6-luna`, `gpt-5.6-terra`,
-`gpt-5.6-sol`, `gpt-6-astra`.
+Supported ceilings follow this order: `gpt-6-luna`, `gpt-6-sol`,
+`gpt-6-astra`. Terra and full GPT-5.6 IDs are rejected for new runs
+and jobs; a former Terra ceiling needs an explicit new choice.
 
 Main still interprets natural-language constraints. It may pass
 `--mode main_ceiling`, or `--mode explicit_ceiling --maximum-model Luna` with

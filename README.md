@@ -53,7 +53,7 @@ Skills:
 
 - `unslop` - shared writing-quality layer used by every skill in this repository for clear, natural user-facing prose.
 - `brainstorm-task` - repository-grounded Spike, Bounded, or Architectural discovery with proportionate approval and optional delivery-slice contracts.
-- `develop-task` - single-writer repository implementation workflow with default D and Astra-oriented A matrices, cumulative agent-usage handoffs, model ceilings through GPT-6 Astra, mandatory preflight/postflight gates, supervised runner jobs by default, an explicit direct-subagent fallback, focused validation, logical commits, and draft PR creation.
+- `develop-task` - single-writer repository implementation workflow with GPT-6 default D and Astra-oriented A matrices, cumulative agent-usage handoffs, model ceilings through GPT-6 Astra, mandatory preflight/postflight gates, supervised runner jobs by default, an explicit direct-subagent fallback, focused validation, logical commits, and draft PR creation.
 - `diff-review` - independent fresh diff review for local changes.
 - `review-task` - deep audit workflow for already implemented tasks, with specialist review, validation reuse, focused checks, and runtime/preview probes when useful.
 

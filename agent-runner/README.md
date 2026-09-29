@@ -106,7 +106,7 @@ task:
   sha256: 64-hex-digest
   job_id: fix-widget-test
 runner:
-  version: 1.8.4
+  version: 1.8.5
   sdk_version: 0.147.0
   sdk_package: openai-codex
   codex_bin: /absolute/path/to/codex
@@ -159,27 +159,30 @@ code, and block quotes, and pins the selected message and turn. Both
 `$develop-task` / `develop-task` and the Markdown skill-link form work.
 Parameters immediately after the skill name are authoritative:
 
-- `D` / `A`: select the routing matrix, with D as the default. Place it before
-  any ceiling, for example `$develop-task A M` or `$develop-task A E Sol`;
+- `D`: optional compatibility alias for the single default matrix. Place it
+  before a ceiling, for example `$develop-task D M`. A mode is removed and
+  rejected before run creation;
 - `M` / `main_ceiling` uses the supported model recorded in that invocation's
   `turn_context`, not a later turn's model;
-- `E Luna`, `E: Sol`, `E Astra`, or `explicit_ceiling gpt-6-sol` selects the
+- `E Luna`, `E: Sol`, `E Astra`, or `explicit_ceiling gpt-6.1-sol` selects the
   named ceiling;
 - no restriction keeps `adaptive`.
 
 Supported ceilings follow this order: `gpt-6-luna`, `gpt-6-sol`,
-`gpt-6-astra`. Terra and full GPT-5.6 IDs are rejected for new runs
-and jobs; a former Terra ceiling needs an explicit new choice.
+`gpt-6.1-sol`, `gpt-6-astra`. Sol resolves to `gpt-6.1-sol` for new runs;
+use the full `gpt-6-sol` ID for a previous-generation ceiling. Existing pinned
+Sol ceilings retain their recorded model. Terra and full GPT-5.6 IDs are rejected
+for new runs and jobs; a former Terra ceiling needs an explicit new choice.
 
 Main still interprets natural-language constraints. It may pass
 `--mode main_ceiling`, or `--mode explicit_ceiling --maximum-model Luna` with
 the contextually selected model. These options cannot override explicit M/E
-parameters following a D/A prefix.
+parameters with or without the optional D prefix.
 Ambiguous/missing source, unknown ceiling, and conflicting options fail before
 creating a run. `current-model` remains a diagnostic for the latest model, not
 the source-turn snapshot.
 
-New runs record `run.routing_matrix` (`D` or `A`), `run.model_policy`
+New runs record `run.routing_matrix: D`, `run.model_policy`
 (`mode`, `maximum_model`) and
 `run.model_policy_source` (`thread_id`, `turn_id`, `message_sha256`). The source
 identifies the original user message without copying the chat into the manifest.
@@ -190,11 +193,13 @@ language interpretation remains main's responsibility, not a natural-language
 parser in the helper. This protects the normal helper path, not arbitrary direct
 runner or native-subagent calls that bypass it.
 
-Legacy manifests remain readable, with missing matrix interpreted as D and
-missing policy interpreted as `adaptive` for reconciliation. To add a job to a legacy/manual manifest without a source,
+Historical A manifests remain readable for reconciliation and usage, but cannot
+dispatch new jobs. Legacy manifests remain readable, with missing matrix
+interpreted as D and missing policy as `adaptive` for reconciliation. To add a
+job to a legacy/manual manifest without a source,
 `new-job` first performs the same source check from the calling chat and records
 the source only if its existing matrix and policy agree. Missing fields cannot
-bypass a source M/E ceiling or A matrix; no worker starts on a mismatch or
+bypass a source M/E ceiling; no worker starts on a mismatch or
 unavailable source.
 
 `new-job` also validates a complete `agent-task` v2 draft, requires its workspace
@@ -253,7 +258,8 @@ reports or decide whether earlier failed jobs were semantically resolved.
 
 Matrix selection is pinned independently of the model ceiling. The manifest
 helper does not choose a semantic role/profile route; main supplies the
-requested model/effort from D or A before the helper caps it. Usage summaries
+requested model/effort from the default matrix before the helper caps it.
+Usage summaries
 come from existing job results: count each attempt once, distinguish unavailable
 zero-initialized counters from measured usage, and keep the manifest path out of
 user-facing handoff/final reports. See develop-task for the report requirements.

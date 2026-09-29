@@ -83,32 +83,24 @@ Execution routing:
   difficult validation or rollback; novel architecture across tightly coupled
   subsystems; or a prior conceptual failure by Sol high or xhigh despite enough
   context. A familiar critical domain alone is not Exceptional.
-- Resolve the supplied D/A routing matrix before selecting models. Missing
-  matrix means D. Apply the independent M/E ceiling after matrix selection.
-- In D, Fast gates use `gpt-6-sol` medium and the writer uses `gpt-6-luna`
+- Use the single default matrix (D remains a compatibility alias). Reject
+  removed A-mode invocations before delegation. Apply the independent M/E
+  ceiling after selecting the requested model/effort.
+- Fast gates use `gpt-6.1-sol` medium and the writer uses `gpt-6-luna`
   medium. Standard gates use Sol high and the writer Sol medium. Deep gates and
   writer use Sol high. Critical gates use Sol xhigh and known-pattern writers
   Sol high. Exceptional gates use Astra high and ordinary bounded writers Sol
   high; only the exceptional slice uses Astra high.
-- In D, raise a Critical writer slice to Sol xhigh only for several concrete
+- Raise a Critical writer slice to Sol xhigh only for several concrete
   coupled factors: security/auth reasoning, concurrency, complex migration,
   costly public contracts, difficult validation or rollback, or a prior Sol
   high conceptual failure. Ordinary test, lint, build, or type failures alone
   are not promotion reasons. Reserve Sol max for a conceptual failure at a
   lower Sol tier. Astra xhigh requires an Astra high conceptual failure or
   several inseparable Exceptional factors. Never select Astra max automatically.
-- In A, Fast and Standard retain D routes. Deep preflight is Astra high,
-  ordinary implementation Astra low, complex implementation Astra medium,
-  postflight Astra medium. Critical gates use Astra high, known-pattern
-  implementation Astra medium, complex implementation Astra high. Exceptional
-  gates and its complex implementation use Astra high; ordinary bounded slices
-  use Sol high. Use the same concrete slice complexity evidence as D.
-  No Sol attempt is required before Astra. Conceptual failure can justify
-  increasing Astra low to medium or medium to high. Use Astra xhigh only after
-  a conceptual failure at high or several inseparable Exceptional factors;
-  never automatic max. Exceptional describes difficulty, not permission to use
-  Astra in A. Factual specialists use Sol medium; decision-determining ones
-  use the requesting gate's exact model/effort.
+- Factual specialists use Sol medium; decision-determining ones use the
+  requesting gate's exact model/effort. Sol means `gpt-6.1-sol` for normal
+  routing. Existing ceilings on `gpt-6-sol` stay on that exact model.
 - When the task packet includes a model ceiling, determine the requested route from the normal matrix first, then cap the effective preflight, implementation, specialist, diagnosis, and postflight models at that ceiling. Treat the ceiling as an explicit user constraint. Do not ask to raise or remove it, and do not return `upgrade required` solely because the requested route is above it. Record both models when the ceiling changes the route.
 - When the task packet selects the runner backend, require `implementation-worker` for every lane, including Fast.
 - Confirm one implementation job for ordinary Fast and Standard work. For a
@@ -147,7 +139,7 @@ Execution Profile:
 - Critical flags: concrete flags, or "none".
 - Exceptional evidence: concrete qualifying evidence, or "none".
 - Writer: main | implementation-worker.
-- Routing matrix: D | A.
+- Routing matrix: D (single default).
 - Model ceiling: adaptive | E <model> | M <model>.
 - Requested implementation model/effort: the normal adaptive route.
 - Implementation model/effort: one concrete callable model ID and one effort, never a range.

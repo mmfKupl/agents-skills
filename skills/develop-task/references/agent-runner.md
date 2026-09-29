@@ -39,18 +39,24 @@ delete or move them to initialize a run. Parameters directly after
 `$develop-task` (including its Markdown-link form), or plain `develop-task`, are
 resolved by the helper:
 
-- `D` / `A`: select the routing matrix, with D as the default. Place it before
-  any ceiling, for example `$develop-task A M` or `$develop-task A E Sol`;
+- `D`: optional compatibility alias for the single default matrix. Place it
+  before a ceiling, for example `$develop-task D M`. A mode is removed and
+  rejected before run creation;
 - `M` / `main_ceiling`: pin the supported model recorded for that invocation's
   turn, not the current model of a later follow-up;
-- `E Luna`, `E: Sol`, `E Astra`, or `explicit_ceiling gpt-6-sol`: pin the
+- `E Luna`, `E: Sol`, `E Astra`, or `explicit_ceiling gpt-6.1-sol`: pin the
   named model;
 - no restriction: preserve `adaptive`.
+
+Sol resolves to `gpt-6.1-sol` for new runs. Supported ceilings are ordered
+`gpt-6-luna` < `gpt-6-sol` < `gpt-6.1-sol` < `gpt-6-astra`. Use the full
+`gpt-6-sol` ID for a previous-generation ceiling. Existing pinned Sol ceilings
+retain their recorded model.
 
 For a natural-language constraint, main still interprets the user's meaning and
 passes `--mode main_ceiling`, or `--mode explicit_ceiling --maximum-model Luna`
 (using the contextually chosen model). These options cannot contradict
-explicit M/E parameters following a D/A prefix. Do not pass an invented/default
+explicit M/E parameters with or without the optional D prefix. Do not pass an invented/default
 policy over a recognized alias.
 Read the generated policy and report it before the first job. Missing source,
 ambiguous invocation, unsupported ceiling, or conflicting options fail before
@@ -105,7 +111,7 @@ run:
   status: running
   started_at: <UTC timestamp>
   finished_at: null
-  routing_matrix: D # D | A; independent of the ceiling
+  routing_matrix: D # single default; independent of the ceiling
   model_policy:
     mode: adaptive # adaptive | explicit_ceiling | main_ceiling
     maximum_model: null # null or a supported model through gpt-6-astra
@@ -127,9 +133,9 @@ jobs:
     status: completed
     execution_id: <runner execution id>
     usage: <result usage mapping>
-    model: gpt-6-sol # effective compatibility field
-    requested_model: gpt-6-sol
-    selected_model: gpt-6-sol
+    model: gpt-6.1-sol # effective compatibility field
+    requested_model: gpt-6.1-sol
+    selected_model: gpt-6.1-sol
     limited_by: null
     reasoning_effort: high
   - id: 002-implementation
@@ -159,10 +165,10 @@ source. Missing policy is not an escape from a source `M`/`E`; a conflicting
 legacy policy is rejected, not silently rewritten. Do not copy old manifests
 to another chat to bypass source resolution.
 
-A legacy manifest without `run.routing_matrix` means D. It cannot be used to
-add jobs for a pinned A invocation. The helper pins/verifies the matrix; main
-selects each job's model/effort from that matrix and includes the applicable
-routing rules in its packet.
+A legacy manifest without `run.routing_matrix` means D. Historical A manifests
+remain readable for reconciliation and usage, but cannot dispatch new jobs.
+The helper pins/verifies the matrix; main selects each job's model/effort from
+that matrix and includes the applicable routing rules in its packet.
 
 A legacy manifest without `run.requirements` means revision 1 with no recorded
 amendments; old jobs without `requirements_revision` remain readable, not
@@ -247,7 +253,7 @@ job:
 workspace:
   cwd: /absolute/worktree/path
 agent:
-  model: gpt-6-sol
+  model: gpt-6.1-sol
   reasoning_effort: high
   developer_instructions: |
     <role contract plus runner output-envelope instructions>
@@ -269,7 +275,7 @@ paths. Put the normal adaptive requested model and approved effort in the draft;
 `agent-run-manifest new-job` applies any run-wide ceiling before the runner sees
 the immutable task.
 
-Include the selected D/A matrix, requirements revision, contract revision and,
+Include the default routing matrix, requirements revision, contract revision and,
 for implementation and postflight, the approving preflight job ID inside
 `job.prompt`. Include stable requirement IDs, exact relevant source excerpts,
 source references, and confirmed amendments separately from main's technical

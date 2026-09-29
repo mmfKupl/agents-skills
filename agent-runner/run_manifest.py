@@ -38,6 +38,7 @@ ACTIVE_JOB_STATUSES = {"pending", "running"}
 MODEL_ORDER = (
     "gpt-6-luna",
     "gpt-6-sol",
+    "gpt-6.1-sol",
     "gpt-6-astra",
 )
 MODEL_RANK = {model: rank for rank, model in enumerate(MODEL_ORDER)}
@@ -405,6 +406,8 @@ def _invocation_routing(invocation: Invocation) -> tuple[str, str]:
         suffix = suffix[matrix.end():]
         if re.match(r"\s+(D|A)(?=\s|$)", suffix):
             raise ManifestError("source invocation must select only one routing matrix")
+        if matrix[1] == "A":
+            raise ManifestError("routing matrix A is removed; use develop-task without A")
     return matrix[1] if matrix else "D", suffix
 
 
@@ -416,7 +419,8 @@ def _routing_matrix(run: dict[str, Any]) -> str:
 
 
 def _invocation_policy(
-    invocation: Invocation, mode: str | None = None, maximum_model: str | None = None
+    invocation: Invocation, mode: str | None = None, maximum_model: str | None = None,
+    *, preserve_pinned_alias: bool = False,
 ) -> dict[str, Any]:
     _, suffix = _invocation_routing(invocation)
     parameter = re.match(
@@ -435,6 +439,15 @@ def _invocation_policy(
         if mode == "explicit_ceiling":
             model_token = re.match(r"\s*:?\s*([^\s,;]+)", suffix[parameter.end():])
             explicit_maximum = _model_id(model_token[1]) if model_token else None
+            # Older runs pinned the short Sol alias to GPT-6 Sol. Re-check
+            # that source without raising an already recorded ceiling.
+            if (
+                preserve_pinned_alias
+                and model_token is not None
+                and model_token[1].lower() == "sol"
+                and maximum_model == "gpt-6-sol"
+            ):
+                explicit_maximum = maximum_model
             if explicit_maximum not in MODEL_RANK:
                 raise ManifestError(
                     "source E requires Luna, Sol, Astra, or a supported GPT-6 model ID"
@@ -463,7 +476,7 @@ def _verify_model_policy(run: dict[str, Any]) -> None:
     # Legacy/manual manifests get the same source check, not an adaptive bypass.
     invocation = resolve_invocation(run.get("model_policy_source"))
     policy = _model_policy(run)
-    if _invocation_policy(invocation, **policy) != policy:
+    if _invocation_policy(invocation, **policy, preserve_pinned_alias=True) != policy:
         raise ManifestError("run.model_policy does not match its source invocation")
     matrix, _ = _invocation_routing(invocation)
     if _routing_matrix(run) != matrix:

@@ -147,7 +147,7 @@ class RunManifestTests(unittest.TestCase):
 
     def write_invocation(
         self, message: str = "$develop-task UIB-test", *,
-        model: str | None = "gpt-6-sol", turn_id: str = "turn-1", append: bool = False,
+        model: str | None = "gpt-6.1-sol", turn_id: str = "turn-1", append: bool = False,
         rollout: Path | None = None, timestamp: str | None = None,
     ) -> None:
         items = [
@@ -333,9 +333,9 @@ class RunManifestTests(unittest.TestCase):
         manifest = self.manifest_value()
         manifest["run"]["model_policy"] = {  # type: ignore[index]
             "mode": "explicit_ceiling",
-            "maximum_model": "gpt-6-sol",
+            "maximum_model": "gpt-6.1-sol",
         }
-        manifest["jobs"][0]["model"] = "gpt-6-sol"  # type: ignore[index]
+        manifest["jobs"][0]["model"] = "gpt-6.1-sol"  # type: ignore[index]
         self.write_manifest(manifest)
         source_path = self.write_task_source(model="gpt-6-astra")
 
@@ -350,11 +350,11 @@ class RunManifestTests(unittest.TestCase):
         source = yaml.safe_load(source_path.read_text(encoding="utf-8"))
         task = yaml.safe_load(task_path.read_text(encoding="utf-8"))
         self.assertEqual(source["agent"]["model"], "gpt-6-astra")
-        self.assertEqual(task["agent"]["model"], "gpt-6-sol")
+        self.assertEqual(task["agent"]["model"], "gpt-6.1-sol")
         job = self.read_manifest()["jobs"][1]  # type: ignore[index]
-        self.assertEqual(job["model"], "gpt-6-sol")
+        self.assertEqual(job["model"], "gpt-6.1-sol")
         self.assertEqual(job["requested_model"], "gpt-6-astra")
-        self.assertEqual(job["selected_model"], "gpt-6-sol")
+        self.assertEqual(job["selected_model"], "gpt-6.1-sol")
         self.assertEqual(job["limited_by"], "explicit_ceiling")
 
     def test_new_job_applies_main_ceiling_without_requesting_a_change(self) -> None:
@@ -390,7 +390,7 @@ class RunManifestTests(unittest.TestCase):
         document = self.read_run(path)
         self.assertEqual(document["jobs"], [])
         self.assertEqual(document["run"]["model_policy"], {
-            "mode": "main_ceiling", "maximum_model": "gpt-6-sol",
+            "mode": "main_ceiling", "maximum_model": "gpt-6.1-sol",
         })
         self.assertEqual(document["run"]["model_policy_source"], {
             "thread_id": "source-thread", "turn_id": "turn-1",
@@ -402,7 +402,7 @@ class RunManifestTests(unittest.TestCase):
         self.assertNotEqual(path, self.init_run())
 
     def test_routing_matrix_defaults_and_explicit_prefixes(self) -> None:
-        for prefix, matrix in (("", "D"), ("D", "D"), ("A", "A")):
+        for prefix, matrix in (("", "D"), ("D", "D")):
             for skill in ("$develop-task", "[$develop-task](/skills/develop-task/SKILL.md)"):
                 with self.subTest(prefix=prefix, skill=skill):
                     self.write_invocation(f"{skill} {prefix} UIB-test")
@@ -413,7 +413,7 @@ class RunManifestTests(unittest.TestCase):
                     })
 
     def test_matrix_ceiling_combinations_cap_jobs_and_preserve_effort(self) -> None:
-        for matrix in ("D", "A"):
+        for matrix in ("", "D"):
             for ceiling in ("M", "E Sol", "E: Sol"):
                 with self.subTest(matrix=matrix, ceiling=ceiling):
                     self.write_invocation(f"$develop-task {matrix} {ceiling} UIB-test")
@@ -425,14 +425,14 @@ class RunManifestTests(unittest.TestCase):
                     )
                     task = self.read_run(task_path)
                     self.assertEqual(task["agent"], {
-                        "model": "gpt-6-sol", "reasoning_effort": "medium",
+                        "model": "gpt-6.1-sol", "reasoning_effort": "medium",
                     })
                     run = self.read_run(path)
-                    self.assertEqual(run["run"]["routing_matrix"], matrix)
+                    self.assertEqual(run["run"]["routing_matrix"], "D")
                     self.assertEqual(run["jobs"][0]["requested_model"], "gpt-6-astra")
 
     def test_matrix_prefix_does_not_allow_ceiling_override(self) -> None:
-        for suffix in ("A M", "D M", "A E Sol", "D E Sol"):
+        for suffix in ("M", "D M", "E Sol", "D E Sol"):
             with self.subTest(suffix=suffix):
                 self.write_invocation(f"$develop-task {suffix}")
                 with patch.object(run_manifest.tempfile, "mkdtemp") as create_dir:
@@ -441,26 +441,23 @@ class RunManifestTests(unittest.TestCase):
                     create_dir.assert_not_called()
 
     def test_routing_matrix_is_pinned_across_resume(self) -> None:
-        self.write_invocation("$develop-task A")
+        self.write_invocation("$develop-task D")
         path = self.init_run()
         run_manifest.finish_manifest(str(path), "completed")
-        self.write_invocation("$develop-task D", turn_id="turn-2", append=True)
+        self.write_invocation("$develop-task A", turn_id="turn-2", append=True)
         run_manifest.resume_manifest(str(path))
         source = self.write_task_source(model="gpt-6-astra")
         run_manifest.new_job_manifest(str(path), str(source), "preflight-review", 1, None)
-        self.assertEqual(self.read_run(path)["run"]["routing_matrix"], "A")
+        self.assertEqual(self.read_run(path)["run"]["routing_matrix"], "D")
 
-    def test_new_job_rejects_changed_or_removed_astra_matrix(self) -> None:
-        self.write_invocation("$develop-task A")
+    def test_new_job_rejects_changed_default_matrix(self) -> None:
+        self.write_invocation("$develop-task D")
         source = self.write_task_source()
-        for value in ("D", None, "unknown"):
+        for value in ("A", "unknown"):
             with self.subTest(value=value):
                 path = self.init_run()
                 document = self.read_run(path)
-                if value is None:
-                    del document["run"]["routing_matrix"]
-                else:
-                    document["run"]["routing_matrix"] = value
+                document["run"]["routing_matrix"] = value
                 path.write_text(yaml.safe_dump(document))
                 original = path.read_bytes()
                 with self.assertRaisesRegex(run_manifest.ManifestError, "routing_matrix"):
@@ -484,10 +481,83 @@ class RunManifestTests(unittest.TestCase):
                 self.init_run(mode="adaptive")
             create_dir.assert_not_called()
 
+    def test_removed_a_mode_fails_before_run_creation(self) -> None:
+        for skill in ("$develop-task", "[$develop-task](/skills/develop-task/SKILL.md)"):
+            for suffix in ("A", "A M", "A E Sol"):
+                with self.subTest(skill=skill, suffix=suffix):
+                    self.write_invocation(f"{skill} {suffix}")
+                    with patch.object(run_manifest.tempfile, "mkdtemp") as create_dir:
+                        with self.assertRaisesRegex(run_manifest.ManifestError, "matrix A is removed"):
+                            self.init_run()
+                        create_dir.assert_not_called()
+
+    def test_historical_a_run_remains_readable_but_cannot_add_jobs(self) -> None:
+        manifest = self.manifest_value()
+        manifest["run"]["routing_matrix"] = "A"
+        self.write_manifest(manifest)
+        self.write_result()
+        self.write_invocation("$develop-task A")
+        run_manifest.reconcile_manifest(str(self.manifest_path))
+        self.assertEqual(self.read_manifest()["jobs"][0]["status"], "completed")
+        source = self.write_task_source()
+        original = self.manifest_path.read_bytes()
+        with self.assertRaisesRegex(run_manifest.ManifestError, "matrix A is removed"):
+            run_manifest.new_job_manifest(
+                str(self.manifest_path), str(source), "preflight-review", 1, None,
+            )
+        self.assertEqual(self.manifest_path.read_bytes(), original)
+        self.assertFalse((self.root / "jobs" / "002-implementation").exists())
+
+    def test_previous_sol_ceiling_caps_new_sol_and_astra(self) -> None:
+        self.write_invocation("$develop-task E gpt-6-sol")
+        path = self.init_run()
+        for index, model in enumerate(("gpt-6-sol", "gpt-6.1-sol", "gpt-6-astra")):
+            with self.subTest(model=model):
+                source = self.write_task_source(job_id=f"job-{index}", model=model)
+                task_path = run_manifest.new_job_manifest(
+                    str(path), str(source), "preflight-review", 1, None,
+                )
+                self.assertEqual(self.read_run(task_path)["agent"], {
+                    "model": "gpt-6-sol", "reasoning_effort": "medium",
+                })
+                job = self.read_run(path)["jobs"][-1]
+                self.assertEqual(job["requested_model"], model)
+                self.assertEqual(job["limited_by"], None if model == "gpt-6-sol" else "explicit_ceiling")
+
+    def test_pinned_old_sol_alias_retains_original_ceiling(self) -> None:
+        self.write_invocation("$develop-task E Sol")
+        with patch.object(run_manifest, "MODEL_ORDER", (
+            "gpt-6-luna", "gpt-6-sol", "gpt-6-astra",
+        )):
+            path = self.init_run()
+        source = self.write_task_source(model="gpt-6.1-sol")
+        task_path = run_manifest.new_job_manifest(
+            str(path), str(source), "preflight-review", 1, None,
+        )
+        self.assertEqual(self.read_run(path)["run"]["model_policy"]["maximum_model"], "gpt-6-sol")
+        self.assertEqual(self.read_run(task_path)["agent"]["model"], "gpt-6-sol")
+
+    def test_new_sol_alias_cannot_be_overridden_to_previous_sol(self) -> None:
+        self.write_invocation("$develop-task E Sol")
+        with self.assertRaisesRegex(run_manifest.ManifestError, "contradicts source"):
+            self.init_run(maximum_model="gpt-6-sol")
+
+    def test_exact_new_sol_ceiling_cannot_be_reinterpreted_as_old_alias(self) -> None:
+        self.write_invocation("$develop-task E gpt-6.1-sol")
+        path = self.init_run()
+        document = self.read_run(path)
+        document["run"]["model_policy"]["maximum_model"] = "gpt-6-sol"
+        path.write_text(yaml.safe_dump(document))
+        source = self.write_task_source(model="gpt-6-astra")
+        with self.assertRaisesRegex(run_manifest.ManifestError, "contradicts source"):
+            run_manifest.new_job_manifest(str(path), str(source), "preflight-review", 1, None)
+
     def test_init_infers_explicit_ceiling_aliases(self) -> None:
         for parameter, maximum in (
             ("E Luna", "gpt-6-luna"),
-            ("E: Sol", "gpt-6-sol"),
+            ("E: Sol", "gpt-6.1-sol"),
+            ("E gpt-6.1-sol", "gpt-6.1-sol"),
+            ("E gpt-6-sol", "gpt-6-sol"),
             ("E gpt-6-astra", "gpt-6-astra"),
             ("E Astra", "gpt-6-astra"),
             ("E gpt-6-astra", "gpt-6-astra"),
@@ -502,10 +572,10 @@ class RunManifestTests(unittest.TestCase):
     def test_new_runs_reject_explicit_gpt_56_models(self) -> None:
         for old_model in ("gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"):
             with self.subTest(old_model=old_model):
-                self.write_invocation(f"$develop-task A E {old_model}")
+                self.write_invocation(f"$develop-task E {old_model}")
                 with self.assertRaisesRegex(run_manifest.ManifestError, "source E requires"):
                     self.init_run()
-                self.write_invocation("$develop-task A")
+                self.write_invocation("$develop-task D")
                 with self.assertRaisesRegex(run_manifest.ManifestError, "maximum_model"):
                     self.init_run(mode="explicit_ceiling", maximum_model=old_model)
 
@@ -556,14 +626,14 @@ class RunManifestTests(unittest.TestCase):
         )
         self.write_invocation("$develop-task не выше собственной модели")
         self.assertEqual(self.read_run(self.init_run(mode="main_ceiling"))["run"]["model_policy"], {
-            "mode": "main_ceiling", "maximum_model": "gpt-6-sol",
+            "mode": "main_ceiling", "maximum_model": "gpt-6.1-sol",
         })
 
     def test_init_pins_invocation_turn_not_latest_model_or_followup(self) -> None:
         self.write_invocation("$develop-task M UIB-test")
         self.write_invocation("окей делай так", model="gpt-6-astra", turn_id="turn-2", append=True)
         path = self.init_run()
-        self.assertEqual(self.read_run(path)["run"]["model_policy"]["maximum_model"], "gpt-6-sol")
+        self.assertEqual(self.read_run(path)["run"]["model_policy"]["maximum_model"], "gpt-6.1-sol")
         self.assertEqual(self.read_run(path)["run"]["model_policy_source"]["turn_id"], "turn-1")
 
     def test_compacted_rollouts_select_and_preserve_the_latest_invocation(self) -> None:
@@ -578,7 +648,7 @@ class RunManifestTests(unittest.TestCase):
         )
         self.write_invocation(
             "$develop-task M current task",
-            model="gpt-6-sol",
+            model="gpt-6.1-sol",
             turn_id="turn-2",
             rollout=compacted,
             timestamp="2026-09-10T20:32:36.000Z",
@@ -587,7 +657,7 @@ class RunManifestTests(unittest.TestCase):
         path = self.init_run()
         run = self.read_run(path)["run"]
         self.assertEqual(run["model_policy"], {
-            "mode": "main_ceiling", "maximum_model": "gpt-6-sol",
+            "mode": "main_ceiling", "maximum_model": "gpt-6.1-sol",
         })
         self.assertEqual(run["model_policy_source"]["turn_id"], "turn-2")
 
@@ -610,7 +680,7 @@ class RunManifestTests(unittest.TestCase):
         task_path = run_manifest.new_job_manifest(
             str(path), str(source), "preflight-review", 1, None
         )
-        self.assertEqual(self.read_run(task_path)["agent"]["model"], "gpt-6-sol")
+        self.assertEqual(self.read_run(task_path)["agent"]["model"], "gpt-6.1-sol")
         self.assertEqual(
             self.read_run(path)["run"]["model_policy_source"],
             run["model_policy_source"],
@@ -627,10 +697,10 @@ class RunManifestTests(unittest.TestCase):
         }})
         self.rollout.write_text("\n".join(json.dumps(item) for item in items) + "\n")
         path = self.init_run()
-        self.assertEqual(self.read_run(path)["run"]["model_policy"]["maximum_model"], "gpt-6-sol")
+        self.assertEqual(self.read_run(path)["run"]["model_policy"]["maximum_model"], "gpt-6.1-sol")
         source = self.write_task_source(model="gpt-6-astra")
         task_path = run_manifest.new_job_manifest(str(path), str(source), "preflight-review", 1, None)
-        self.assertEqual(self.read_run(task_path)["agent"]["model"], "gpt-6-sol")
+        self.assertEqual(self.read_run(task_path)["agent"]["model"], "gpt-6.1-sol")
 
     def test_source_reader_handles_user_message_before_turn_context(self) -> None:
         self.write_invocation("$develop-task M UIB-test")
@@ -639,11 +709,11 @@ class RunManifestTests(unittest.TestCase):
         self.rollout.write_text("\n".join(json.dumps(item) for item in items) + "\n")
         path = self.init_run()
         source = self.read_run(path)["run"]["model_policy_source"]
-        self.assertEqual(run_manifest.resolve_invocation(source).model, "gpt-6-sol")
+        self.assertEqual(run_manifest.resolve_invocation(source).model, "gpt-6.1-sol")
 
     def test_init_requires_recoverable_source_and_supported_main_model(self) -> None:
         for message, model in (
-            ("No skill invocation", "gpt-6-sol"),
+            ("No skill invocation", "gpt-6.1-sol"),
             ("$develop-task M UIB-test", "unknown"),
             ("$develop-task M UIB-test", None),
         ):
@@ -754,7 +824,7 @@ class RunManifestTests(unittest.TestCase):
         run_manifest.resume_manifest(str(path))
         source = self.write_task_source(model="gpt-6-astra")
         task_path = run_manifest.new_job_manifest(str(path), str(source), "preflight-review", 1, None)
-        self.assertEqual(self.read_run(task_path)["agent"]["model"], "gpt-6-sol")
+        self.assertEqual(self.read_run(task_path)["agent"]["model"], "gpt-6.1-sol")
         self.assertEqual(self.read_run(path)["run"]["model_policy_source"], original_source)
 
     def test_new_job_requires_source_but_old_results_remain_readable(self) -> None:
@@ -770,9 +840,9 @@ class RunManifestTests(unittest.TestCase):
         self.write_invocation("$develop-task E Sol UIB-test")
         manifest = self.manifest_value()
         manifest["run"]["model_policy"] = {  # type: ignore[index]
-            "mode": "explicit_ceiling", "maximum_model": "gpt-6-sol",
+            "mode": "explicit_ceiling", "maximum_model": "gpt-6.1-sol",
         }
-        manifest["jobs"][0]["model"] = "gpt-6-sol"  # type: ignore[index]
+        manifest["jobs"][0]["model"] = "gpt-6.1-sol"  # type: ignore[index]
         self.write_manifest(manifest)
         source = self.write_task_source(model="gpt-6-astra")
         run_manifest.new_job_manifest(str(self.manifest_path), str(source), "preflight-review", 1, None)
@@ -790,15 +860,15 @@ class RunManifestTests(unittest.TestCase):
         path = Path(completed.stdout.strip())
         self.addCleanup(shutil.rmtree, path.parent)
         self.assertTrue(path.is_absolute())
-        self.assertEqual(self.read_run(path)["run"]["model_policy"]["maximum_model"], "gpt-6-sol")
+        self.assertEqual(self.read_run(path)["run"]["model_policy"]["maximum_model"], "gpt-6.1-sol")
 
     def test_new_job_rejects_model_outside_ceiling_order(self) -> None:
         manifest = self.manifest_value()
         manifest["run"]["model_policy"] = {  # type: ignore[index]
             "mode": "explicit_ceiling",
-            "maximum_model": "gpt-6-sol",
+            "maximum_model": "gpt-6.1-sol",
         }
-        manifest["jobs"][0]["model"] = "gpt-6-sol"  # type: ignore[index]
+        manifest["jobs"][0]["model"] = "gpt-6.1-sol"  # type: ignore[index]
         self.write_manifest(manifest)
         source_path = self.write_task_source(model="gpt-5.5")
         original = self.manifest_path.read_bytes()
@@ -819,9 +889,9 @@ class RunManifestTests(unittest.TestCase):
         manifest = self.manifest_value()
         manifest["run"]["model_policy"] = {  # type: ignore[index]
             "mode": "explicit_ceiling",
-            "maximum_model": "gpt-6-sol",
+            "maximum_model": "gpt-6.1-sol",
         }
-        manifest["jobs"][0]["model"] = "gpt-6-sol"  # type: ignore[index]
+        manifest["jobs"][0]["model"] = "gpt-6.1-sol"  # type: ignore[index]
         self.write_manifest(manifest)
         self.write_result()
         run_manifest.finish_manifest(str(self.manifest_path), "completed")
@@ -833,7 +903,7 @@ class RunManifestTests(unittest.TestCase):
             resumed["run"]["model_policy"],  # type: ignore[index]
             {
                 "mode": "explicit_ceiling",
-                "maximum_model": "gpt-6-sol",
+                "maximum_model": "gpt-6.1-sol",
             },
         )
 
@@ -851,7 +921,7 @@ class RunManifestTests(unittest.TestCase):
                 "type": "event_msg",
                 "payload": {
                     "type": "thread_settings_applied",
-                    "thread_settings": {"model": "gpt-6-sol"},
+                    "thread_settings": {"model": "gpt-6.1-sol"},
                 },
             },
             {

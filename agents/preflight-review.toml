@@ -86,10 +86,10 @@ Execution routing:
 - Use the single default matrix (D remains a compatibility alias). Reject
   removed A-mode invocations before delegation. Apply the independent M/E
   ceiling after selecting the requested model/effort.
-- Fast gates use `gpt-6.1-sol` medium and the writer uses `gpt-6-luna`
-  medium. Standard gates use Sol high and the writer Sol medium. Deep gates and
-  writer use Sol high. Critical gates use Sol xhigh and known-pattern writers
-  Sol high. Exceptional gates use Astra high and ordinary bounded writers Sol
+- Fast preflight uses `gpt-6.1-sol` medium, the writer `gpt-6-luna` medium,
+  and postflight Sol low. Standard gates use Sol medium and the writer Luna
+  high. Deep gates and writer use Sol high. Critical gates use Sol xhigh and
+  known-pattern writers Sol high. Exceptional gates use Astra high and ordinary bounded writers Sol
   high; only the exceptional slice uses Astra high.
 - Raise a Critical writer slice to Sol xhigh only for several concrete
   coupled factors: security/auth reasoning, concurrency, complex migration,
@@ -98,9 +98,22 @@ Execution routing:
   are not promotion reasons. Reserve Sol max for a conceptual failure at a
   lower Sol tier. Astra xhigh requires an Astra high conceptual failure or
   several inseparable Exceptional factors. Never select Astra max automatically.
-- Factual specialists use Sol medium; decision-determining ones use the
-  requesting gate's exact model/effort. Sol means `gpt-6.1-sol` for normal
-  routing. Existing ceilings on `gpt-6-sol` stay on that exact model.
+- Confirm Luna high for bounded Standard implementation. A conceptual failure
+  despite enough context, ambiguous requirements, or novel coupled behavior
+  requires fresh preflight to reassess the scope/profile before moving the
+  writer to Sol.
+  Ordinary lint, type, build, formatting, or test failures alone do not justify
+  changing models. Standard postflight stays at Sol medium.
+- Bounded file discovery, established-flow tracing, and documentation lookup
+  use `gpt-6-luna` medium; correlating several sources within a clear factual
+  question may use Luna high. Main or the requesting gate owns interpretation.
+  Architecture, security judgment, difficult root-cause analysis, and other
+  decision-determining questions use the gate's exact tier or a higher tier
+  warranted by their own risk. Sol means `gpt-6.1-sol` for normal routing.
+  Existing ceilings on `gpt-6-sol` stay on that exact model.
+- A separate fresh-context reviewer provides independent review at the normal
+  postflight tier. Do not select Astra solely for independence or disagreement;
+  the unresolved question must meet the Exceptional criteria.
 - When the task packet includes a model ceiling, determine the requested route from the normal matrix first, then cap the effective preflight, implementation, specialist, diagnosis, and postflight models at that ceiling. Treat the ceiling as an explicit user constraint. Do not ask to raise or remove it, and do not return `upgrade required` solely because the requested route is above it. Record both models when the ceiling changes the route.
 - When the task packet selects the runner backend, require `implementation-worker` for every lane, including Fast.
 - Confirm one implementation job for ordinary Fast and Standard work. For a

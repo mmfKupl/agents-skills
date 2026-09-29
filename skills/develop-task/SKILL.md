@@ -251,6 +251,13 @@ before dispatch. Legacy runs without this field mean D. Historical A manifests
 remain readable for usage and reconciliation, but cannot dispatch new jobs.
 Direct subagents use the same routing rules.
 
+For the main chat, recommend `gpt-6.1-sol` low when coordinating an already
+approved, clear plan, and medium when main must resolve architecture or other
+substantive technical choices. These are setup recommendations; preserve the
+user's selected main model/effort and the pinned M ceiling. Delegate difficult
+judgments at the applicable gate tier rather than lowering that tier to main's
+coordination effort.
+
 ## Model Ceiling
 
 Resolve one immutable model policy at the start of the run, before preflight:
@@ -357,8 +364,8 @@ exact affected decision or implementation slice.
 
 | Profile | Use when | Preflight | Implementation | Postflight |
 | --- | --- | --- | --- | --- |
-| Fast | Clear local behavior, established pattern, low blast radius, narrow validation | `gpt-6.1-sol` medium | Runner worker on `gpt-6-luna` medium; direct fallback uses main or a Luna worker | `gpt-6.1-sol` medium |
-| Standard | Clear requirements with non-trivial but bounded implementation | `gpt-6.1-sol` high | Worker on `gpt-6.1-sol` medium by default | `gpt-6.1-sol` high |
+| Fast | Clear local behavior, established pattern, low blast radius, narrow validation | `gpt-6.1-sol` medium | Runner worker on `gpt-6-luna` medium; direct fallback uses main or a Luna worker | `gpt-6.1-sol` low |
+| Standard | Clear requirements with non-trivial but bounded implementation | `gpt-6.1-sol` medium | Worker on `gpt-6-luna` high | `gpt-6.1-sol` medium |
 | Deep | Cross-layer, novel, ambiguous, high-risk, or difficult to validate | `gpt-6.1-sol` high | Worker on `gpt-6.1-sol` high by default | `gpt-6.1-sol` high |
 | Critical | Multiple critical risks, costly failure, low reversibility, or failed lower-tier reasoning | `gpt-6.1-sol` xhigh | Bounded known-pattern slice on `gpt-6.1-sol` high; use xhigh for the exact slice with combined critical factors | `gpt-6.1-sol` xhigh |
 | Exceptional | Evidenced novel, coupled, difficult-to-validate reasoning beyond the Critical route, or a prior Sol conceptual failure | `gpt-6-astra` high | `gpt-6.1-sol` high for ordinary bounded slices; Astra high for the exact exceptional slice | `gpt-6-astra` high |
@@ -411,10 +418,14 @@ postflight on the combined implementation after all slices finish. A slice
 that invalidates the approved boundary, ordering, behavior, or critical
 contract stops the sequence and returns to fresh preflight.
 
-Use `gpt-6-luna` medium only for confirmed Fast implementation. For Standard
-implementation, raise `gpt-6.1-sol` from medium to high only when preflight names
-concrete reasoning uncertainty, unfamiliar repository patterns, or difficult
-validation.
+Use `gpt-6-luna` medium for confirmed Fast implementation and high for
+confirmed Standard implementation. Fast postflight uses `gpt-6.1-sol` low;
+Standard postflight uses `gpt-6.1-sol` medium. A conceptual failure despite
+sufficient context, newly ambiguous requirements, or novel coupled behavior
+requires fresh preflight to reassess the affected scope and its profile before
+moving implementation to Sol. Ordinary lint, type, formatting, build, or test
+failures alone do not justify changing models. Keep the Standard postflight
+floor at `gpt-6.1-sol` medium while the task remains Standard.
 
 For Deep implementation, use `gpt-6.1-sol` high. A conceptual failure, novel
 architecture without a strong local precedent, or several inseparable coupled
@@ -438,10 +449,19 @@ when preflight cites several inseparable Exceptional factors; never select
 Astra max automatically.
 
 Every preflight result must name one exact implementation model/effort and one
-exact postflight floor, never a range. Use `gpt-6.1-sol` medium by default for
-read-heavy specialists in Fast/Standard work, the requesting gate's exact tier
-for questions that determine its decision, and the Deep, Critical, or
-Exceptional tier for questions carrying that risk.
+exact postflight floor, never a range. Use `gpt-6-luna` medium for bounded
+exploration and factual lookup: locating files, tracing an established flow,
+or extracting facts from documentation. Use Luna high when several sources
+must be correlated within a clear factual question. This applies to bounded
+factual subtasks even within a higher-profile task; main or the requesting gate
+owns the interpretation. Architecture, security judgments, difficult root-cause
+analysis, and other decision-determining questions use the requesting gate's
+exact tier or the higher tier justified by that question's own risk.
+
+Independent review means a separate reviewer with fresh context at the table's
+postflight tier. It does not automatically require Astra. Use Astra for an
+unresolved review question only when its concrete reasoning difficulty meets
+the Exceptional criteria; follow the normal preflight and ceiling rules.
 
 Do not create an agent job solely to run a known deterministic command and
 report its exit status. After the active writer stops and mutation ownership is

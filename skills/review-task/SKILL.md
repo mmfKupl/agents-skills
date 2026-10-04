@@ -76,13 +76,30 @@ they do not authorize ticket, PR, code, or other external changes.
 
 ## Core Contract
 
-Audit one already implemented task. Find credible correctness, requirement, testing, runtime, simplicity, and repository-practice issues. `review-task` owns review orchestration, evidence collection, validation selection, and the final risk report.
+Audit one already implemented task. Find credible correctness, requirement, testing, runtime, simplicity, and repository-practice issues. In standalone mode, `review-task` owns review orchestration, evidence collection, validation selection, and the final risk report.
 
 Do not fix product code, update tests permanently, commit, push, edit PRs, update Linear, or manage lifecycle state. If the review finds issues, report them clearly so the user can delegate fixes to the right workflow.
 
 Treat an explicit `$review-task` invocation as explicit user authorization to use read-only review delegation. This includes `$diff-review` and specialist agents listed below. Do not skip those agents merely because the user did not separately say "subagent", "delegate", or "parallel agents".
 
 You may run read-only inspection commands and focused validation. Avoid persistent repository edits. If a probe needs code, prefer temporary files outside the repository, one-off command snippets, Browser/Playwright automation, or an existing test harness in dry-run form. Ask before any expensive, destructive, or externally mutating action, except for narrow repository-approved validation triggers explicitly needed to satisfy the review target's stated validation bar.
+
+## Embedded development audit
+
+When explicitly combined with `$develop-task` for one implementation task, read
+[`../develop-task/references/composed-workflows.md`](../develop-task/references/composed-workflows.md).
+Main applies this audit in the shared engineering run. Inherit develop-task's
+backend, matrix, ceiling, requirements, coverage plan, and usage accounting.
+Do not use the standalone model defaults below, spawn a second orchestrator,
+or activate brainstorm when it was not requested.
+
+The independent final postflight reviewer performs this audit using a fresh
+packet with the original requirements, current diff, base revision, and
+validation evidence. Use supported shared roles for any concrete specialist
+questions rather than starting a separate diff-review backend. Retain the
+read-only boundary: develop-task's authorized writer owns fixes and its gate
+owns approval. Main triages findings under the shared correction budget;
+this audit has no separate fix loop or completion/lifecycle authority.
 
 ## Review Depth
 
@@ -94,7 +111,8 @@ Use the user's wording to choose depth:
 ## Specialist Model Routing
 
 The shared review-agent TOML files intentionally do not pin a model or
-reasoning effort. For every specialist agent spawned by this workflow, pass one
+reasoning effort. The following defaults apply only to standalone review.
+For every specialist agent spawned by that workflow, pass one
 explicit callable model ID and effort and use `fork_turns: "none"` or a
 positive bounded history with a self-contained review packet.
 
@@ -130,6 +148,26 @@ the delegation gap.
 11. If supporting agents are technically unavailable, perform the same checks manually and say that delegation was not available. Do not call delegation unavailable only because the user did not repeat the delegation request outside `$review-task`.
 12. Correlate all evidence yourself. Specialist output is evidence, not the final verdict.
 13. Report findings first, ordered by severity. Include validation evidence and remaining gaps.
+
+## Coverage and baseline verification
+
+Reconstruct affected behavior from the source request and confirmed decisions,
+then inspect its actual coverage across relevant layers. Do not check only the
+test list chosen by the implementation or the files already in its diff.
+Trace new supported variants into established story and fixture matrices,
+permission tests, and runtime flows. A green suite or an approved scope is not
+evidence that an omitted scenario was covered. Report a missing artifact only
+when it is required by the requested behavior or demonstrated repository
+practice; do not demand every test level for every task.
+
+Compare a credible finding with the base revision when available. Separately
+state whether it is introduced, pre-existing but exposed on the changed path,
+unrelated pre-existing, or of unknown origin. Link scope to a requirement or
+preserved contract, not just severity or file proximity. A pre-existing issue
+that prevents a requirement from holding is not automatically out of scope;
+an unrelated old issue is follow-up work, not a reason to broaden the patch.
+When origin or required behavior cannot be established, report that uncertainty
+instead of guessing or proposing new product behavior.
 
 ## Passed Check Reuse
 
@@ -223,6 +261,8 @@ Lead with findings:
 - Evidence: files, lines, diff context, runtime result, or test result.
 - Impact: what can break and for whom.
 - Reproduction or check: command, preview path, probe, or reasoning path.
+- Origin: introduced, pre-existing and exposed, unrelated pre-existing, or
+  unknown, with baseline evidence when available.
 - Scope assessment: a short prose explanation of whether the finding is in scope, on the boundary, or outside scope, and why.
 - Suggested direction: concise fix strategy, not a full implementation plan unless asked.
 

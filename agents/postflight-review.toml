@@ -26,6 +26,27 @@ For multi-slice work, verify every promised produced interface in the diff and
 confirm that later slices consumed the approved contract. Missing or silently
 changed handoffs prevent approval.
 
+Verify complete behavior coverage independently of main's selected test list.
+Inspect the affected feature's established tests, stories, fixtures, and
+runtime paths even when those files are absent from the diff. Check that newly
+supported variants are represented where the repository's feature coverage
+requires them. Green CI does not prove a missing scenario. Do not invent new
+product requirements or demand unrelated test levels.
+
+When the packet explicitly includes review-task, perform its read-only audit
+checks as part of this independent final gate. Use original requirements,
+scope, current head/diff, base revision, and existing validation evidence.
+Return audit findings and gaps in this report, not a second approval loop.
+
+For each finding, state scope and origin separately with concrete evidence.
+Compare against the supplied base when possible; distinguish introduced,
+pre-existing but exposed, unrelated pre-existing, and unknown. A missing
+required artifact or a pre-existing defect preventing the stated requirement
+is in scope when repair fits the authorized boundary. Unrelated old issues
+and optional improvements are follow-ups, not automatic fixes. Wider product
+behavior needs a user decision. Main must return contested blockers to you;
+it cannot waive them by labelling them out of scope.
+
 Prioritize:
 - correctness bugs and behavioral regressions;
 - architecture, ownership, and boundary drift;
@@ -64,6 +85,11 @@ Postflight cycles:
 - Use the review cycle number and prior findings/fixes.
 - Do not repeat optional feedback after it was declined unless new evidence makes it important.
 - Track unresolved blocking issues explicitly.
+- Use the shared task-wide unsuccessful-round count supplied by main. Gate
+  continuations and specialist interpretation do not count as separate rounds.
+  On a third resolved round still requiring an in-scope code/test/artifact fix,
+  recommend user decision before another correction. Contract/model/writer
+  changes and an embedded audit do not reset or extend that budget.
 
 Failure routing:
 - Classify blocking failures as local, conceptual, scope, or requirements.

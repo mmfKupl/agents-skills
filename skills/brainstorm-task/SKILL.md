@@ -1,6 +1,6 @@
 ---
 name: brainstorm-task
-description: Create or revise a proportionate engineering task scope or feasibility recommendation from rough notes, voice-dump transcripts, an ambiguous idea, or an existing specification. Classify work as Spike, Bounded, or Architectural; scale repository and practice research to that class; and define delivery-slice interfaces when one coherent task spans separable responsibilities. When revising an existing scope, return both the complete new version and its meaningful changes. Use only when the user explicitly invokes $brainstorm-task; never activate it from a natural-language request alone. Supports an interactive brainstorm mode by default and an explicit autopilot mode with no user questions. Do not use when requirements are settled and the user asks to implement or review the change.
+description: Create or revise a proportionate, repository-grounded engineering scope or feasibility recommendation from rough notes, voice transcripts, an idea, or an existing specification. Classify research depth, plan relevant validation, and show meaningful changes when revising a scope. Use only when the user explicitly invokes $brainstorm-task; never activate it from a natural-language request alone. Supports interactive and explicit autopilot modes, standalone discovery, and the discovery phase of an explicitly combined develop-task workflow.
 ---
 
 # Brainstorm task
@@ -89,8 +89,23 @@ configuration, tickets, or external systems. Do not start implementation,
 write an implementation plan, or invoke an implementation workflow. Create a
 scope document only when the user separately asks for one after scoping.
 
-Invocation authorizes read-only delegation to `repo-practice-review` and
-`best-practice-review`. Do not delegate to a writer.
+Invocation authorizes read-only delegation to `repo-practice-review`,
+`best-practice-review`, and `test-review`. Do not delegate to a writer.
+
+## Embedded discovery
+
+When the user explicitly combines this skill with `$develop-task` to perform
+one task, read [`../develop-task/references/composed-workflows.md`](../develop-task/references/composed-workflows.md).
+Main performs discovery inside that engineering run; it does not delegate a
+second orchestrator. Inherit its backend, routing matrix, model ceiling,
+requirement sources, and usage accounting before dispatching any specialist.
+The standalone specialist model defaults below do not apply in that mode.
+
+Keep discovery read-only. After its scope is ready, return it to the coordinator
+for persistence and implementation only under the user's explicit combined
+request. Interactive checkpoints still apply; autopilot is not inferred from
+the presence of develop-task. A Spike does not authorize implementation.
+Do not mark the outer task done when discovery finishes.
 
 ## Modes
 
@@ -209,7 +224,7 @@ Choose specialist depth from the classified path:
   repo-practice result, and require it to identify where local practice should
   be followed or challenged.
 
-Use `gpt-5.6-terra` high by default and `gpt-5.6-sol` high for novel,
+For standalone discovery, use `gpt-5.6-terra` high by default and `gpt-5.6-sol` high for novel,
 cross-layer, high-risk, or difficult-to-validate questions. Keep specialists
 read-only and prohibit recursive delegation. If a role required by the selected
 path is technically unavailable, stop and name it. Do not imitate a missing
@@ -226,6 +241,44 @@ consequences before generating solution options:
 
 Label repository facts, general guidance, and the main agent's reconciliation
 as different kinds of evidence.
+
+## Plan validation from the affected behavior
+
+For Bounded and Architectural work, inspect the existing coverage of the
+feature before finishing scope. Trace each affected behavior and supported
+variant to relevant tests, fixtures, Storybook stories, integration or e2e
+flows, and other repository-required artifacts. Follow the user-visible path
+even when the likely production edit is one backend flag or one line.
+
+Keep a compact internal coverage plan: expected scenario, existing evidence,
+reuse/update/add decision, and the focused check that will prove completion.
+Distinguish an existing passing suite from a scenario actually present in that
+suite. A green Storybook build does not cover a newly supported variant missing
+from its story matrix. Extend an established feature matrix when the requested
+behavior adds a supported variant; do not wait for the user to enumerate its
+stories or fixtures.
+
+Require `test-review` before scope completion when changed behavior involves
+permissions or billing rules, a UI flow has multiple affected supported
+variants, or coverage adequacy remains uncertain after inspection. Give it
+the source intent, affected behavior, existing coverage, and proposed checks.
+Ask it to identify omissions and the smallest sufficient validation, not to
+invent additional product behavior. Reuse an applicable prior test-review
+when its behavior, variants, and evidence are unchanged. For a clear local
+change without those conditions, main may plan validation without another
+specialist. A Spike needs test-review only when validation can change its
+feasibility conclusion.
+
+Do not require every test level for every task or generate a Cartesian product
+of unsupported combinations. Include new tests and artifacts only when they
+prove requested behavior, a reachable regression, or an established repository
+contract. Record why existing evidence is sufficient when nothing new is
+needed. Missing tooling is a validation gap, not proof that a check is needless.
+
+Put the required scenarios and artifacts in canonical Validation. Keep commands,
+coverage notes, and rejected checks in the handoff or research evidence unless
+their exact form is required. Revisit this plan after a behavior or scope change
+and verify its completeness again during the final synthesis audit.
 
 ## Decompose oversized ideas
 
@@ -425,6 +478,9 @@ Do not send intermediate questions or approval checkpoints. Internally:
 7. Apply the same viability filter as interactive mode. Compare materially
    different approaches when more than one survives; when only one survives,
    choose it without inventing alternatives.
+8. Complete the behavior-based coverage plan and any required test-review.
+9. Perform the same final synthesis audit against original user messages and
+   annotations before generating the canonical scope.
 
 When two interpretations remain equally plausible, choose the smaller
 independently useful scope. Never let best-practice guidance invent product
@@ -476,6 +532,9 @@ compatibility rules, boundaries, and other accepted behavior in Requirements.
 Put observable completion evidence, required test levels, permission matrices,
 and edge cases in Validation. Do not reduce Validation to generic activities
 such as "add tests" when exact scenarios were agreed.
+Include relevant stories or fixtures when the established feature coverage
+needs a new supported variant. Do not append the internal coverage table or
+justify every excluded test level in the canonical scope.
 
 Implementation constraints contain only approved technical rules whose
 omission could lead to a materially wrong solution. A repository owner, file,

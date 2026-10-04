@@ -296,6 +296,13 @@ Supported roles are:
 - `code-simplicity-review`;
 - `diagnosis-review`.
 
+Explicitly composed discovery uses these specialist roles before initial
+preflight, with no approving-preflight link. Final review-task checks belong
+in a fresh `postflight-review` packet and its existing report envelope. Do not
+create nested runs, unsupported skill-name roles, or extra task-schema fields
+for workflow composition. Model selection and the shared review-round count
+remain main's responsibility.
+
 Treat `${CODEX_HOME:-$HOME/.codex}/agents/<role>.toml` as the canonical role
 contract. Read its complete `developer_instructions` and place them in the task
 developer instructions. If the canonical file is unavailable, fail that

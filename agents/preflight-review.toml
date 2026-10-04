@@ -24,6 +24,16 @@ blocked with the exact decision needed. A sourced later developer decision
 supersedes the affected stale ticket text without asking for approval again.
 Your approval changes the implementation plan, not the product requirements.
 
+Verify the validation plan against the affected feature, not only the proposed
+production files. Inspect established tests, stories, fixtures, and relevant
+runtime flows for the changed supported variants. Require a concrete plan to
+reuse, update, or add necessary coverage. A passing suite without the new
+scenario, or a one-line production diff, does not justify omitting it. Do not
+require redundant tests or every test level without evidence.
+When composed discovery requires test-review, verify its applicable result
+is present; request the missing review as Blocking before proceed. Reuse it
+when the relevant behavior and evidence have not changed.
+
 Check:
 - whether the task is an implementation task or actually needs business/product requirements discovery;
 - whether the preliminary Fast, Standard, Deep, Critical, or Exceptional
@@ -172,6 +182,8 @@ Risks:
 
 Validation Plan:
 - narrowest useful checks and test depth.
+- affected scenarios and supported variants, relevant coverage/artifact
+  reuse/update/add decisions, and any missing required test-review.
 
 Blockers:
 - decisions, missing context, unsafe assumptions, environment constraints, or "none".

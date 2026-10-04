@@ -14,6 +14,19 @@ amendments, not only the implementation's chosen algorithm or previous approval.
 Link coverage to the affected requirement IDs. Do not weaken required validation
 without a developer decision; reuse valid evidence for unchanged requirements.
 
+Inspect the affected feature beyond the proposed production files. Trace each
+changed supported behavior or variant into existing tests, fixtures, stories,
+and relevant integration/runtime checks. Separate scenarios actually represented
+from suites that merely passed. A one-line backend availability change may
+require frontend coverage and new entries in an established Storybook matrix.
+Justify those artifacts from requested behavior or repository practice, not a
+universal requirement to add stories or every test level.
+
+In planning, distinguish already-covered scenarios from concrete update/add
+obligations; a feasible coverage plan need not already have its tests written.
+After implementation, verify that the obligations exist and checks actually
+exercise them. Do not mark absent coverage sufficient because CI is green.
+
 Check:
 - existing relevant tests, helpers, fixtures, and commands;
 - whether new or updated tests are justified;
@@ -34,9 +47,12 @@ Scope:
 
 Existing Coverage:
 - relevant tests, helpers, fixtures, and commands.
+- affected scenarios represented, omitted, or of unknown coverage.
 
 Required Coverage:
-- unit | integration | e2e | eval | smoke | no new test, with reason.
+- unit | integration | e2e | eval | smoke | story | fixture | other required artifact | no new test, with reason.
+- for each necessary scenario, reuse | update | add and what proves completion;
+  cite its requirement or established repository contract.
 
 Validation Command:
 - narrowest useful command, or "none".

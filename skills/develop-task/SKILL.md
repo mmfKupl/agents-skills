@@ -80,7 +80,7 @@ Implement one coherent repository task at a time. Own task framing, model and
 agent routing, integration, validation evidence, review coordination, and final
 lifecycle actions. Do not invent business requirements.
 
-Before the first gate, resolve the routing matrix and the independent model
+Before the first delegated job, resolve the routing matrix and the independent model
 policy under Routing Matrix and Model Ceiling.
 In runner mode, create the run through `agent-run-manifest init`; do not hand-write
 `run.yaml` or replace an explicit `M`/`E` with the default policy.
@@ -105,10 +105,26 @@ analysis and ask for explicit implementation approval.
 
 Default limits:
 
-- three unresolved postflight cycles;
+- three unsuccessful final review rounds shared by postflight and any embedded
+  review-task audit, as defined in Bounded Review Loop;
 - five evidence-based challenge iterations per disputed gate decision.
 
 Stop for a user decision when a bounded loop does not converge.
+
+## Explicit workflow composition
+
+When the user explicitly invokes `$brainstorm-task` and/or `$review-task`
+alongside `$develop-task` to perform the same task, read
+[`references/composed-workflows.md`](references/composed-workflows.md) before
+the first delegated job. Add only the requested phase: discovery before
+preflight, final audit after implementation, or both. Quoted examples,
+references, or an analysis-only request to discuss these skills do not select
+the combined implementation workflow.
+
+Main remains the engineering coordinator for all phases. Resolve one backend,
+matrix, ceiling, and runner run before any discovery specialist; reuse them for
+audit and fixes. Keep any separately authorized outer lifecycle controller.
+Do not implicitly activate an unrequested skill or weaken mandatory gates.
 
 ## Requirements Fidelity
 
@@ -198,6 +214,13 @@ defensive behavior that protects a proven contract unless the approved task
 explicitly changes it. Tests should prove requested behavior or an observed
 regression, not enumerate unsupported theoretical states.
 
+Smallest production diff does not mean smallest possible coverage. Inspect the
+affected feature's established tests and artifacts across relevant layers.
+Complete missing supported variants in an existing story or fixture matrix
+when they are needed to represent the requested behavior. Reuse adequate
+coverage instead of adding redundant tests; a passing suite without the new
+scenario is not adequate evidence.
+
 ## Delegation Backend
 
 Select one delegation backend at the start of the run and report it in the
@@ -216,7 +239,7 @@ difficulty, or convenience. Fail the runner path closed unless the user chooses
 the fallback.
 
 For `runner`, read `references/agent-runner.md` completely before the first
-preflight job. Dispatch every preflight gate, implementation worker,
+delegated job. Dispatch every preflight gate, implementation worker,
 postflight gate, and requested specialist through one foreground
 `agent-runner` process and YAML artifacts. Do not use collaboration subagent
 tools for those roles. The main thread remains the semantic orchestrator and
@@ -595,7 +618,9 @@ only after stopping the current writer and explicitly transferring ownership.
 
 ### Generalist Specialists
 
-Let a core gate request these agents only for a concrete question:
+During explicitly embedded discovery, dispatch specialists required by
+brainstorm-task through the shared backend and routing policy. Otherwise let a
+core gate request these agents only for a concrete question:
 
 - `repo-practice-review` for repository evidence and local precedent;
 - `best-practice-review` for general engineering practice;
@@ -629,6 +654,9 @@ distinguishes confirmed, probable, and unknown causes before another edit.
    context, and conditionally load repository-specific guidance.
 4. Build the preliminary Execution Profile and, only for a multi-area Deep,
    Critical, or Exceptional task, a proposed ordered implementation slice plan.
+   If brainstorm is explicitly selected, complete its discovery, coverage plan,
+   and scope persistence under `references/composed-workflows.md` before
+   preflight, then update this profile from that evidence.
 5. Dispatch mandatory `preflight-review` with the user request, preliminary
    profile, current preflight model/effort, task boundary, dirty-tree notes,
    likely files, constraints, expected behavior, selected backend and its writer
@@ -664,9 +692,13 @@ distinguishes confirmed, probable, and unknown causes before another edit.
     inspect the resulting diff.
 12. Recalculate the effective postflight floor from the original request,
     preflight profile, actual diff, worker deviations, and validation gaps.
+    When review-task is explicitly selected, prepare its embedded final audit
+    evidence and include its audit instructions in the independent final
+    postflight packet under `references/composed-workflows.md`.
 13. Dispatch mandatory independent `postflight-review` with the task packet,
     preflight decision, writer result, changed files, diff, validation, current
-    cycle, contract revision, approving preflight, and prior findings/fixes.
+    cycle, shared unsuccessful-round count, contract revision, approving
+    preflight, and prior findings/fixes.
     Include source requirements, confirmed amendments, requirements revision,
     and the worker's coverage; require independent source-to-diff verification.
 14. If postflight requests specialists, return their raw results to the same
@@ -678,6 +710,8 @@ distinguishes confirmed, probable, and unknown causes before another edit.
     `replan` fix, define the proposed next contract revision and dispatch a
     fresh preflight before any writer resumes. Rerun affected validation and
     repeat postflight after every mutation.
+    Check the shared Bounded Review Loop before any next fix; an embedded
+    audit must not start a separate correction budget.
 17. If an attempted fix leaves the same observable failure unresolved, stop
     code edits and follow Repeated Failure Diagnosis below before another
     implementation job. Otherwise promote or replan after a repeated
@@ -791,9 +825,38 @@ technical adjustment that stays inside the approved contract.
   current diff and findings.
 - A different small finding in a later cycle does not automatically require
   promotion.
-- Stop after three unresolved postflight cycles and ask the user for a decision.
+- Follow Bounded Review Loop; promotions and replans do not reset its budget.
+
+## Bounded Review Loop
+
+Keep one task-wide count of unsuccessful final review rounds for postflight
+and any embedded review-task audit. A round counts once after its requested
+specialist inputs and evidence-based challenges are resolved and it still
+requires an in-scope implementation, test, or artifact correction. Count a new
+review of the corrected candidate even when it finds a different necessary
+fix. Intermediate gate continuations, transport retries, pending specialists,
+read-only evidence gathering, and declined or out-of-scope observations do not
+consume additional rounds.
+
+After the first unsuccessful round, perform the approved fix and affected
+validation, then review again. After the second, allow one more approved fix
+and review. If the third round still requires correction, stop before another
+writer, fix preflight, or publication action and report `needs_user_input`.
+Preserve the diff and explain remaining findings, their scope/origin, attempted
+fixes, and the decision needed. Do not mark the task done or claim approval.
+
+Carry the count and prior findings in job packets and reports across contract
+revisions, models, writers, backend changes, resumes, and outer lifecycle
+stages. Do not reset it because a fix has a new contract or a reviewer approved
+an intermediate candidate. Only an explicit user decision can authorize more
+rounds or establish a genuinely new task. Existing diagnosis and fresh-preflight
+rules still apply within the budget; they do not grant extra correction rounds.
 
 ## Delegation Rules
+
+Before initial preflight in an explicitly composed run, brainstorm-task selects
+its discovery specialist questions. After a core gate requests a specialist,
+that gate owns interpretation under the rules below.
 
 Let core gates decide which specialist to use, the exact question, required
 artifacts, and whether the result is blocking or advisory. Do not let gates
@@ -857,6 +920,8 @@ gates, model routing, implementation ownership, validation evidence, and
 approval state inside `develop-task`. Do not independently commit, push, edit a
 PR, update external trackers, wait on CI, or resolve review threads unless the
 outer workflow delegates that exact action.
+Embedded brainstorm and review are phases, not lifecycle wrappers; follow
+`references/composed-workflows.md` for those combinations.
 
 For approved standalone repository work, normally finish with a branch when
 needed, logical commits, push, and a draft PR. Do not create a PR for

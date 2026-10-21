@@ -31,6 +31,21 @@ The installer creates a dedicated runner virtual environment at
 the preferred Python 3.10+ interpreter is not discoverable as `python3.12`,
 `python3.11`, `python3.10`, or `python3`.
 
+## Install into Claude Code
+
+```bash
+./scripts/install-claude.sh
+```
+
+- Symlinks every skill into `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills`, so `git pull` updates them.
+- Generates Claude Code subagents in `~/.claude/agents/` from `agents/*.toml`
+  (`scripts/codex_agents_to_claude.py`). Read-only roles get read-only tools.
+  Re-run the script after changing a TOML file.
+- `develop-task`, `review-task`, `brainstorm-task`, and `diff-review` read
+  `skills/develop-task/references/claude-code.md` when they run in Claude Code. It maps
+  `$skill` to `/skill`, Luna/Sol/Astra to `sonnet`/`opus`/`fable`, and the runner backend to
+  Claude subagents. The runner itself is Codex-only.
+
 ## Back up local skills into this repo
 
 ```bash

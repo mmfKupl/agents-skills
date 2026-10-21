@@ -1,9 +1,16 @@
 ---
 name: brainstorm-task
-description: Create or revise a proportionate, repository-grounded engineering scope or feasibility recommendation from rough notes, voice transcripts, an idea, or an existing specification. Classify research depth, plan relevant validation, and show meaningful changes when revising a scope. Use only when the user explicitly invokes $brainstorm-task; never activate it from a natural-language request alone. Supports interactive and explicit autopilot modes, standalone discovery, and the discovery phase of an explicitly combined develop-task workflow.
+description: Create or revise a proportionate, repository-grounded engineering scope or feasibility recommendation from rough notes, voice transcripts, an idea, or an existing specification. Classify research depth, plan relevant validation, and show meaningful changes when revising a scope. Use only when the user explicitly invokes `$brainstorm-task` (or `/brainstorm-task` in Claude Code); never activate it from a natural-language request alone. Supports interactive and explicit autopilot modes, standalone discovery, and the discovery phase of an explicitly combined develop-task workflow.
 ---
 
 # Brainstorm task
+
+## Claude Code runtime
+
+If you are running in Claude Code rather than Codex, read
+[`../develop-task/references/claude-code.md`](../develop-task/references/claude-code.md) before
+the first delegated job. It maps Codex tools, model names, and the runner
+backend to Claude Code; every gate and rule in this skill still applies.
 
 ## Writing quality
 

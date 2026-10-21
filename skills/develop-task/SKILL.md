@@ -1,9 +1,16 @@
 ---
 name: develop-task
-description: Explicitly invoked engineering workflow for repository implementation tasks with mandatory preflight/postflight review gates, GPT-6 Luna / GPT-6.1 Sol / GPT-6 Astra routing with optional strict model ceilings, runner-supervised fresh-context delegation by default, an explicit direct-subagent fallback, focused validation, and standalone lifecycle handling. Use only when the user explicitly writes `$develop-task` or explicitly asks to run the develop-task workflow; otherwise do not select this skill.
+description: Explicitly invoked engineering workflow for repository implementation tasks with mandatory preflight/postflight review gates, GPT-6 Luna / GPT-6.1 Sol / GPT-6 Astra routing with optional strict model ceilings, runner-supervised fresh-context delegation by default, an explicit direct-subagent fallback, focused validation, and standalone lifecycle handling. Use only when the user explicitly writes `$develop-task` (or `/develop-task` in Claude Code) or explicitly asks to run the develop-task workflow; otherwise do not select this skill.
 ---
 
 # Develop Task
+
+## Claude Code runtime
+
+If you are running in Claude Code rather than Codex, read
+[`references/claude-code.md`](references/claude-code.md) before
+the first delegated job. It maps Codex tools, model names, and the runner
+backend to Claude Code; every gate and rule in this skill still applies.
 
 ## Writing quality
 

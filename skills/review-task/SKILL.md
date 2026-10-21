@@ -1,9 +1,16 @@
 ---
 name: review-task
-description: Explicitly invoked deep audit workflow for already implemented repository tasks, local diffs, branches, pull requests, or ticket implementations. Use when the user writes `$review-task` or asks to deeply review an implementation, verify whether a ticket was implemented correctly, find all credible risks, inspect tests, use preview/local runtime, run focused read-only validation, or create temporary probes such as Playwright checks. Invocation is an explicit request for read-only specialist delegation when useful. Do not use for implementing fixes.
+description: Explicitly invoked deep audit workflow for already implemented repository tasks, local diffs, branches, pull requests, or ticket implementations. Use when the user writes `$review-task` (or `/review-task` in Claude Code) or asks to deeply review an implementation, verify whether a ticket was implemented correctly, find all credible risks, inspect tests, use preview/local runtime, run focused read-only validation, or create temporary probes such as Playwright checks. Invocation is an explicit request for read-only specialist delegation when useful. Do not use for implementing fixes.
 ---
 
 # Review Task
+
+## Claude Code runtime
+
+If you are running in Claude Code rather than Codex, read
+[`../develop-task/references/claude-code.md`](../develop-task/references/claude-code.md) before
+the first delegated job. It maps Codex tools, model names, and the runner
+backend to Claude Code; every gate and rule in this skill still applies.
 
 ## Writing quality
 

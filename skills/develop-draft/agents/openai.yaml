@@ -1,4 +1,4 @@
 interface:
   display_name: "Develop Draft"
   short_description: "Build a reviewed prototype with minimal validation."
-  default_prompt: "Use $develop-draft to build a working prototype with independent final review, preflight for non-trivial work, a small validation budget, and local delivery."
+  default_prompt: "Use $develop-draft to build a working prototype with independent final review, preflight for non-trivial work, a small validation budget, and a draft PR linked to the known ticket."

@@ -1,13 +1,14 @@
 ---
 name: develop-draft
-description: Build a working repository prototype quickly, with good implementation code, independent final review, preflight for non-trivial work, and a small validation budget. Use for $develop-draft, /develop-draft in Claude Code, or an explicit request for a quick prototype with minimal testing. Ordinary implementation requests belong to the normal development workflow.
+description: Build a working repository prototype quickly, with good implementation code, independent final review, preflight for non-trivial work, a small validation budget, and a draft PR linked to the known task. Use for $develop-draft, /develop-draft in Claude Code, or an explicit request for a quick prototype with minimal testing. Ordinary implementation requests belong to the normal development workflow.
 ---
 
 # Develop draft
 
 Deliver a working prototype for the user to try. Keep implementation quality,
 requirements fidelity, and independent review. Save time by omitting new tests,
-broad validation, runner administration, and publication by default.
+broad validation and runner administration. Deliver a draft PR linked to the
+known ticket by default; keep changes local only when the user requests it.
 This is a separate workflow, not the Fast profile of `develop-task`.
 
 ## Runtime and ownership
@@ -17,7 +18,7 @@ or create its manifests. In Claude Code, first read
 [`../develop-task/references/claude-code.md`](../develop-task/references/claude-code.md)
 for tool, model, effort, and ceiling mappings. This skill defines the workflow;
 the adapter supplies runtime mechanics only. Do not load the full
-`develop-task` workflow or inherit its test, runner, or PR defaults.
+`develop-task` workflow or inherit its test or runner defaults.
 Read applicable `AGENTS.md` and, in Claude Code, `CLAUDE.md` instructions.
 Use [`../unslop/SKILL.md`](../unslop/SKILL.md) for user-facing writing.
 
@@ -50,6 +51,8 @@ Out of scope and dirty-tree constraints:
 Profile, exact models/efforts, model ceiling:
 Implementation hypothesis:
 Validation: selected checks, optional existing quick test, demo, total budget.
+Delivery: repository/base branch, known ticket or none, existing task PR or none,
+          draft PR by default; explicit local-only instruction or outer owner.
 Replan triggers:
 ```
 
@@ -183,9 +186,10 @@ Do not claim production readiness from this workflow.
    `diagnosis-review` role at the final-review tier within the same ceiling.
    An unknown cause requires more evidence, not another guess. Neither a
    diagnosis nor a replan resets the review budget.
-8. Finish when the requested demo is implemented and the final reviewer approves
-   the current diff under the stated prototype limitations. No job or required
-   check may remain running when claiming completion.
+8. After final approval of the current diff, complete Delivery below. The
+   requested demo, draft PR, and applicable ticket link must be ready before
+   claiming completion, unless local-only delivery was requested or an outer
+   workflow owns publication. No job or required check may remain running.
 
 Use extra specialists only for a specific unresolved blocking question that
 the gate cannot settle from the available evidence. Main dispatches them
@@ -194,11 +198,46 @@ to the gate. Advisory style preferences do not start a correction cycle.
 
 ## Delivery
 
-Keep changes local by default. Do not commit, push, open a PR, wait for CI,
-update trackers, or deploy unless the user requested that lifecycle action or
-an explicitly invoked outer workflow owns it. Perform requested actions only
-after current final approval and within the user's validation instructions.
-Any later implementation mutation invalidates approval.
+Main owns delivery after current final approval. Invoking this workflow
+authorizes committing the task changes, pushing a task branch, creating a
+draft PR, and linking it to an already identified ticket. Do not ask for the
+same authorization again. An explicit local-only request overrides this
+default. If an explicitly invoked outer workflow owns delivery, hand it the
+approved result and follow its instructions instead of publishing twice.
+
+- Isolate only the reviewed task changes. Preserve unrelated dirty files.
+  Use the repository's branch and commit conventions, defaulting to a `codex/`
+  task branch when none are established. Do not push task implementation
+  directly to the default branch. Determine the actual repository and PR base.
+- Inspect an existing task PR before creating another. Reuse an appropriate
+  existing draft PR; do not replace or downgrade a ready PR without user
+  direction. Commit and push, then create or update the draft PR. Describe
+  observable behavior, how to try it, prototype limitations, actual checks,
+  and skipped validation. Do not present skipped checks as passing.
+- When a ticket is established by the request or verified task context, include
+  its exact ID in the PR title and link its actual URL in the body. Use the
+  tracker integration or repository's linking convention to associate the PR
+  with that ticket, preferably a native PR attachment/relationship. Check for
+  an existing link before adding one. A ticket found merely as a similar issue
+  is not the target. If no unambiguous target exists, publish the PR without
+  inventing a ticket or blocking on optional association.
+- Do not change ticket assignee/status, close it, assign PR reviewers, or send
+  comments/messages unless separately requested. Creating the native ticket
+  relationship is within delivery scope; generic tracker updates are not.
+- In Codex, attach every created or continued task PR using `attach_artifact`
+  when available. In Claude Code use the configured GitHub and tracker tools
+  or CLIs; Codex-only chat attachments are not a Claude completion gate.
+- Do not merge, deploy, or wait for CI. If push triggers checks automatically,
+  report that they were not awaited. Do not bypass hooks or required policy
+  just to meet the validation budget; report a concrete conflict if delivery
+  requires work beyond the authorized validation policy.
+
+Any implementation mutation after approval invalidates it; rerun affected
+bounded checks and final review before delivery continues. Missing GitHub or
+tracker access does not erase finished work: complete unaffected delivery,
+report the exact remaining blocker, and provide the PR or local commit state.
+A missing required ticket relationship is a delivery gap, not a fully linked
+success. Do not silently call a local patch the completed default workflow.
 
 The final response should say:
 
@@ -208,7 +247,8 @@ The final response should say:
 - concrete demo limitations and remaining unverified behavior;
 - preflight approval or its Fast exemption, final-review decision, correction
   rounds, roles and actual models/efforts;
-- local/committed/PR state and any decision still needed.
+- draft PR URL/state, ticket association or why none applies, branch and
+  committed/pushed state, plus any delivery blocker or decision still needed.
 
 Keep reporting compact. Use token usage only when the runtime supplies it;
 never invent telemetry or create accounting infrastructure for a prototype.

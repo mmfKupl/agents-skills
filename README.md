@@ -41,7 +41,7 @@ the preferred Python 3.10+ interpreter is not discoverable as `python3.12`,
 - Generates Claude Code subagents in `~/.claude/agents/` from `agents/*.toml`
   (`scripts/codex_agents_to_claude.py`). Read-only roles get read-only tools.
   Re-run the script after changing a TOML file.
-- `develop-task`, `review-task`, `brainstorm-task`, and `diff-review` read
+- `develop-task`, `develop-draft`, `review-task`, `brainstorm-task`, and `diff-review` read
   `skills/develop-task/references/claude-code.md` when they run in Claude Code. It maps
   `$skill` to `/skill`, Luna/Sol/Astra to `sonnet`/`opus`/`fable`, and the runner backend to
   Claude subagents. The runner itself is Codex-only.
@@ -69,12 +69,14 @@ Skills:
 - `unslop` - shared writing-quality layer used by every skill in this repository for clear, natural user-facing prose.
 - `brainstorm-task` - repository-grounded Spike, Bounded, or Architectural discovery with proportionate approval and optional delivery-slice contracts.
 - `develop-task` - single-writer repository implementation workflow with one GPT-6 Luna / GPT-6.1 Sol / GPT-6 Astra routing matrix, cumulative agent-usage handoffs, model ceilings through GPT-6 Astra, mandatory preflight/postflight gates, supervised runner jobs by default, an explicit direct-subagent fallback, focused validation, logical commits, and draft PR creation.
+- `develop-draft` - quick working prototypes with the same model tiers and direct subagents in Codex and Claude Code. Fast changes skip agent preflight; every change gets independent final review. Validation has a small shared budget, allows one relevant existing quick test, and omits new tests and CI waits by default. Delivery stays local unless publication is requested. Invoke as `$develop-draft` or `/develop-draft` in Claude Code.
 - `diff-review` - independent fresh diff review for local changes.
 - `review-task` - deep audit workflow for already implemented tasks, with specialist review, validation reuse, focused checks, and runtime/preview probes when useful.
 
 Custom agents:
 
 - `implementation-worker` - single-writer product-code and test implementation agent selected after preflight.
+- `draft-review` - read-only plan and final code gate for prototypes, without importing the full workflow's test requirements.
 - `preflight-review` - read-only pre-implementation gate.
 - `postflight-review` - read-only post-implementation gate.
 - `repo-practice-review` - repository practice and local pattern review.

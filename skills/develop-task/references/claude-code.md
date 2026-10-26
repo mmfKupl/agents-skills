@@ -91,3 +91,35 @@ time, the Codex name it maps from (for example `opus high (Sol high)`).
 - Linear, GitHub, and other services: use the MCP servers or CLIs configured
   in this Claude installation (`gh`, the `linear` MCP server). If one is not
   connected, report the gap rather than switching to a different system.
+
+## Claude project threads
+
+When `mcp__hearthbot__*` tools are available, the skill runs in a Claude
+project thread. The user reads only messages posted to the thread, often from
+a phone and hours later. Apply these rules on top of the mappings above.
+
+- Questions, checkpoints, and approvals: post them with
+  `mcp__hearthbot__post_message` and end the turn. The user's reply arrives as
+  the next turn; resume from the same gate. Do not use AskUserQuestion: the
+  user does not see it.
+- Progress: `update_plan` and the task list mean
+  `mcp__hearthbot__update_progress_checklist`. Task titles mean
+  `mcp__hearthbot__rename_thread`.
+- Results and handoffs: send them with `mcp__hearthbot__post_message`. Text
+  outside a hearthbot call reaches nobody.
+- Worktree: work in the current checkout. Do not create, switch, or remove git
+  worktrees.
+- Branch: the thread may start on an assigned `claude/project-thread-*`
+  branch. Ignore it and create the task branch from `origin/dev` (or the
+  repository default branch) with the skill's naming. Use the `claude/` prefix
+  where a skill defaults to `codex/`, and include the Linear issue ID. Use the
+  assigned branch only when the user asks for it.
+- Dependencies: a fresh thread checkout usually has no `node_modules`. Before
+  the first commit, run the repository's setup (for UI Bakery, `npm ci` at the
+  repository root) so the Git hooks run. Never bypass hooks instead.
+- Long waits (CI, previews, e2e): do not sleep or poll inside a turn. Start
+  the wait as a background command (Bash `run_in_background`, for example
+  `gh pr checks <number> --watch`), update the checklist with what is
+  pending, and end the turn. The command's exit wakes you to continue the
+  same wait loop, and user messages can be handled in between. Timeboxes
+  still count wall-clock time.

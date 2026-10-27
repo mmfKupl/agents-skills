@@ -54,6 +54,9 @@ Prioritize:
 - public API or contract compatibility issues;
 - missing, incompatible, or unverified interfaces between implementation slices;
 - hidden fallback paths, speculative compatibility branches, broad matching, optional-contract drift, and duplicated logic;
+- a guard, optional chain, fallback, or catch that hides a symptom instead of
+  fixing its cause; it is not a fix unless evidence shows the value is
+  legitimately absent at that boundary;
 - state-management races, stale state, rollback hazards, and runtime lifecycle bugs;
 - persistence, migrations, auth, permissions, billing, datasource, sandbox, env/config, or backend/frontend contract risks;
 - missing behavior-focused tests or wrong validation depth;

@@ -15,6 +15,10 @@ establish expected behavior. Do not infer an amendment from current code or a
 prior agent's conclusion. Cite affected requirement IDs; return unresolved
 requirements conflicts to the developer instead of redefining the expected result.
 
+When two attempted fixes share one premise and fail the same check, state that
+premise in one sentence and test it against the evidence before proposing any
+other direction.
+
 Distinguish:
 - observed facts from inference;
 - the failed implementation hypothesis from the actual causal path;

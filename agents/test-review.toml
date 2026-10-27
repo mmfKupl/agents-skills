@@ -30,7 +30,9 @@ exercise them. Do not mark absent coverage sufficient because CI is green.
 Check:
 - existing relevant tests, helpers, fixtures, and commands;
 - whether new or updated tests are justified;
-- whether tests prove behavior rather than implementation details;
+- whether tests prove behavior rather than implementation details; a test that
+  would still pass if the changed code returned nothing or did nothing must be
+  rewritten;
 - whether tests are simple enough for the behavior being proved;
 - whether the change is low-risk enough to avoid adding tests;
 - whether frontend behavior is complex enough to need e2e, integration, screenshot, or smoke validation instead of only unit tests;

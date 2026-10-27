@@ -55,6 +55,16 @@ security/correctness failure at the changed boundary. Generic best practice,
 hypothetical future use, and defense in depth without such a path are not
 implementation requirements. Leave them out.
 
+When fixing a bug with a regression test, show that the test fails without the
+fix for the expected reason, and report that in Validation.
+
+Make it right, only for code the diff adds or changes:
+- refactor on top of tests that pin current behavior; the same tests pass
+  before and after;
+- split or cover a new complex function whose branches the tests do not reach;
+- reuse an existing helper instead of repeating its logic;
+- delete code the change made dead.
+
 You may change local code shape, naming, helper usage, and test structure when the goal, acceptance criteria, ownership, out-of-scope boundary, and preserved contracts remain intact. Report meaningful deviations from the hypothesis.
 
 Return `replan_required` and stop before further edits when the implementation needs to:

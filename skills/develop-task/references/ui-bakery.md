@@ -16,6 +16,13 @@ When `$develop-please` wraps `$develop-task`, let `$develop-please` own:
 - terminal Ready, No-op, or Blocked outcome;
 - final reporting channel.
 
+In UI Bakery, always run `$develop-task` together with `$develop-please`. If
+`$develop-please` is not loaded in this session, load it with its own skill
+call before the first commit, push, PR, or Linear action. A mention such as
+"pair with develop-please" in this skill's arguments does not load it. Never
+improvise the Linear or PR lifecycle from memory: without the outer skill,
+nobody owns those gates.
+
 Keep `$develop-task` responsible for mandatory engineering gates, adaptive model
 routing, implementation ownership, validation evidence, scope control, and
 approval state. Do not independently commit, push, open or edit a PR, update

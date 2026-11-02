@@ -1,8 +1,9 @@
 # Claude Code runtime adapter
 
 The skills in this repository were written for Codex. When you run inside
-Claude Code, apply this mapping before the first delegated job. It changes
-only the mechanics: tools, model names, and the delegation backend. Gates,
+Claude Code, apply this mapping before anything else, including the entry task
+title. It changes only the mechanics: tools, model names, task titles, and the
+delegation backend. Gates,
 requirements fidelity, review independence, bounded loops, ownership, and
 lifecycle rules stay exactly as the skill describes them.
 
@@ -87,17 +88,27 @@ The skill's title format and status rules are the user's standing request, so
 apply them in Claude too. Only the main session renames; a subagent cannot
 rename the session it runs in.
 
-| Codex tool | Claude desktop app | Claude project thread |
-| --- | --- | --- |
-| `set_thread_title` | `mcp__ccd_session_mgmt__set_session_title` with `session_id: "self"` | `mcp__hearthbot__rename_thread` |
-| `list_threads` | `mcp__ccd_session_mgmt__get_session` with `"self"` for the current title, `mcp__ccd_session_mgmt__list_sessions` for other sessions | skip the snapshot |
+| Codex tool | Claude desktop app | Claude Code Remote session (Remote Control, claude.ai/code) | Claude project thread |
+| --- | --- | --- | --- |
+| `set_thread_title` | `mcp__ccd_session_mgmt__set_session_title` with `session_id: "self"` | `mcp__claude-code-remote__set_session_title` with this session's ID | `mcp__hearthbot__rename_thread` |
+| `list_threads` | `mcp__ccd_session_mgmt__get_session` with `"self"` for the current title, `mcp__ccd_session_mgmt__list_sessions` for other sessions | `mcp__claude-code-remote__get_session` without `session_id` for this session's ID and title, `mcp__claude-code-remote__list_sessions` for other sessions | skip the snapshot |
+
+Pick the column by which tools exist in the callable or deferred tool list.
+When more than one family exists, use the first that applies: project thread,
+then desktop app, then Claude Code Remote. In a Remote session, call
+`get_session` without `session_id` once at entry and pass the session ID it
+returns to every `set_session_title` call.
 
 These tools are usually deferred: they appear by name in the deferred-tool
-list but are not callable yet. Before the entry title, load them with one
-`ToolSearch` call, for example
-`select:mcp__ccd_session_mgmt__set_session_title,mcp__ccd_session_mgmt__get_session,mcp__ccd_session_mgmt__list_sessions`.
+list but are not callable yet. Before the entry title, load the chosen family
+with one `ToolSearch` call, for example
+`select:mcp__ccd_session_mgmt__set_session_title,mcp__ccd_session_mgmt__get_session,mcp__ccd_session_mgmt__list_sessions`
+or
+`select:mcp__claude-code-remote__set_session_title,mcp__claude-code-remote__get_session,mcp__claude-code-remote__list_sessions`.
 A title tool missing from the callable list is not unavailable until that load
-fails.
+fails. If none of these names appear at all, run one keyword `ToolSearch` for
+`set_session_title rename_thread` before deciding titles are unavailable; a
+tool from another server that renames the current session or thread counts.
 
 - Rename at entry, before the first long step, and again at every status or
   workflow change the skill lists, including right before a blocking question
@@ -108,8 +119,9 @@ fails.
 - If the user renamed the session themselves, the app may ask them to approve
   the new title. That is expected, not a failure. If they decline, keep their
   title and stop renaming for this run.
-- In the terminal CLI, where none of these tools exist even as deferred tools,
-  skip titles silently. Titles are never a gate.
+- Skip titles silently only when the keyword search finds no rename tool, as
+  in a plain terminal CLI, or when a Remote `get_session` result does not
+  give the session ID. Titles are never a gate.
 
 ## Other tools
 

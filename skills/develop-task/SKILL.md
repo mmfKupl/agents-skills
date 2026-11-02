@@ -82,6 +82,44 @@ confirmation. Titles may be stale while the desktop app is offline.
 These narrow Codex title updates are permitted even in read-only workflows;
 they do not authorize ticket, PR, code, or other external changes.
 
+## Tracker ticket title
+
+A ticket title should read like a PR title: `<Type>: <clear title>`, for
+example `Bug: Table loses selection after reload`. Once the implementation
+workflow starts on a known tracker ticket and its requirements are
+established, rename that ticket if its title does not follow this format or
+does not say clearly what the work is.
+
+Use one of these types:
+
+- `Feat`: new capability or behavior.
+- `Bug`: behavior is wrong, with no evidence that it worked before.
+- `Regression`: behavior that worked before broke after a change.
+- `Refactor`: structure changes without behavior changes.
+- `Perf`: speed or resource use.
+- `Chore`: dependencies, build, CI, or tooling.
+- `Docs`: documentation only.
+- `Test`: tests or test infrastructure only.
+
+Write the title in plain words a teammate understands without opening the
+ticket: the observable symptom for `Bug` and `Regression`, the outcome for the
+other types. Name the affected area, keep it to about three to eight words, use
+sentence case, and add no ticket ID, trailing period, or filler such as "fix",
+"issue", "problem with", or "task". Keep the meaning and scope of the original
+title and requirements, and do not state an unconfirmed cause. Keep the
+ticket's language unless repository or outer-workflow rules require another.
+
+Rename only the task's own ticket, never related or similar ones, and change
+only its title. Leave titles that other automation creates or matches, such as
+`[E2E Auto]` issues, unchanged. If later evidence changes the type, for example
+a bug turns out to be a regression, update the title once more.
+
+Starting this workflow on a ticket authorizes this rename in standalone and
+embedded mode, unless the outer workflow sets its own ticket-title rule. It
+authorizes no other tracker change. The rename is best effort and never a gate:
+if the tracker tool is unavailable or the edit fails, continue and mention it
+in the final report. Analysis-only requests do not rename tickets.
+
 ## Core Contract
 
 Implement one coherent repository task at a time. Own task framing, model and
@@ -727,7 +765,8 @@ distinguishes confirmed, probable, and unknown causes before another edit.
 2. Establish the source requirements and confirmed amendments under Requirements
    Fidelity. Stop for a developer decision only on an unresolved consequential
    conflict or missing expected behavior, not because the ticket lags an
-   already confirmed decision.
+   already confirmed decision. Normalize the ticket title under Tracker ticket
+   title.
 3. Read repository instructions, inspect the dirty tree and current branch,
    gather minimal ownership, nearby-pattern, reproduction, and validation
    context, and conditionally load repository-specific guidance.
@@ -999,7 +1038,8 @@ outer lifecycle controller unless the user says otherwise. Keep engineering
 gates, model routing, implementation ownership, validation evidence, and
 approval state inside `develop-task`. Do not independently commit, push, edit a
 PR, update external trackers, wait on CI, or resolve review threads unless the
-outer workflow delegates that exact action.
+outer workflow delegates that exact action. The Tracker ticket title rename is
+the one exception.
 Embedded brainstorm and review are phases, not lifecycle wrappers; follow
 `references/composed-workflows.md` for those combinations.
 
@@ -1115,6 +1155,7 @@ When done, report:
 - Replans or promotions, or `none`;
 - delegation backend, routing matrix, cross-vendor review state, and the
   Agent Usage summary;
+- ticket title: old and new, already conforming, or why it was not renamed;
 - PR URL/state, or why no PR was created;
 - branch and uncommitted/committed/pushed state;
 - whether user approval or another decision remains.

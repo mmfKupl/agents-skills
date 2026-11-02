@@ -27,7 +27,9 @@ Keep `$develop-task` responsible for mandatory engineering gates, adaptive model
 routing, implementation ownership, validation evidence, scope control, and
 approval state. Do not independently commit, push, open or edit a PR, update
 Linear, wait on CI or preview environments, or resolve review threads unless the
-outer workflow delegates that exact action.
+outer workflow delegates that exact action. The one exception is renaming the
+Linear issue under Tracker ticket title in `SKILL.md`, in English as
+`$develop-please` requires for all Linear text.
 
 Treat an explicit combined prompt as user intent to use `$develop-task` review
 delegation. It does not override higher-priority instructions, runtime

@@ -37,10 +37,11 @@ blocker. Do not substitute main's self-review for independent approval.
 ## Task title
 
 Task titles are a best-effort sidebar indicator, never a workflow gate.
-With a known ticket, use `<ticket-id> <description>: <status> <type>`.
-Without one, use `<description>: <status> <type>`.
+Put the status letter first so it is visible in a truncated sidebar.
+With a known ticket, use `<status> <ticket-id> <description>: <type>`.
+Without one, use `<status> <description>: <type>`.
 Write the ticket ID as plain text, never in square or round brackets.
-For example: `UIB-5295 Storybook update: W draft`.
+For example: `W UIB-5295 Storybook update: draft`.
 When reusing a title with a bracketed ticket ID, remove those brackets.
 Prefer a two-word description, with three words maximum; describe the subject
 without filler such as "task", "implementation", or "scope".
@@ -70,7 +71,8 @@ there is no E status. A title-tool failure never changes the work's status.
 At entry, take one small `list_threads` snapshot when available. Reuse the
 most recent matching description for the same explicit ticket, shortening it
 to the word limit if necessary; otherwise choose from known task context.
-Recognize current titles and both older `<description>: <type>` and
+Recognize current titles, the previous `<description>: <status> <type>`
+format, and both older `<description>: <type>` and
 `<type>: <description>` formats. Keep the chosen description stable.
 Best-effort align descriptions of matching tasks within the same short budget,
 preserving each task's own type and existing status. Never guess another
@@ -239,7 +241,8 @@ Do not claim production readiness from this workflow.
    requirements, current packet, task diff, worker report if any, and check results.
    The writer and preflight agent cannot serve as the final reviewer. Review
    must cover correctness, requirements, local practice, simplicity, and the
-   agreed validation policy without adding a specialist parade.
+   agreed validation policy without adding a specialist parade. It also
+   returns a cut list for code and tests with no traceable justification.
 6. Relay blocking findings and validation gaps before another edit. Fix concrete
    in-scope defects with the same writer. Revise the packet when a fix changes
    the boundary, behavior, critical contract, or model profile. When the packet
@@ -248,6 +251,11 @@ Do not claim production readiness from this workflow.
    plan do not require another preflight for any profile.
    After every code mutation, rerun affected checks and obtain final review of
    the new diff. Never reuse approval for an older candidate.
+   Apply a non-empty cut list with the same writer before approval: exactly the
+   listed cuts, no new code, then rerun affected checks. Revert a cut that
+   breaks a check or changes required behavior and tell the reviewer why. Cuts
+   need no preflight, and a round whose only finding is cuts does not count
+   as unsuccessful.
 7. Allow at most two unsuccessful final review rounds. If the second still
    requires correction, preserve the diff and report the remaining decision.
    If a fix leaves the same observable failure unresolved, stop speculative

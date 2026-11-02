@@ -65,6 +65,17 @@ Make it right, only for code the diff adds or changes:
 - reuse an existing helper instead of repeating its logic;
 - delete code the change made dead.
 
+Before returning `implemented`, audit your own diff. For every added or changed
+hunk and test, name the requirement ID or evidence that justifies it. Delete
+what has none: speculative guards and fallbacks, single-use helpers and options,
+duplicate or theoretical tests, debug output, and unrelated edits. Rerun the
+affected checks after deleting.
+
+When main assigns a `reduction` change, apply exactly the listed cuts. Add no
+new code except a call to the named existing helper. If a cut breaks a check
+or changes required behavior, revert that cut and report it with the evidence
+instead of fixing forward.
+
 You may change local code shape, naming, helper usage, and test structure when the goal, acceptance criteria, ownership, out-of-scope boundary, and preserved contracts remain intact. Report meaningful deviations from the hypothesis.
 
 Return `replan_required` and stop before further edits when the implementation needs to:

@@ -16,10 +16,11 @@ skill still applies.
 ## Task title
 
 Task titles are a best-effort sidebar indicator, never a workflow gate.
-With a known ticket, use `<ticket-id> <description>: <status> <type>`.
-Without one, use `<description>: <status> <type>`.
+Put the status letter first so it is visible in a truncated sidebar.
+With a known ticket, use `<status> <ticket-id> <description>: <type>`.
+Without one, use `<status> <description>: <type>`.
 Write the ticket ID as plain text, never in square or round brackets.
-For example: `UIB-5295 Storybook update: W develop`.
+For example: `W UIB-5295 Storybook update: develop`.
 When reusing a title with a bracketed ticket ID, remove those brackets.
 Prefer a two-word description, with three words maximum; describe the subject
 without filler such as "task", "implementation", or "scope".
@@ -47,7 +48,8 @@ there is no E status. A title-tool failure never changes the work's status.
 At entry, take one small `list_threads` snapshot when available. Reuse the
 most recent matching description for the same explicit ticket, shortening it
 to the word limit if necessary; otherwise choose from known task context.
-Recognize current titles and both older `<description>: <type>` and
+Recognize current titles, the previous `<description>: <status> <type>`
+format, and both older `<description>: <type>` and
 `<type>: <description>` formats. Keep the chosen description stable.
 Best-effort align descriptions of matching tasks within the same short budget,
 preserving each task's own type and existing status. Never guess another
@@ -131,12 +133,13 @@ For every implementation task, including a Fast change:
    fresh preflight before every later fix cycle that postflight classifies as
    `substantive` or `replan`; only a `mechanical` correction may reuse the
    current revision without another preflight.
-2. Run `postflight-review` on the resulting diff before accepting, committing,
+2. Run the Reduction Pass on the resulting diff and apply its cut list.
+3. Run `postflight-review` on the reduced diff before accepting, committing,
    pushing, or submitting the work.
 
-If either mandatory gate is unavailable, fail closed: stop and report the
-unavailable component. A run without both gates is not an approved
-`develop-task` implementation.
+If either mandatory gate or the reduction reviewer is unavailable, fail closed:
+stop and report the unavailable component. A run without both gates and the
+Reduction Pass is not an approved `develop-task` implementation.
 
 If the request is analysis-only, do not edit files, run mutating commands,
 dispatch review roles, or begin this implementation workflow. Answer with
@@ -259,6 +262,37 @@ Complete missing supported variants in an existing story or fixture matrix
 when they are needed to represent the requested behavior. Reuse adequate
 coverage instead of adding redundant tests; a passing suite without the new
 scenario is not adequate evidence.
+
+## Reduction Pass
+
+Writers tend to overbuild, and gates that check everything let it through. The
+Reduction Pass is a dedicated step that only removes code. It is mandatory for
+every implementation task, including Fast, and it never adds behavior, tests,
+or validation.
+
+Run it after the writer stops and focused validation has run, before the first
+postflight, and again before any postflight that follows a `substantive` or
+`replan` fix:
+
+1. Dispatch a fresh `code-simplicity-review` job on the other vendor (Cross-
+   Vendor Review) at the postflight minimum model/effort. Give it the source
+   requirements and amendments with IDs, the requirements revision, the full
+   task diff against base, the worker report, and validation results. Do not
+   give it the implementation hypothesis or prior reasoning.
+2. If its cut list is non-empty, return the list to the same writer
+   responsibility as a `reduction` change: apply exactly the listed cuts, add
+   no new code except a call to the named existing helper, and rerun the
+   affected validation. Main may decline a cut only with concrete evidence that
+   it changes required behavior or breaks a check; record each declined cut and
+   its evidence for postflight.
+3. Never apply a requirement-changing cut. Report it to the user only when it
+   would materially shrink the change; otherwise drop it.
+4. Pass the ledger, applied cuts, and declined cuts to postflight.
+
+A `reduction` change needs no fresh preflight, keeps the current contract
+revision, and does not consume a Bounded Review Loop round. One Reduction Pass
+per candidate is enough; do not loop it. If a cut breaks validation, revert that
+cut and record it as declined instead of fixing forward.
 
 ## Delegation Backend
 
@@ -391,8 +425,8 @@ manifest enforcement, so this check is mandatory at every spawn.
 The run's home vendor is the runtime that hosts main: GPT in Codex, Claude in
 Claude Code. Preflight, implementation workers, discovery specialists, and
 specialists requested by preflight run on the home vendor. Every
-`postflight-review` and `diagnosis-review` job, and every specialist that
-postflight or diagnosis requests, runs on the other vendor at the peer of the
+`postflight-review`, `diagnosis-review`, and Reduction Pass job, and every
+specialist that postflight or diagnosis requests, runs on the other vendor at the peer of the
 matrix model, with the same effort:
 
 | GPT model | Claude peer |
@@ -674,6 +708,10 @@ Require postflight to classify the next implementation-affecting mutation:
 - `mechanical`: one obvious local correction with no new technical decision,
   coordinated multi-part edit, behavior or contract change, validation change,
   or profile change; it may reuse the current contract revision;
+- `reduction`: only deletions, merges of duplicate tests, inlining, or
+  replacement with a named existing helper, with no behavior, contract, or
+  validation-obligation change, in any number of files; it reuses the current
+  contract revision and goes to the same writer;
 - `substantive`: a non-trivial fix that adds or changes a technical decision,
   requires coordinated edits, or materially changes validation while remaining
   inside the overall task boundary; it requires a new contract revision and
@@ -682,12 +720,12 @@ Require postflight to classify the next implementation-affecting mutation:
   validation obligations, or Execution Profile changed; it requires a new
   contract revision and fresh preflight.
 
-Treat anything beyond a single deterministic local correction as
-`substantive`, and choose `substantive` when uncertain. The main orchestrator
+Except for `reduction`, treat anything beyond a single deterministic local
+correction as `substantive`, and choose `substantive` when uncertain. The main orchestrator
 may require a fresh preflight after a `mechanical` classification when evidence
 warrants more review, but it must never waive `Preflight Required: yes`.
 Require `Preflight Required: yes` exactly for `substantive` and `replan`, and
-`no` for `none` and `mechanical`. `Approval: yes` requires `Next Change Class:
+`no` for `none`, `mechanical`, and `reduction`. `Approval: yes` requires `Next Change Class:
 none`. Treat a missing or inconsistent classification as an incomplete gate
 response and return it to the same postflight responsibility for correction.
 
@@ -735,7 +773,9 @@ core gate request these agents only for a concrete question:
 - `repo-practice-review` for repository evidence and local precedent;
 - `best-practice-review` for general engineering practice;
 - `test-review` for focused validation and test quality;
-- `code-simplicity-review` for scope, reuse, and unnecessary complexity;
+- `code-simplicity-review` for scope, reuse, and unnecessary complexity in a
+  plan; on the implementation diff it already runs as the mandatory Reduction
+  Pass, so a gate requests it only for a new question;
 
 Do not add language-specific implementation workers. Reconsider specialization
 only after repeated real tasks demonstrate a distinct responsibility or tool
@@ -801,37 +841,41 @@ distinguishes confirmed, probable, and unknown causes before another edit.
     ownership explicitly before any check that may update snapshots, generated
     files, lockfiles, caches inside the repository, or other artifacts, then
     inspect the resulting diff.
-12. Recalculate the effective postflight floor from the original request,
+12. Run the Reduction Pass: dispatch `code-simplicity-review` on the full task
+    diff, have the same writer apply its cut list as a `reduction` change, and
+    rerun affected validation. Record applied and declined cuts.
+13. Recalculate the effective postflight floor from the original request,
     preflight profile, actual diff, worker deviations, and validation gaps.
     When review-task is explicitly selected, prepare its embedded final audit
     evidence and include its audit instructions in the independent final
     postflight packet under `references/composed-workflows.md`.
-13. Dispatch mandatory independent `postflight-review` on the other vendor
+14. Dispatch mandatory independent `postflight-review` on the other vendor
     (Cross-Vendor Review) with the task packet,
     preflight decision, writer result, changed files, diff, validation, current
     cycle, shared unsuccessful-round count, contract revision, approving
-    preflight, and prior findings/fixes.
+    preflight, prior findings/fixes, and the Reduction Pass ledger with applied
+    and declined cuts.
     Include source requirements, confirmed amendments, requirements revision,
     and the worker's coverage; require independent source-to-diff verification.
-14. If postflight requests specialists, return their raw results to the same
+15. If postflight requests specialists, return their raw results to the same
     gate for its final classification. Approval is impossible while a Blocking
     specialist request remains unresolved.
-15. Relay postflight findings in the main chat before any writer resumes.
-16. Follow postflight's next-change classification. Return a `mechanical` fix
-    to the same writer under the current revision. For a `substantive` or
+16. Relay postflight findings in the main chat before any writer resumes.
+17. Follow postflight's next-change classification. Return a `mechanical` or
+    `reduction` fix to the same writer under the current revision. For a `substantive` or
     `replan` fix, define the proposed next contract revision and dispatch a
     fresh preflight before any writer resumes. Rerun affected validation and
     repeat postflight after every mutation.
     Check the shared Bounded Review Loop before any next fix; an embedded
     audit must not start a separate correction budget.
-17. If an attempted fix leaves the same observable failure unresolved, stop
+18. If an attempted fix leaves the same observable failure unresolved, stop
     code edits and follow Repeated Failure Diagnosis below before another
     implementation job. Otherwise promote or replan after a repeated
     conceptual failure, low confidence, or unexpected scope/risk growth.
-18. After approval, create logical commits and a draft PR for standalone work
+19. After approval, create logical commits and a draft PR for standalone work
     unless the user asked to keep changes local. In embedded mode, defer
     lifecycle actions to the outer workflow.
-19. Report the final state.
+20. Report the final state.
 
 ## Implementation Contract
 
@@ -946,7 +990,7 @@ and any embedded review-task audit. A round counts once after its requested
 specialist inputs and evidence-based challenges are resolved and it still
 requires an in-scope implementation, test, or artifact correction. Count a new
 review of the corrected candidate even when it finds a different necessary
-fix. Intermediate gate continuations, transport retries, pending specialists,
+fix. A round whose only required correction is `reduction` does not count. Intermediate gate continuations, transport retries, pending specialists,
 read-only evidence gathering, and declined or out-of-scope observations do not
 consume additional rounds.
 
@@ -1144,6 +1188,7 @@ When done, report:
 - Fix;
 - Validation and skipped checks;
 - Preflight and postflight results and cycle count;
+- Reduction Pass: cuts applied and declined, and lines removed;
 - implementation-contract revisions and their approving preflight jobs;
 - Replans or promotions, or `none`;
 - delegation backend, routing matrix, cross-vendor review state, and the

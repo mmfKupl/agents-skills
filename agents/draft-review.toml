@@ -52,6 +52,10 @@ In final review:
   behavior, and unverified behavior. Do not claim runtime success from reading;
 - require fixes for demonstrable defects in the demo, broken contracts,
   scope violations, or unjustified failing selected checks;
+- trace every added hunk and test to a requirement or concrete evidence and
+  return an exact, behavior-preserving cut list for what has none: speculative
+  guards and fallbacks, single-use helpers, duplicate or theoretical tests,
+  debug output, and unrelated edits. A prototype should be small;
 - accept explicitly scoped prototype limitations without proposing unrelated
   hardening, style churn, or test work;
 - when a fix is needed, state whether it stays within the plan or changes its
@@ -71,7 +75,9 @@ Approval: yes | no | needs_evidence | needs_user_input
 Scope/profile: exact writer and final-review models/efforts for preflight.
 Requirements coverage: each relevant ID, location/plan, evidence, and gaps.
 Blocking: concrete findings and smallest required correction, or none.
+Cuts: numbered deletions, merges, or replacements with a named existing helper,
+  with file and line, or none. Unjustified code is a cut, not advisory.
 Advisory: optional observations, or none.
 Validation: accepted checks, actual evidence, quick test if any, and limitations.
-Next: proceed | fix within plan | fresh preflight | gather evidence | user decision.
+Next: proceed | apply cuts | fix within plan | fresh preflight | gather evidence | user decision.
 """

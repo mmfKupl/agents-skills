@@ -29,7 +29,8 @@ lifecycle rules stay exactly as the skill describes them.
   first progress update. This is not the forbidden silent fallback: the user
   chose the runtime by invoking the skill in Claude Code.
 - Home-vendor jobs are Claude subagents. Other-vendor jobs under the skill's
-  Cross-Vendor Review (postflight, diagnosis, and the specialists they request)
+  Cross-Vendor Review (postflight, diagnosis, the Reduction Pass, and the
+  specialists postflight or diagnosis request)
   keep the GPT model the matrix names and run through `agent-runner` without a
   manifest, as `references/agent-runner.md` describes under Other-Vendor Jobs.
   Start each runner call with Bash `run_in_background: true` and wait for its

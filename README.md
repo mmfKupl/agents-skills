@@ -41,7 +41,7 @@ the preferred Python 3.10+ interpreter is not discoverable as `python3.12`,
 - Generates Claude Code subagents in `~/.claude/agents/` from `agents/*.toml`
   (`scripts/codex_agents_to_claude.py`). Read-only roles get read-only tools.
   Re-run the script after changing a TOML file.
-- `develop-task`, `develop-draft`, `review-task`, `brainstorm-task`, and `diff-review` read
+- `develop-task`, `develop-draft`, `review-task`, `brainstorm-task`, `diff-review`, and `trim-diff` read
   `skills/develop-task/references/claude-code.md` when they run in Claude Code. It maps
   `$skill` to `/skill`, Luna/Terra/Sol/Astra to `haiku`/`sonnet`/`opus`/`fable`, task titles
   to the desktop session-title tool, and the runner backend to Claude subagents.
@@ -72,9 +72,10 @@ It also copies custom agents from `${CODEX_HOME:-$HOME/.codex}/agents/*.toml`.
 Skills:
 
 - `brainstorm-task` - repository-grounded Spike, Bounded, or Architectural discovery with proportionate approval and optional delivery-slice contracts.
-- `develop-task` - single-writer repository implementation workflow with one GPT-6 Luna / GPT-6.1 Terra / GPT-6.1 Sol / GPT-6 Astra routing matrix, cross-vendor Codex/Claude postflight review, cumulative agent-usage handoffs, model ceilings on one ladder for GPT and Claude models, mandatory preflight/postflight gates, supervised runner jobs by default, an explicit direct-subagent fallback, focused validation, logical commits, and draft PR creation.
+- `develop-task` - single-writer repository implementation workflow with one GPT-6 Luna / GPT-6.1 Terra / GPT-6.1 Sol / GPT-6 Astra routing matrix, cross-vendor Codex/Claude postflight review, cumulative agent-usage handoffs, model ceilings on one ladder for GPT and Claude models, mandatory preflight/postflight gates with a Reduction Pass between them, supervised runner jobs by default, an explicit direct-subagent fallback, focused validation, logical commits, and draft PR creation.
 - `develop-draft` - quick working prototypes with the same model tiers and direct subagents in Codex and Claude Code. Fast changes skip agent preflight; every change gets independent final review. Validation has a small shared budget, allows one relevant existing quick test, and omits new tests and CI waits by default. Delivery defaults to a draft PR linked to the known ticket, with local-only delivery on request. Invoke as `$develop-draft` or `/develop-draft` in Claude Code.
 - `diff-review` - independent fresh diff review for local changes.
+- `trim-diff` - shrinks an existing diff: a fresh reviewer traces every hunk and test to a requirement and the unjustified parts are removed. `develop-task` runs the same step as its mandatory Reduction Pass.
 - `review-task` - deep audit workflow for already implemented tasks, with specialist review, validation reuse, focused checks, and runtime/preview probes when useful.
 
 Custom agents:
@@ -86,5 +87,5 @@ Custom agents:
 - `repo-practice-review` - repository practice and local pattern review.
 - `best-practice-review` - general engineering best-practice review.
 - `test-review` - focused test strategy and validation review.
-- `code-simplicity-review` - scope, simplicity, reuse, and code-quality review.
+- `code-simplicity-review` - reduction reviewer: traces every hunk and test in a diff to a requirement and returns an exact cut list; runs as `develop-task`'s mandatory Reduction Pass and inside `trim-diff`.
 - `diagnosis-review` - read-only root-cause analysis after an attempted fix leaves the same failure unresolved.

@@ -207,8 +207,8 @@ job directory, and writes those derived fields atomically. Keep full role
 reports in result files; do not copy them wholesale into `run.yaml`.
 
 Start at `contract_revision: 1` and increment it before every fresh preflight
-for a `substantive` or `replan` fix. A `mechanical` fix remains on the current
-revision. Preflight jobs use `approved_by_preflight: null`; every implementation
+for a `substantive` or `replan` fix. A `mechanical` or `reduction` fix remains
+on the current revision. Preflight jobs use `approved_by_preflight: null`; every implementation
 and postflight job must name the exact approving preflight job. Other gate or
 specialist follow-ups record the current revision and use the approving
 preflight when one already exists. This linkage is required even when the same
@@ -505,7 +505,7 @@ and exact consumed interfaces with compact prior-slice evidence. Fast and
 Standard work remains one implementation job unless preflight upgrades the task
 profile; do not micro-slice it.
 
-A `mechanical` fix may keep the current `contract_revision`. Before a
+A `mechanical` or `reduction` fix may keep the current `contract_revision`. Before a
 `substantive` or `replan` fix, create the next revision, dispatch a fresh
 preflight job, and link the later implementation and postflight jobs to that
 approval in `run.yaml`.

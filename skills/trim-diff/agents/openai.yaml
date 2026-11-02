@@ -1,0 +1,4 @@
+interface:
+  display_name: "Trim Diff"
+  short_description: "Cut unjustified code and tests from a diff."
+  default_prompt: "Use $trim-diff to trace the current diff to its requirements and remove code and tests that nothing justifies."

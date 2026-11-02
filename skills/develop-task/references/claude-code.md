@@ -37,9 +37,17 @@ lifecycle rules stay exactly as the skill describes them.
   completion notification instead of polling. The runner needs network access
   and starts `codex`; if the Bash sandbox blocks it, ask the user before
   rerunning it outside the sandbox.
-- For routing evaluation and the final usage table, use the usage the Agent
-  tool reports for each subagent and the `usage` block of each runner result;
-  where nothing is reported, say so instead of inventing numbers.
+- For routing evaluation and the final usage table, the Agent tool reports only
+  a total. Get the per-column numbers for Claude subagents and for main from
+  their transcripts:
+  `python3 <this skill>/scripts/claude_usage.py` (it reads
+  `$CLAUDE_CODE_SESSION_ID`; pass `--session <id>` otherwise, `--json` for
+  machine-readable output). It prints uncached input, cache write, cached
+  input, and output with thinking for each subagent ID and for main. Match
+  rows to jobs by the agent ID the Agent tool returns. For GPT jobs, use the
+  `usage` block of each runner result. Show cache write as its own column.
+  Fall back to the Agent tool total, marked partial, only when the script
+  cannot find the session.
 
 ## Spawning roles
 

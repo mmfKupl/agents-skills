@@ -9,8 +9,8 @@ description: Independent fresh review workflow for local diffs. Use when the use
 
 If you are running in Claude Code rather than Codex, read
 [`../develop-task/references/claude-code.md`](../develop-task/references/claude-code.md) before
-the first delegated job. It maps Codex tools, model names, and the runner
-backend to Claude Code; every gate and rule in this skill still applies.
+anything else. It maps Codex tools, model names, and delegation to Claude
+Code; every gate and rule in this skill still applies.
 
 ## Writing quality
 

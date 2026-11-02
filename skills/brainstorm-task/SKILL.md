@@ -9,8 +9,9 @@ description: Create or revise a proportionate, repository-grounded engineering s
 
 If you are running in Claude Code rather than Codex, read
 [`../develop-task/references/claude-code.md`](../develop-task/references/claude-code.md) before
-the first delegated job. It maps Codex tools, model names, and the runner
-backend to Claude Code; every gate and rule in this skill still applies.
+anything else, including the entry task title. It maps Codex tools, model
+names, task titles, and delegation to Claude Code; every gate and rule in this
+skill still applies.
 
 ## Writing quality
 
@@ -231,7 +232,7 @@ Choose specialist depth from the classified path:
   repo-practice result, and require it to identify where local practice should
   be followed or challenged.
 
-For standalone discovery, use `gpt-5.6-terra` high by default and `gpt-5.6-sol` high for novel,
+For standalone discovery, use `gpt-6.1-terra` high by default and `gpt-6.1-sol` high for novel,
 cross-layer, high-risk, or difficult-to-validate questions. Keep specialists
 read-only and prohibit recursive delegation. If a role required by the selected
 path is technically unavailable, stop and name it. Do not imitate a missing

@@ -558,8 +558,12 @@ class RunManifestTests(unittest.TestCase):
             ("E: Sol", "gpt-6.1-sol"),
             ("E gpt-6.1-sol", "gpt-6.1-sol"),
             ("E gpt-6-sol", "gpt-6-sol"),
+            ("E Terra", "gpt-6.1-terra"),
+            ("E gpt-6.1-terra", "gpt-6.1-terra"),
             ("E gpt-6-astra", "gpt-6-astra"),
             ("E Astra", "gpt-6-astra"),
+            ("E Opus", "claude-opus-5-5"),
+            ("E sonnet", "claude-sonnet-5-5"),
             ("E gpt-6-astra", "gpt-6-astra"),
             ("explicit_ceiling Luna", "gpt-6-luna"),
         ):
@@ -609,7 +613,7 @@ class RunManifestTests(unittest.TestCase):
             with self.subTest(kwargs=kwargs):
                 with self.assertRaisesRegex(run_manifest.ManifestError, "contradicts source"):
                     self.init_run(**kwargs)
-        for parameter in ("E", "E Terra", "E gpt-5.5", "E unknown"):
+        for parameter in ("E", "E gpt-5.5", "E unknown"):
             with self.subTest(parameter=parameter):
                 self.write_invocation(f"$develop-task {parameter}")
                 with self.assertRaisesRegex(run_manifest.ManifestError, "source E requires"):
@@ -800,6 +804,38 @@ class RunManifestTests(unittest.TestCase):
             self.assertEqual(job["requested_model"], "gpt-6-astra")
             self.assertEqual(job["selected_model"], "gpt-6-luna")
             self.assertEqual(job["limited_by"], "explicit_ceiling")
+
+    def test_ceiling_caps_each_vendor_to_its_own_equivalent_model(self) -> None:
+        for parameter, requested, selected in (
+            ("E Terra", "claude-opus-5-5", "claude-sonnet-5-5"),
+            ("E Terra", "gpt-6.1-sol", "gpt-6.1-terra"),
+            ("E Terra", "claude-haiku-5-5", "claude-haiku-5-5"),
+            ("E gpt-6-sol", "claude-opus-5-5", "claude-sonnet-5-5"),
+            ("E Luna", "claude-fable-5-1", "claude-haiku-5-5"),
+            ("E Opus", "gpt-6-astra", "gpt-6.1-sol"),
+            ("E Opus", "claude-fable-5-1", "claude-opus-5-5"),
+            ("E Sol", "claude-opus-5-5", "claude-opus-5-5"),
+        ):
+            with self.subTest(parameter=parameter, requested=requested):
+                self.write_invocation(f"$develop-task {parameter} UIB-test")
+                path = self.init_run()
+                source = self.write_task_source(model=requested)
+                task_path = run_manifest.new_job_manifest(
+                    str(path), str(source), "postflight-review", 1, None,
+                )
+                self.assertEqual(self.read_run(task_path)["agent"]["model"], selected)
+                job = self.read_run(path)["jobs"][-1]
+                self.assertEqual(job["requested_model"], requested)
+                self.assertEqual(
+                    job["limited_by"], None if selected == requested else "explicit_ceiling"
+                )
+
+    def test_new_job_accepts_claude_models_without_a_ceiling(self) -> None:
+        path = self.init_run()
+        source = self.write_task_source(model="claude-opus-5-5")
+        task_path = run_manifest.new_job_manifest(str(path), str(source), "postflight-review", 1, None)
+        self.assertEqual(self.read_run(task_path)["agent"]["model"], "claude-opus-5-5")
+        self.assertIsNone(self.read_run(path)["jobs"][0]["limited_by"])
 
     def test_new_job_preserves_default_adaptive_routing(self) -> None:
         path = self.init_run()

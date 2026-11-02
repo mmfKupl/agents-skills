@@ -37,11 +37,21 @@ RESULT_STATUSES = {
 ACTIVE_JOB_STATUSES = {"pending", "running"}
 MODEL_ORDER = (
     "gpt-6-luna",
+    "gpt-6.1-terra",
     "gpt-6-sol",
     "gpt-6.1-sol",
     "gpt-6-astra",
 )
+# Claude models share the rank of their GPT peer, so one ceiling covers both
+# vendors. A capped job keeps its vendor.
+CLAUDE_MODEL_PEERS = {
+    "claude-haiku-5-5": "gpt-6-luna",
+    "claude-sonnet-5-5": "gpt-6.1-terra",
+    "claude-opus-5-5": "gpt-6.1-sol",
+    "claude-fable-5-1": "gpt-6-astra",
+}
 MODEL_RANK = {model: rank for rank, model in enumerate(MODEL_ORDER)}
+MODEL_RANK.update({model: MODEL_RANK[peer] for model, peer in CLAUDE_MODEL_PEERS.items()})
 LEGACY_MODELS = {"gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"}
 MODEL_POLICY_MODES = {"adaptive", "explicit_ceiling", "main_ceiling"}
 DEVELOP_TASK_INVOCATION = re.compile(
@@ -126,8 +136,8 @@ def _validate_model_policy(
     if mode == "adaptive":
         if maximum_model is not None:
             raise ManifestError(f"{location}.maximum_model must be null in adaptive mode")
-    elif maximum_model not in (set(MODEL_ORDER) | (LEGACY_MODELS if allow_historical else set())):
-        supported = ", ".join(MODEL_ORDER)
+    elif maximum_model not in (set(MODEL_RANK) | (LEGACY_MODELS if allow_historical else set())):
+        supported = ", ".join((*MODEL_ORDER, *CLAUDE_MODEL_PEERS))
         raise ManifestError(
             f"{location}.maximum_model must be one of {supported} in {mode} mode"
         )
@@ -182,7 +192,9 @@ def _select_model(
             return requested_model, None
         raise ManifestError("cannot validate historical model selection")
     if MODEL_RANK[requested_model] > MODEL_RANK[maximum_model]:
-        return maximum_model, mode
+        vendor_models = CLAUDE_MODEL_PEERS if requested_model in CLAUDE_MODEL_PEERS else MODEL_ORDER
+        allowed = [model for model in vendor_models if MODEL_RANK[model] <= MODEL_RANK[maximum_model]]
+        return max(allowed, key=MODEL_RANK.__getitem__), mode
     return requested_model, None
 
 
@@ -391,6 +403,7 @@ def _model_id(value: str | None) -> str | None:
     if value is None:
         return None
     aliases = {model.rsplit("-", 1)[-1]: model for model in MODEL_ORDER}
+    aliases.update({model.split("-")[1]: model for model in CLAUDE_MODEL_PEERS})
     return aliases.get(value.lower(), value.lower())
 
 
@@ -450,7 +463,8 @@ def _invocation_policy(
                 explicit_maximum = maximum_model
             if explicit_maximum not in MODEL_RANK:
                 raise ManifestError(
-                    "source E requires Luna, Sol, Astra, or a supported GPT-6 model ID"
+                    "source E requires Luna, Terra, Sol, Astra, Haiku, Sonnet, Opus, "
+                    "Fable, or a supported model ID"
                 )
     mode = mode or "adaptive"
     maximum_model = _model_id(maximum_model)

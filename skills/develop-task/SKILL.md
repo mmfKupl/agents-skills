@@ -1,6 +1,6 @@
 ---
 name: develop-task
-description: Explicitly invoked engineering workflow for repository implementation tasks with mandatory preflight/postflight review gates, GPT-6 Luna / GPT-6.1 Sol / GPT-6 Astra routing with optional strict model ceilings, runner-supervised fresh-context delegation by default, an explicit direct-subagent fallback, focused validation, and standalone lifecycle handling. Use only when the user explicitly writes `$develop-task` (or `/develop-task` in Claude Code) or explicitly asks to run the develop-task workflow; otherwise do not select this skill.
+description: Explicitly invoked engineering workflow for repository implementation tasks with mandatory preflight/postflight review gates, GPT-6 Luna / GPT-6.1 Terra / GPT-6.1 Sol / GPT-6 Astra routing with cross-vendor Codex/Claude postflight review and optional strict model ceilings, runner-supervised fresh-context delegation by default, an explicit direct-subagent fallback, focused validation, and standalone lifecycle handling. Use only when the user explicitly writes `$develop-task` (or `/develop-task` in Claude Code) or explicitly asks to run the develop-task workflow; otherwise do not select this skill.
 ---
 
 # Develop Task
@@ -9,8 +9,9 @@ description: Explicitly invoked engineering workflow for repository implementati
 
 If you are running in Claude Code rather than Codex, read
 [`references/claude-code.md`](references/claude-code.md) before
-the first delegated job. It maps Codex tools, model names, and the runner
-backend to Claude Code; every gate and rule in this skill still applies.
+anything else, including the entry task title. It maps Codex tools, model
+names, task titles, and delegation to Claude Code; every gate and rule in this
+skill still applies.
 
 ## Writing quality
 
@@ -255,7 +256,8 @@ never delegates orchestration itself.
 For `subagents`, preserve the direct custom-agent workflow: spawn roles with
 explicit model/effort, `fork_turns: "none"` or bounded history, and compact
 self-contained packets; use follow-up turns for the same live gate or writer
-when applicable. Do not create runner artifacts or invoke `agent-runner`.
+when applicable. Do not create a run manifest. Invoke `agent-runner` only for
+the other-vendor jobs described under Cross-Vendor Review.
 
 All later instructions to "dispatch", "run", "return to", or "ask" a role use
 the selected backend. Core gate semantics, evidence requirements, review
@@ -279,7 +281,8 @@ exact routing rules in every job packet. Runner `init` records
 `run.routing_matrix: D` using the same pinned source as the ceiling; read it
 before dispatch. Legacy runs without this field mean D. Historical A manifests
 remain readable for usage and reconciliation, but cannot dispatch new jobs.
-Direct subagents use the same routing rules.
+Direct subagents use the same routing rules. The matrix names GPT models;
+Cross-Vendor Review decides which jobs run on Claude.
 
 For the main chat, recommend `gpt-6.1-sol` low when coordinating an already
 approved, clear plan, and medium when main must resolve architecture or other
@@ -304,12 +307,16 @@ hard-code that phrase to Sol and do not ask the user to translate it into a
 mode. Report the resolved mode and maximum model before the first delegated
 job.
 
-The supported ceiling order is strictly `gpt-6-luna` < `gpt-6-sol` <
-`gpt-6.1-sol` < `gpt-6-astra`. `Sol` resolves to `gpt-6.1-sol` for new runs;
-use the full `gpt-6-sol` ID to request a previous-generation Sol ceiling.
-Existing pinned Sol ceilings retain their recorded model. `Terra` and explicit
-GPT-5.6 model IDs are not accepted for new runs. Accept `Astra` as the short name
-for `gpt-6-astra`. A ceiling
+The supported ceiling order is strictly `gpt-6-luna` < `gpt-6.1-terra` <
+`gpt-6-sol` < `gpt-6.1-sol` < `gpt-6-astra`. Each Claude model shares the rank
+of its GPT peer under Cross-Vendor Review, so `E Opus` is as valid as `E Sol`.
+A capped job keeps its vendor and takes that vendor's strongest model at or
+below the ceiling's rank. `Sol` resolves to `gpt-6.1-sol` for new runs; use the
+full `gpt-6-sol` ID to request a previous-generation Sol ceiling. Existing
+pinned Sol ceilings retain their recorded model. `Terra` resolves to
+`gpt-6.1-terra`; explicit GPT-5.6 model IDs, including `gpt-5.6-terra`, are not
+accepted for new runs. Accept `Luna`, `Astra`, `Haiku`, `Sonnet`, `Opus`, and
+`Fable` as short names. A ceiling
 limits the model only; keep the reasoning effort chosen
 by the normal profile. Determine the requested model exactly as in `adaptive`,
 then select the lower of that model and the ceiling. Never select a model above
@@ -343,9 +350,56 @@ error. Recover a missing source/runtime record; never fall back to `adaptive`
 when a constrained invocation cannot be resolved.
 
 In direct-subagent mode, apply the same comparison before every `spawn_agent`
-call and pass only the selected model. Include the requested and selected model
+call and every manifest-free cross-vendor task, and pass only the selected
+model. Include the requested and selected model
 in the role packet when the ceiling changed it. Direct subagents have no
 manifest enforcement, so this check is mandatory at every spawn.
+
+## Cross-Vendor Review
+
+The run's home vendor is the runtime that hosts main: GPT in Codex, Claude in
+Claude Code. Preflight, implementation workers, discovery specialists, and
+specialists requested by preflight run on the home vendor. Every
+`postflight-review` and `diagnosis-review` job, and every specialist that
+postflight or diagnosis requests, runs on the other vendor at the peer of the
+matrix model, with the same effort:
+
+| GPT model | Claude peer |
+| --- | --- |
+| `gpt-6-luna` | `claude-haiku-5-5` |
+| `gpt-6.1-terra` | `claude-sonnet-5-5` |
+| `gpt-6.1-sol` (or a pinned `gpt-6-sol`) | `claude-opus-5-5` |
+| `gpt-6-astra` | `claude-fable-5-1` |
+
+In Codex, postflight uses the Claude peer of the listed model; in Claude Code,
+it uses the listed GPT model. A reviewer from another model family does not
+share the writer's blind spots. That is the purpose of the rule; it is never a
+reason to raise the review tier.
+
+Other-vendor jobs always run through `agent-runner`, whatever the backend: the
+runner starts Claude Code for `claude-*` models and Codex otherwise. Codex
+runner mode registers them in the manifest like any other job. Codex
+direct-subagent mode and every Claude Code run write one strict `agent-task`
+v2 file per job into a private temporary directory outside the repository,
+apply the model ceiling before writing it, and follow
+[`references/agent-runner.md`](references/agent-runner.md) for role
+contracts, the output envelope, permissions, execution, and result
+interpretation, without `agent-run-manifest`.
+
+An other-vendor job is always one-shot, in every backend. Return a specialist
+report or an evidence-based challenge to a fresh runner job for the same gate
+responsibility with the complete prior gate report, exactly as runner mode
+does; where Delegation Rules say "the same live gate", that fresh job is the
+gate. Specialists that such a gate requests run on its vendor through the
+runner as well.
+
+Before the first delegated job, confirm that the other vendor can start: the
+`claude` CLI in Codex, or the resolved runner and its `codex` CLI in Claude
+Code. Report cross-vendor review together with the backend and model policy.
+If the other vendor is unavailable, stop and ask; never move a review to the
+home vendor silently. The user may turn cross-vendor review off for the run in
+plain words (for example "без кросс-ревью" or "review on Codex only"); record
+that choice, then run those jobs on the home vendor with the matrix model.
 
 ## Ownership Invariants
 
@@ -392,13 +446,21 @@ exact affected decision or implementation slice.
 
 ### Default Matrix
 
-| Profile | Use when | Preflight | Implementation | Postflight |
+| Profile | Use when | Preflight | Implementation | Postflight (other vendor) |
 | --- | --- | --- | --- | --- |
-| Fast | Clear local behavior, established pattern, low blast radius, narrow validation | `gpt-6.1-sol` medium | Runner worker on `gpt-6-luna` medium; direct fallback uses main or a Luna worker | `gpt-6.1-sol` low |
-| Standard | Clear requirements with non-trivial but bounded implementation | `gpt-6.1-sol` medium | Worker on `gpt-6-luna` high | `gpt-6.1-sol` medium |
-| Deep | Cross-layer, novel, ambiguous, high-risk, or difficult to validate | `gpt-6.1-sol` high | Worker on `gpt-6.1-sol` high by default | `gpt-6.1-sol` high |
-| Critical | Multiple critical risks, costly failure, low reversibility, or failed lower-tier reasoning | `gpt-6.1-sol` xhigh | Bounded known-pattern slice on `gpt-6.1-sol` high; use xhigh for the exact slice with combined critical factors | `gpt-6.1-sol` xhigh |
-| Exceptional | Evidenced novel, coupled, difficult-to-validate reasoning beyond the Critical route, or a prior Sol conceptual failure | `gpt-6-astra` high | `gpt-6.1-sol` high for ordinary bounded slices; Astra high for the exact exceptional slice | `gpt-6-astra` high |
+| Fast | Clear local behavior, established pattern, low blast radius, narrow validation | `gpt-6.1-sol` medium | Runner worker on `gpt-6.1-terra` medium; direct fallback uses main or a Terra worker | `gpt-6.1-sol` low |
+| Standard | Clear requirements with non-trivial but bounded implementation | `gpt-6.1-sol` medium | Worker on `gpt-6.1-terra` high | `gpt-6.1-sol` medium |
+| Deep | Cross-layer, novel, ambiguous, high-risk, or difficult to validate | `gpt-6.1-sol` high | Worker on `gpt-6.1-sol` high by default; `gpt-6.1-terra` high for a visual or prose slice | `gpt-6.1-sol` high |
+| Critical | Multiple critical risks, costly failure, low reversibility, or failed lower-tier reasoning | `gpt-6.1-sol` xhigh | Bounded known-pattern slice on `gpt-6.1-sol` high; use xhigh for the exact slice with combined critical factors; `gpt-6.1-terra` high for a visual or prose slice | `gpt-6.1-sol` xhigh |
+| Exceptional | Evidenced novel, coupled, difficult-to-validate reasoning beyond the Critical route, or a prior Sol conceptual failure | `gpt-6-astra` high | `gpt-6.1-sol` high for ordinary bounded slices; `gpt-6.1-terra` high for a visual or prose slice; Astra high for the exact exceptional slice | `gpt-6-astra` high |
+
+A visual slice is UI work on an established component pattern whose acceptance
+depends on rendered output: layout, styling, screenshots, Storybook, or design
+comparison. A prose slice delivers mainly text for people: documentation,
+README, or user-facing copy. Agent instructions, prompts, and workflow rules
+are logic, not prose. Terra is a writer and visual-check model; gates,
+diagnosis, and decision-determining questions stay on Sol or Astra unless a
+model ceiling caps them lower.
 
 Critical indicators include security, authentication, permissions, billing,
 persistence, migrations, destructive behavior, concurrency, public contracts,
@@ -448,12 +510,14 @@ postflight on the combined implementation after all slices finish. A slice
 that invalidates the approved boundary, ordering, behavior, or critical
 contract stops the sequence and returns to fresh preflight.
 
-Use `gpt-6-luna` medium for confirmed Fast implementation and high for
+Use `gpt-6.1-terra` medium for confirmed Fast implementation and high for
 confirmed Standard implementation. Fast postflight uses `gpt-6.1-sol` low;
 Standard postflight uses `gpt-6.1-sol` medium. A conceptual failure despite
 sufficient context, newly ambiguous requirements, or novel coupled behavior
-requires fresh preflight to reassess the affected scope and its profile before
-moving implementation to Sol. Ordinary lint, type, formatting, build, or test
+requires fresh preflight to reassess the affected scope and its profile. When
+that preflight keeps the Standard profile, the next writer may use Terra xhigh;
+move implementation to Sol only after Terra xhigh also fails conceptually or
+the profile changes. Ordinary lint, type, formatting, build, or test
 failures alone do not justify changing models. Keep the Standard postflight
 floor at `gpt-6.1-sol` medium while the task remains Standard.
 
@@ -462,6 +526,12 @@ architecture without a strong local precedent, or several inseparable coupled
 layers may require a fresh preflight and Exceptional routing for the affected
 slice. A lint, type, formatting, build, or ordinary test failure alone is not a
 promotion reason.
+
+For a visual or prose slice in a Deep, Critical, or Exceptional plan, use
+`gpt-6.1-terra` high. Use Terra xhigh only for a Critical visual slice that
+combines several concrete factors from the next paragraph. A visual slice that
+changes a critical contract or carries the exceptional decision is not a
+visual slice for routing; route it like any other slice.
 
 For Critical implementation, keep a bounded slice with an established
 repository pattern on `gpt-6.1-sol` high. Use Sol xhigh only when the exact slice
@@ -489,7 +559,8 @@ analysis, and other decision-determining questions use the requesting gate's
 exact tier or the higher tier justified by that question's own risk.
 
 Independent review means a separate reviewer with fresh context at the table's
-postflight tier. It does not automatically require Astra. Use Astra for an
+postflight tier, on the other vendor under Cross-Vendor Review. It does not
+automatically require Astra. Use Astra for an
 unresolved review question only when its concrete reasoning difficulty meets
 the Exceptional criteria; follow the normal preflight and ceiling rules.
 
@@ -504,11 +575,12 @@ gate tier.
 Route diagnosis at `gpt-6.1-sol` high for Fast or Standard work,
 `gpt-6.1-sol` high for Deep work, and `gpt-6.1-sol` xhigh when the unresolved
 cause itself carries the Critical profile. Use `gpt-6-astra` high only when the
-unresolved cause itself meets the Exceptional criteria.
+unresolved cause itself meets the Exceptional criteria. Diagnosis runs on the
+other vendor under Cross-Vendor Review.
 Always apply the selected ceiling to diagnosis and specialists.
 
 For routing evaluation, use runner artifacts rather than adding a second
-telemetry system. Track job counts by role, model, and effort; uncached input
+telemetry system. Track job counts by role, vendor, model, and effort; uncached input
 and output with cached input reported separately; promotions; first-pass
 postflight approval; and repeated fix cycles. A cheaper writer route is
 successful only when it reduces usage without increasing conceptual failures
@@ -702,7 +774,8 @@ distinguishes confirmed, probable, and unknown causes before another edit.
     When review-task is explicitly selected, prepare its embedded final audit
     evidence and include its audit instructions in the independent final
     postflight packet under `references/composed-workflows.md`.
-13. Dispatch mandatory independent `postflight-review` with the task packet,
+13. Dispatch mandatory independent `postflight-review` on the other vendor
+    (Cross-Vendor Review) with the task packet,
     preflight decision, writer result, changed files, diff, validation, current
     cycle, shared unsuccessful-round count, contract revision, approving
     preflight, and prior findings/fixes.
@@ -1040,7 +1113,8 @@ When done, report:
 - Preflight and postflight results and cycle count;
 - implementation-contract revisions and their approving preflight jobs;
 - Replans or promotions, or `none`;
-- delegation backend, routing matrix, and the Agent Usage summary;
+- delegation backend, routing matrix, cross-vendor review state, and the
+  Agent Usage summary;
 - PR URL/state, or why no PR was created;
 - branch and uncommitted/committed/pushed state;
 - whether user approval or another decision remains.

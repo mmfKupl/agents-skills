@@ -22,16 +22,22 @@ lifecycle rules stay exactly as the skill describes them.
 
 ## Delegation backend
 
-- The `runner` backend (`agent-runner`, `agent-run-manifest`, YAML job
-  artifacts) drives the Codex app-server and is not available in Claude Code.
-  In Claude Code the backend is always `subagents`. Report it as
-  `subagents (Claude Code)` in the first progress update. This is not the
-  forbidden silent fallback: the user chose the runtime by invoking the skill
-  in Claude Code.
-- Do not invoke `agent-runner` or create runner artifacts. For routing
-  evaluation and the final usage table, use the usage the Agent tool reports
-  for each subagent; where it reports nothing, say so instead of inventing
-  numbers.
+- The `runner` backend (`agent-run-manifest` and its run manifest) reads
+  Codex session files and is not available in Claude Code. In Claude Code the
+  backend is always `subagents`. Report it as `subagents (Claude Code)` in the
+  first progress update. This is not the forbidden silent fallback: the user
+  chose the runtime by invoking the skill in Claude Code.
+- Home-vendor jobs are Claude subagents. Other-vendor jobs under the skill's
+  Cross-Vendor Review (postflight, diagnosis, and the specialists they request)
+  keep the GPT model the matrix names and run through `agent-runner` without a
+  manifest, as `references/agent-runner.md` describes under Other-Vendor Jobs.
+  Start each runner call with Bash `run_in_background: true` and wait for its
+  completion notification instead of polling. The runner needs network access
+  and starts `codex`; if the Bash sandbox blocks it, ask the user before
+  rerunning it outside the sandbox.
+- For routing evaluation and the final usage table, use the usage the Agent
+  tool reports for each subagent and the `usage` block of each runner result;
+  where nothing is reported, say so instead of inventing numbers.
 
 ## Spawning roles
 
@@ -41,7 +47,7 @@ lifecycle rules stay exactly as the skill describes them.
 | `fork_turns: "none"` or bounded history | A fresh Agent call with a compact, self-contained packet. Never use `subagent_type: "fork"` for a gate, specialist, or worker: it inherits the whole conversation and breaks review independence. |
 | Explicit model ID | Agent `model` parameter (see the model map below) |
 | Explicit reasoning effort | Agent `effort` parameter. This skill explicitly requires it on every delegated job, so always pass it. |
-| Follow-up turn to the same live gate or writer | `SendMessage` to that agent's ID. Start a fresh Agent call when the skill asks for a fresh gate or job. |
+| Follow-up turn to the same live gate or writer | `SendMessage` to that Claude subagent's ID. Start a fresh Agent call when the skill asks for a fresh gate or job. A GPT runner job is one-shot: follow up with a fresh runner job that carries the prior report, as Cross-Vendor Review says. |
 | Read-only sandbox | Read-only roles are installed with read-only tools only (no Edit or Write). Still state the read-only contract in the packet, because Bash is available to them. |
 | Workspace-write sandbox | `implementation-worker` has the full tool set. Keep the single-writer rule: never run two writers at once. |
 
@@ -52,35 +58,58 @@ role.
 
 ## Model map
 
-Map each Codex model name to the Claude model with the same role in the
-routing matrix, then use the effort level unchanged (`low`, `medium`,
-`high`, `xhigh`, `max`):
+Home-vendor jobs map each GPT model in the matrix to its Claude peer and keep
+the effort level unchanged (`low`, `medium`, `high`, `xhigh`, `max`):
 
-| Codex name in the skill | Claude Agent `model` | Claude model |
+| GPT name in the skill | Claude Agent `model` | Claude model |
 | --- | --- | --- |
-| `gpt-6-luna`, Luna, `gpt-5.6-terra`, Terra | `sonnet` | Claude Sonnet 5.5 |
-| `gpt-6.1-sol`, `gpt-6-sol`, Sol, `gpt-5.6-sol` | `opus` | Claude Opus 5.5 |
+| `gpt-6-luna`, Luna | `haiku` | Claude Haiku 5.5 |
+| `gpt-6.1-terra`, Terra | `sonnet` | Claude Sonnet 5.5 |
+| `gpt-6.1-sol`, `gpt-6-sol`, Sol | `opus` | Claude Opus 5.5 |
 | `gpt-6-astra`, Astra | `fable` | Claude Fable 5.1 |
 
-`haiku` (Claude Haiku 5.5) has no Codex counterpart in the matrix. Use it
-only where the skill allows a cheaper model for a mechanical lookup and the
-ceiling forces it, never for a gate.
+Other-vendor jobs keep the GPT model and run through the runner.
 
-Model ceilings use the order `haiku` < `sonnet` < `opus` < `fable`. Accept
-both Codex names and Claude names in a ceiling (`E Sol` = `E opus`,
-`E Luna` = `E sonnet`, `E Astra` = `E fable`). For `M`, the ceiling is the
-main session's model at invocation time. Apply the ceiling before every
-Agent call, as the skill requires for direct subagents.
+Model ceilings use one ladder for both vendors: `haiku` = Luna < `sonnet` =
+Terra < `gpt-6-sol` < `opus` = GPT-6.1 Sol < `fable` = Astra. Accept both
+names in a ceiling (`E Sol` = `E opus`, `E Terra` = `E sonnet`, `E Luna` =
+`E haiku`, `E Astra` = `E fable`). For `M`, the ceiling is the main session's
+model at invocation time. A capped job keeps its vendor: under `E Terra`, a
+GPT postflight runs on `gpt-6.1-terra`. Apply the ceiling before every Agent
+call and every runner task, as the skill requires for direct subagents.
 
 When reporting the resolved policy, name the Claude model and, the first
-time, the Codex name it maps from (for example `opus high (Sol high)`).
+time, the GPT name it maps from (for example `opus high (Sol high)`).
 
 ## Task titles
 
-- `list_threads` and `set_thread_title` are Codex app tools. In the Claude
-  desktop app, use the session-title tool when it is available
-  (`set_session_title`), with the same title format and the same cheap,
-  best-effort rules. Otherwise skip titles silently; they are never a gate.
+The skill's title format and status rules are the user's standing request, so
+apply them in Claude too. Only the main session renames; a subagent cannot
+rename the session it runs in.
+
+| Codex tool | Claude desktop app | Claude project thread |
+| --- | --- | --- |
+| `set_thread_title` | `mcp__ccd_session_mgmt__set_session_title` with `session_id: "self"` | `mcp__hearthbot__rename_thread` |
+| `list_threads` | `mcp__ccd_session_mgmt__get_session` with `"self"` for the current title, `mcp__ccd_session_mgmt__list_sessions` for other sessions | skip the snapshot |
+
+These tools are usually deferred: they appear by name in the deferred-tool
+list but are not callable yet. Before the entry title, load them with one
+`ToolSearch` call, for example
+`select:mcp__ccd_session_mgmt__set_session_title,mcp__ccd_session_mgmt__get_session,mcp__ccd_session_mgmt__list_sessions`.
+A title tool missing from the callable list is not unavailable until that load
+fails.
+
+- Rename at entry, before the first long step, and again at every status or
+  workflow change the skill lists, including right before a blocking question
+  and before the final result.
+- These calls return within about a second, so the skill's Codex wait budget
+  and deferral rules do not apply. Call the tool directly. If a call fails,
+  continue the work and retry once at the next status change.
+- If the user renamed the session themselves, the app may ask them to approve
+  the new title. That is expected, not a failure. If they decline, keep their
+  title and stop renaming for this run.
+- In the terminal CLI, where none of these tools exist even as deferred tools,
+  skip titles silently. Titles are never a gate.
 
 ## Other tools
 
@@ -103,8 +132,8 @@ a phone and hours later. Apply these rules on top of the mappings above.
   the next turn; resume from the same gate. Do not use AskUserQuestion: the
   user does not see it.
 - Progress: `update_plan` and the task list mean
-  `mcp__hearthbot__update_progress_checklist`. Task titles mean
-  `mcp__hearthbot__rename_thread`.
+  `mcp__hearthbot__update_progress_checklist`. Task titles use
+  `mcp__hearthbot__rename_thread` as described under Task titles.
 - Results and handoffs: send them with `mcp__hearthbot__post_message`. Text
   outside a hearthbot call reaches nobody.
 - Worktree: work in the current checkout. Do not create, switch, or remove git

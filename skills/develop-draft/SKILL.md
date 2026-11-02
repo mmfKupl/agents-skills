@@ -77,11 +77,16 @@ capable writer. Keep one implementation job for a coherent prototype.
 
 | Profile | Evidence | Preflight | Writer | Final review |
 | --- | --- | --- | --- | --- |
-| Fast | Local, clear behavior and established pattern | Main checks plan; no agent gate | Main or `gpt-6-luna` medium | `gpt-6.1-sol` low |
-| Standard | Non-trivial but bounded implementation | `gpt-6.1-sol` medium | `gpt-6-luna` high | `gpt-6.1-sol` medium |
+| Fast | Local, clear behavior and established pattern | Main checks plan; no agent gate | Main or `gpt-6.1-terra` medium | `gpt-6.1-sol` low |
+| Standard | Non-trivial but bounded implementation | `gpt-6.1-sol` medium | `gpt-6.1-terra` high | `gpt-6.1-sol` medium |
 | Deep | Cross-layer, novel, ambiguous, or hard to validate | `gpt-6.1-sol` high | `gpt-6.1-sol` high | `gpt-6.1-sol` high |
 | Critical | Combined critical contracts, costly failure, or poor reversibility | `gpt-6.1-sol` xhigh | `gpt-6.1-sol` high; xhigh for the exact combined-risk responsibility | `gpt-6.1-sol` xhigh |
 | Exceptional | Coupled novel reasoning beyond Critical, or an evidenced Sol conceptual failure | `gpt-6-astra` high | `gpt-6.1-sol` high; Astra high for the exact exceptional responsibility | `gpt-6-astra` high |
+
+In a Deep or higher prototype, a visual responsibility (UI on an established
+component pattern) or a prose responsibility (documentation or user-facing
+copy) may use `gpt-6.1-terra` high, as in `develop-task`. Final review stays on
+the home vendor; cross-vendor review belongs to `develop-task` only.
 
 Main resolves Fast routing; preflight resolves other profiles. Select one exact
 writer/model/effort and final-review model/effort before implementation.
@@ -97,8 +102,9 @@ the combined diff. Do not split small work just to add jobs.
 
 Honor user model ceilings on every job. Support `E <model>` for an explicit
 maximum and `M` for the invocation-turn main model. Default to adaptive routing.
-In Codex the order is Luna < previous `gpt-6-sol` < `gpt-6.1-sol` < Astra;
-`Sol` means `gpt-6.1-sol`. In Claude use the adapter's order and aliases.
+In Codex the order is Luna < Terra < previous `gpt-6-sol` < `gpt-6.1-sol` <
+Astra; `Sol` means `gpt-6.1-sol` and `Terra` means `gpt-6.1-terra`. In Claude
+use the adapter's order and aliases.
 Select the lower of the matrix model and the ceiling, preserving effort;
 report requested and selected models when capped. Recover an unknown `M`
 from runtime evidence or ask which ceiling applies before delegation. Never

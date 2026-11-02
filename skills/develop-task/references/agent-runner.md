@@ -1,7 +1,10 @@
 # Agent Runner Backend
 
 Read this reference completely when the selected delegation backend is
-`runner`. Do not load it for the explicit `subagents` fallback.
+`runner`, and before the first other-vendor job under the skill's Cross-Vendor
+Review. Without the runner backend, use the sections on the command, task,
+role contracts, permissions, other-vendor jobs, supervision budgets, and
+execution, and skip every `agent-run-manifest` step.
 
 ## Resolve The Command
 
@@ -44,12 +47,15 @@ resolved by the helper:
   rejected before run creation;
 - `M` / `main_ceiling`: pin the supported model recorded for that invocation's
   turn, not the current model of a later follow-up;
-- `E Luna`, `E: Sol`, `E Astra`, or `explicit_ceiling gpt-6.1-sol`: pin the
-  named model;
+- `E Luna`, `E Terra`, `E: Sol`, `E Astra`, `E Opus`, or
+  `explicit_ceiling gpt-6.1-sol`: pin the named model;
 - no restriction: preserve `adaptive`.
 
-Sol resolves to `gpt-6.1-sol` for new runs. Supported ceilings are ordered
-`gpt-6-luna` < `gpt-6-sol` < `gpt-6.1-sol` < `gpt-6-astra`. Use the full
+Sol resolves to `gpt-6.1-sol` and Terra to `gpt-6.1-terra` for new runs.
+Supported ceilings are ordered `gpt-6-luna` < `gpt-6.1-terra` < `gpt-6-sol` <
+`gpt-6.1-sol` < `gpt-6-astra`. Claude models share their GPT peer's rank
+(`claude-haiku-5-5`, `claude-sonnet-5-5`, `claude-opus-5-5`,
+`claude-fable-5-1`), and a capped job keeps its vendor. Use the full
 `gpt-6-sol` ID for a previous-generation ceiling. Existing pinned Sol ceilings
 retain their recorded model.
 
@@ -114,7 +120,7 @@ run:
   routing_matrix: D # single default; independent of the ceiling
   model_policy:
     mode: adaptive # adaptive | explicit_ceiling | main_ceiling
-    maximum_model: null # null or a supported model through gpt-6-astra
+    maximum_model: null # null or a supported GPT or Claude model
   model_policy_source:
     thread_id: <originating thread ID>
     turn_id: <invocation turn ID>
@@ -356,6 +362,34 @@ The runner cannot pause for interactive approval. A denied operation becomes a
 semantic result that the main thread must surface. Do not retry it with broader
 permissions without a new user decision.
 
+## Other-Vendor Jobs
+
+A task whose `agent.model` starts with `claude-` runs through the runner's
+Claude Code engine; every other model runs through Codex. The task and result
+schemas, the permission table, the worktree lock, and result interpretation are
+the same. Differences that matter to main:
+
+- the Claude engine needs a signed-in `claude` CLI on `PATH` or in
+  `AGENT_RUNNER_CLAUDE_BIN`;
+- Bash runs in Claude's own sandbox; when that sandbox cannot start (for
+  example on Linux without bubblewrap), the job fails instead of running
+  unsandboxed;
+- a Claude job has one attempt and no context rotation; its supervision budget
+  is recorded, not enforced;
+- `input_tokens` includes cache reads and cache writes, which are also reported
+  separately.
+
+Run `agent-runner` outside the Codex sandbox, as for any runner job: both
+engines need network access, and Claude's sandbox may fail to start inside
+another sandbox.
+
+Without the runner backend (Codex direct subagents, or Claude Code), prepare
+the task as under Create One Task with the selected model after the ceiling,
+write it to `<private-temp-dir>/<job-id>/task.yaml` with mode `0700` on the
+directory, run `agent-runner` on that path, and read its single result under
+`results/`. Do not call `agent-run-manifest` for these jobs. Report their
+usage from the result file in the Agent Usage summary.
+
 ## Supervision Budgets
 
 Use these profile defaults:
@@ -444,7 +478,7 @@ before using the role report. Route statuses as follows:
 - `invalid_task`: correct orchestration-owned YAML in a new job directory;
 - `needs_approval`: reserved; treat it as a stop requiring user input.
 
-After validating the result, invoke `agent-run-manifest reconcile` and read the
+In runner mode, after validating the result, invoke `agent-run-manifest reconcile` and read the
 reconciled job entry before creating another job. Treat reconciliation failure
 as an orchestration error: preserve the immutable task and result, correct only
 main-owned metadata in a new safe action, and do not claim the run completed.

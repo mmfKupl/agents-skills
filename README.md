@@ -6,7 +6,7 @@ Personal Codex skills and custom agents backup and sync repository.
 
 - `skills/` - skill folders that can be copied into `${CODEX_HOME:-$HOME/.codex}/skills`
 - `agents/` - custom agent TOML files that can be copied into `${CODEX_HOME:-$HOME/.codex}/agents`
-- `agent-runner/` - one-shot supervised Codex job runner and atomic run-manifest companion used by `develop-task`
+- `agent-runner/` - one-shot supervised Codex or Claude Code job runner and atomic run-manifest companion used by `develop-task`
 - `scripts/install-skills.sh` - install skills, custom agents, and the runner into local Codex
 - `scripts/backup-local-skills.sh` - copy local non-system skills and custom agents back into this repository
 
@@ -43,8 +43,13 @@ the preferred Python 3.10+ interpreter is not discoverable as `python3.12`,
   Re-run the script after changing a TOML file.
 - `develop-task`, `develop-draft`, `review-task`, `brainstorm-task`, and `diff-review` read
   `skills/develop-task/references/claude-code.md` when they run in Claude Code. It maps
-  `$skill` to `/skill`, Luna/Sol/Astra to `sonnet`/`opus`/`fable`, and the runner backend to
-  Claude subagents. The runner itself is Codex-only.
+  `$skill` to `/skill`, Luna/Terra/Sol/Astra to `haiku`/`sonnet`/`opus`/`fable`, task titles
+  to the desktop session-title tool, and the runner backend to Claude subagents.
+- `develop-task` runs postflight and diagnosis on the other vendor: Claude when main runs in
+  Codex, GPT when main runs in Claude Code. Both directions go through `agent-runner`, which
+  starts `claude -p` for `claude-*` models. A machine therefore needs both CLIs signed in and
+  the runner installed by `install-skills.sh`. Set `AGENT_RUNNER_CLAUDE_BIN` when `claude` is
+  not on `PATH`.
 
 ## Back up local skills into this repo
 
@@ -68,7 +73,7 @@ Skills:
 
 - `unslop` - shared writing-quality layer used by every skill in this repository for clear, natural user-facing prose.
 - `brainstorm-task` - repository-grounded Spike, Bounded, or Architectural discovery with proportionate approval and optional delivery-slice contracts.
-- `develop-task` - single-writer repository implementation workflow with one GPT-6 Luna / GPT-6.1 Sol / GPT-6 Astra routing matrix, cumulative agent-usage handoffs, model ceilings through GPT-6 Astra, mandatory preflight/postflight gates, supervised runner jobs by default, an explicit direct-subagent fallback, focused validation, logical commits, and draft PR creation.
+- `develop-task` - single-writer repository implementation workflow with one GPT-6 Luna / GPT-6.1 Terra / GPT-6.1 Sol / GPT-6 Astra routing matrix, cross-vendor Codex/Claude postflight review, cumulative agent-usage handoffs, model ceilings on one ladder for GPT and Claude models, mandatory preflight/postflight gates, supervised runner jobs by default, an explicit direct-subagent fallback, focused validation, logical commits, and draft PR creation.
 - `develop-draft` - quick working prototypes with the same model tiers and direct subagents in Codex and Claude Code. Fast changes skip agent preflight; every change gets independent final review. Validation has a small shared budget, allows one relevant existing quick test, and omits new tests and CI waits by default. Delivery defaults to a draft PR linked to the known ticket, with local-only delivery on request. Invoke as `$develop-draft` or `/develop-draft` in Claude Code.
 - `diff-review` - independent fresh diff review for local changes.
 - `review-task` - deep audit workflow for already implemented tasks, with specialist review, validation reuse, focused checks, and runtime/preview probes when useful.

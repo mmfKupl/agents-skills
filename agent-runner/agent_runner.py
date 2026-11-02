@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""One-shot foreground runner for a single Codex agent task."""
+"""One-shot foreground runner for a single Codex or Claude Code agent task."""
 
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ from openai_codex import (
 )
 
 
-RUNNER_VERSION = "1.8.5"
+RUNNER_VERSION = "1.9.0"
 CLEANUP_GRACE_SECONDS = 5.0
 SIGNAL_POLL_SECONDS = 0.1
 HEARTBEAT_INTERVAL_SECONDS = 5.0
@@ -93,6 +93,37 @@ WORKER_OUTPUT_SCHEMA: dict[str, Any] = {
         },
         "warnings": {"type": "array", "items": {"type": "string"}},
         "questions": {"type": "array", "items": {"type": "string"}},
+    },
+}
+
+# Claude Code file tools have no OS sandbox, so each mode limits the tool list
+# and runs Bash inside Claude's own sandbox. A sandbox that cannot start fails
+# the job instead of running unsandboxed. Read-only jobs also deny writes to the
+# worktree root by absolute path; a relative "." also blocked Claude's own
+# temp files.
+CLAUDE_PERMISSIONS: dict[str, dict[str, Any]] = {
+    "read_only": {
+        "tools": "Read,Grep,Glob,Bash",
+        "permission_mode": "dontAsk",
+        "sandbox": {
+            "enabled": True,
+            "failIfUnavailable": True,
+            "allowUnsandboxedCommands": False,
+        },
+    },
+    "workspace_write": {
+        "tools": "Read,Grep,Glob,Bash,Edit,Write,NotebookEdit",
+        "permission_mode": "acceptEdits",
+        "sandbox": {
+            "enabled": True,
+            "failIfUnavailable": True,
+            "allowUnsandboxedCommands": False,
+        },
+    },
+    "danger_full_access": {
+        "tools": "Read,Grep,Glob,Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch",
+        "permission_mode": "bypassPermissions",
+        "sandbox": None,
     },
 }
 
@@ -960,31 +991,234 @@ async def _execute_sdk(
                 await _bounded_call(codex.close())
 
 
+def _is_claude_model(model: str) -> bool:
+    return model.startswith("claude-")
+
+
+def _claude_configuration(task: dict[str, Any]) -> dict[str, Any]:
+    sandbox_mode = task["permissions"]["sandbox_mode"]
+    permissions = CLAUDE_PERMISSIONS[sandbox_mode]
+    sandbox = dict(permissions["sandbox"]) if permissions["sandbox"] else None
+    if sandbox_mode == "read_only":
+        root = _canonical_worktree_root(task["workspace"]["cwd"])
+        sandbox["filesystem"] = {"denyWrite": [str(root)]}
+    return {
+        "tools": permissions["tools"],
+        "permission_mode": permissions["permission_mode"],
+        "permission_prompts": "none",
+        "settings": {"sandbox": sandbox} if sandbox else None,
+        "strict_mcp_config": True,
+        "session_persistence": False,
+        "context_rotation": False,
+    }
+
+
+def _claude_command(claude_bin: str, task: dict[str, Any], configuration: dict[str, Any]) -> list[str]:
+    command = [
+        claude_bin,
+        "-p",
+        "--output-format", "json",
+        "--json-schema", json.dumps(WORKER_OUTPUT_SCHEMA),
+        "--model", task["agent"]["model"],
+        "--effort", task["agent"]["reasoning_effort"],
+        "--append-system-prompt", _developer_instructions(task),
+        "--tools", configuration["tools"],
+        "--permission-mode", configuration["permission_mode"],
+        "--permission-prompts", configuration["permission_prompts"],
+        "--strict-mcp-config",
+        "--no-session-persistence",
+    ]
+    if configuration["settings"] is not None:
+        command += ["--settings", json.dumps(configuration["settings"])]
+    return command
+
+
+def _claude_usage(value: Any) -> dict[str, int]:
+    # Claude reports uncached input, cache reads, and cache writes separately;
+    # input_tokens follows the Codex convention and includes all three.
+    usage = value if isinstance(value, dict) else {}
+
+    def count(raw: Any) -> int:
+        return raw if isinstance(raw, int) and not isinstance(raw, bool) else 0
+
+    cached = count(usage.get("cache_read_input_tokens"))
+    cache_write = count(usage.get("cache_creation_input_tokens"))
+    input_tokens = count(usage.get("input_tokens")) + cached + cache_write
+    output = count(usage.get("output_tokens"))
+    details = usage.get("output_tokens_details")
+    return {
+        "input_tokens": input_tokens,
+        "cached_input_tokens": cached,
+        "cache_write_input_tokens": cache_write,
+        "output_tokens": output,
+        "reasoning_output_tokens": count(details.get("thinking_tokens")) if isinstance(details, dict) else 0,
+        "total_tokens": input_tokens + output,
+    }
+
+
+def _communicate_claude(
+    process: subprocess.Popen[str],
+    signals: SignalState,
+    heartbeat: Callable[[], None],
+) -> tuple[str, str, bool]:
+    """Wait for the CLI, forwarding a caught signal to its process group."""
+    interrupted_at: float | None = None
+    while True:
+        try:
+            stdout, stderr = process.communicate(timeout=SIGNAL_POLL_SECONDS)
+            return stdout, stderr, interrupted_at is not None
+        except subprocess.TimeoutExpired:
+            pass
+        if signals.triggered and interrupted_at is None:
+            interrupted_at = time.monotonic()
+            with contextlib.suppress(ProcessLookupError):
+                os.killpg(process.pid, signal.SIGINT)
+        elif interrupted_at is not None and time.monotonic() - interrupted_at >= CLEANUP_GRACE_SECONDS:
+            with contextlib.suppress(ProcessLookupError):
+                os.killpg(process.pid, signal.SIGKILL)
+        heartbeat()
+
+
+def _execute_claude(
+    task: dict[str, Any],
+    configuration: dict[str, Any],
+    result: dict[str, Any],
+    writer: AtomicResultWriter,
+    signals: SignalState,
+) -> AttemptResult:
+    """Run one headless Claude Code turn. Claude compacts its own context, so there is no rotation."""
+    attempt = {
+        "number": 1,
+        "thread_id": None,
+        "turn_id": None,
+        "started_at": _utc_now(),
+        "finished_at": None,
+        "status": "starting",
+        "context_peak_tokens": 0,
+        "context_peak_percent": 0.0,
+        "token_usage": _usage(None),
+        "checkpoint": None,
+    }
+    result["attempts"].append(attempt)
+
+    def fail(kind: str, message: str) -> AttemptResult:
+        attempt.update({"finished_at": attempt["finished_at"] or _utc_now(), "status": "failed"})
+        _touch(result, writer)
+        return AttemptResult("failed", error=_error(kind, message))
+
+    claude_bin = os.environ.get("AGENT_RUNNER_CLAUDE_BIN") or shutil.which("claude")
+    if not claude_bin:
+        return fail(
+            "FileNotFoundError",
+            "Claude Code CLI not found on PATH; install it, add `claude` to PATH, "
+            "or set AGENT_RUNNER_CLAUDE_BIN.",
+        )
+    claude_bin = str(Path(claude_bin).resolve())
+    result["runner"]["claude_bin"] = claude_bin
+    last_heartbeat = time.monotonic()
+
+    def heartbeat() -> None:
+        nonlocal last_heartbeat
+        if time.monotonic() - last_heartbeat >= HEARTBEAT_INTERVAL_SECONDS:
+            _touch(result, writer)
+            last_heartbeat = time.monotonic()
+
+    # A file, not a pipe: communicate() with a timeout stops writing a large
+    # prompt after its first timeout and would leave the CLI waiting for EOF.
+    with tempfile.TemporaryFile("w+", encoding="utf-8") as prompt_file:
+        prompt_file.write(_worker_prompt(task, 1, None))
+        prompt_file.flush()
+        prompt_file.seek(0)
+        try:
+            process = subprocess.Popen(
+                _claude_command(claude_bin, task, configuration),
+                cwd=task["workspace"]["cwd"],
+                stdin=prompt_file,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                start_new_session=True,
+            )
+        except OSError as exc:
+            return fail(type(exc).__name__, str(exc))
+        try:
+            attempt["status"] = "running"
+            _touch(result, writer)
+            stdout, stderr, interrupted = _communicate_claude(process, signals, heartbeat)
+        finally:
+            # Never leave a detached worker running once the runner stops supervising it.
+            if process.poll() is None:
+                with contextlib.suppress(ProcessLookupError):
+                    os.killpg(process.pid, signal.SIGKILL)
+                process.wait()
+    attempt["finished_at"] = _utc_now()
+    try:
+        response = json.loads(stdout)
+    except ValueError:
+        response = None
+    if isinstance(response, dict):
+        usage = _claude_usage(response.get("usage"))
+        model_usage = response.get("modelUsage")
+        entry = model_usage.get(task["agent"]["model"]) if isinstance(model_usage, dict) else None
+        window = entry.get("contextWindow") if isinstance(entry, dict) else None
+        attempt["thread_id"] = response.get("session_id")
+        attempt["token_usage"] = {
+            "last": usage,
+            "total": usage,
+            "model_context_window": window if isinstance(window, int) and window > 0 else None,
+        }
+        _aggregate_usage(result)
+
+    if interrupted:
+        attempt["status"] = "interrupted"
+        _touch(result, writer)
+        return AttemptResult(
+            "interrupted",
+            error=_error("signal", f"received {signals.triggered or 'termination signal'}"),
+        )
+    if not isinstance(response, dict):
+        detail = (stderr or stdout).strip()[-2000:] or f"exit code {process.returncode}"
+        return fail("claude_cli", f"Claude Code did not return a JSON result: {detail}")
+    if response.get("is_error") or response.get("subtype") != "success":
+        return fail("worker_turn", str(response.get("result") or response.get("subtype") or "Claude Code run failed"))
+    try:
+        output = validate_worker_output(response.get("structured_output"))
+    except TaskValidationError as exc:
+        return fail("worker_turn", f"invalid structured worker output: {exc}")
+    if output["status"] == "checkpoint":
+        attempt["checkpoint"] = output
+        return fail("worker_turn", "Claude worker returned a checkpoint, but Claude jobs do not rotate context")
+    attempt["status"] = output["status"]
+    _touch(result, writer)
+    return AttemptResult(output["status"], outcome=output)
+
+
+def _canonical_worktree_root(cwd: str) -> Path:
+    canonical_cwd = Path(cwd).resolve()
+    try:
+        completed = subprocess.run(
+            ["git", "-C", str(canonical_cwd), "rev-parse", "--show-toplevel"],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+        root = Path(completed.stdout.strip()).resolve()
+        if root.is_dir():
+            return root
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return canonical_cwd
+
+
 class WorktreeLock:
     def __init__(self, cwd: str) -> None:
         self.cwd = cwd
         self.handle: Any = None
         self.key_path: Path | None = None
 
-    def _canonical_root(self) -> Path:
-        canonical_cwd = Path(self.cwd).resolve()
-        try:
-            completed = subprocess.run(
-                ["git", "-C", str(canonical_cwd), "rev-parse", "--show-toplevel"],
-                check=True,
-                capture_output=True,
-                text=True,
-                timeout=2,
-            )
-            root = Path(completed.stdout.strip()).resolve()
-            if root.is_dir():
-                return root
-        except (OSError, subprocess.SubprocessError):
-            pass
-        return canonical_cwd
-
     def acquire(self) -> bool:
-        root = self._canonical_root()
+        root = _canonical_worktree_root(self.cwd)
         digest = hashlib.sha256(os.fsencode(root)).hexdigest()
         lock_dir = Path(tempfile.gettempdir()) / "codex-agent-runner-locks"
         lock_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -1052,6 +1286,7 @@ def _continue_invocation(
         return InvocationResult(result_path, "invalid_task")
 
     result["task"]["job_id"] = task["job"]["id"]
+    claude_configuration = _claude_configuration(task) if _is_claude_model(task["agent"]["model"]) else None
     result["effective_configuration"] = {
         "workspace": {"cwd": task["workspace"]["cwd"]},
         "agent": {
@@ -1061,13 +1296,16 @@ def _continue_invocation(
         },
         "permissions": dict(task["permissions"]),
         "supervision": dict(task["supervision"]),
-        "sdk": {
+    }
+    if claude_configuration is not None:
+        result["effective_configuration"]["claude"] = claude_configuration
+    else:
+        result["effective_configuration"]["sdk"] = {
             "approval_mode": "deny_all",
             "sandbox": _sandbox(task).value,
             "ephemeral_threads": True,
             "config_overrides": list(_config_overrides(task)),
-        },
-    }
+        }
     _touch(result, writer)
 
     lock: WorktreeLock | None = None
@@ -1091,9 +1329,12 @@ def _continue_invocation(
 
     try:
         try:
-            terminal = asyncio.run(
-                _execute_sdk(task, result, writer, signal_state, sdk_factory)
-            )
+            if claude_configuration is not None:
+                terminal = _execute_claude(task, claude_configuration, result, writer, signal_state)
+            else:
+                terminal = asyncio.run(
+                    _execute_sdk(task, result, writer, signal_state, sdk_factory)
+                )
         except KeyboardInterrupt:
             terminal = AttemptResult(
                 "interrupted", error=_error("signal", "received KeyboardInterrupt")

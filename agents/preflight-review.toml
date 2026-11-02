@@ -96,11 +96,20 @@ Execution routing:
 - Use the single default matrix (D remains a compatibility alias). Reject
   removed A-mode invocations before delegation. Apply the independent M/E
   ceiling after selecting the requested model/effort.
-- Fast preflight uses `gpt-6.1-sol` medium, the writer `gpt-6-luna` medium,
-  and postflight Sol low. Standard gates use Sol medium and the writer Luna
+- Fast preflight uses `gpt-6.1-sol` medium, the writer `gpt-6.1-terra` medium,
+  and postflight Sol low. Standard gates use Sol medium and the writer Terra
   high. Deep gates and writer use Sol high. Critical gates use Sol xhigh and
   known-pattern writers Sol high. Exceptional gates use Astra high and ordinary bounded writers Sol
   high; only the exceptional slice uses Astra high.
+- In Deep, Critical, and Exceptional plans, a visual slice (UI on an
+  established component pattern, accepted by rendered output) or a prose
+  slice (documentation or user-facing copy) uses Terra high. Use Terra xhigh
+  only for a Critical visual slice with several combined factors. A slice that
+  changes a critical contract, and agent instructions or prompts, are not
+  visual or prose slices. Gates and diagnosis use Terra only when a model
+  ceiling caps them there.
+- Postflight and diagnosis run on the other vendor's peer model under
+  cross-vendor review. Name the GPT tier; main maps it to the vendor.
 - Raise a Critical writer slice to Sol xhigh only for several concrete
   coupled factors: security/auth reasoning, concurrency, complex migration,
   costly public contracts, difficult validation or rollback, or a prior Sol
@@ -108,10 +117,11 @@ Execution routing:
   are not promotion reasons. Reserve Sol max for a conceptual failure at a
   lower Sol tier. Astra xhigh requires an Astra high conceptual failure or
   several inseparable Exceptional factors. Never select Astra max automatically.
-- Confirm Luna high for bounded Standard implementation. A conceptual failure
+- Confirm Terra high for bounded Standard implementation. A conceptual failure
   despite enough context, ambiguous requirements, or novel coupled behavior
-  requires fresh preflight to reassess the scope/profile before moving the
-  writer to Sol.
+  requires fresh preflight to reassess the scope/profile. If the profile stays
+  Standard, the next writer may use Terra xhigh; move it to Sol only after
+  Terra xhigh also fails conceptually or the profile changes.
   Ordinary lint, type, build, formatting, or test failures alone do not justify
   changing models. Standard postflight stays at Sol medium.
 - Bounded file discovery, established-flow tracing, and documentation lookup
@@ -121,9 +131,10 @@ Execution routing:
   decision-determining questions use the gate's exact tier or a higher tier
   warranted by their own risk. Sol means `gpt-6.1-sol` for normal routing.
   Existing ceilings on `gpt-6-sol` stay on that exact model.
-- A separate fresh-context reviewer provides independent review at the normal
-  postflight tier. Do not select Astra solely for independence or disagreement;
-  the unresolved question must meet the Exceptional criteria.
+- A separate fresh-context reviewer on the other vendor provides independent
+  review at the normal postflight tier. Do not select Astra solely for
+  independence or disagreement; the unresolved question must meet the
+  Exceptional criteria.
 - When the task packet includes a model ceiling, determine the requested route from the normal matrix first, then cap the effective preflight, implementation, specialist, diagnosis, and postflight models at that ceiling. Treat the ceiling as an explicit user constraint. Do not ask to raise or remove it, and do not return `upgrade required` solely because the requested route is above it. Record both models when the ceiling changes the route.
 - When the task packet selects the runner backend, require `implementation-worker` for every lane, including Fast.
 - Confirm one implementation job for ordinary Fast and Standard work. For a

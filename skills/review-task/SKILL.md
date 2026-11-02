@@ -9,8 +9,9 @@ description: Explicitly invoked deep audit workflow for already implemented repo
 
 If you are running in Claude Code rather than Codex, read
 [`../develop-task/references/claude-code.md`](../develop-task/references/claude-code.md) before
-the first delegated job. It maps Codex tools, model names, and the runner
-backend to Claude Code; every gate and rule in this skill still applies.
+anything else, including the entry task title. It maps Codex tools, model
+names, task titles, and delegation to Claude Code; every gate and rule in this
+skill still applies.
 
 ## Writing quality
 
@@ -123,12 +124,15 @@ For every specialist agent spawned by that workflow, pass one
 explicit callable model ID and effort and use `fork_turns: "none"` or a
 positive bounded history with a self-contained review packet.
 
-- `standard`: `gpt-5.6-terra` high;
-- `deep`: `gpt-5.6-sol` high;
-- `audit`: `gpt-5.6-sol` xhigh by default;
-- use `gpt-5.6-sol` max only when several critical risks combine, failure is
+- `standard`: `gpt-6.1-terra` high;
+- `deep`: `gpt-6.1-sol` high;
+- `audit`: `gpt-6.1-sol` xhigh by default;
+- use `gpt-6.1-sol` max only when several critical risks combine, failure is
   especially costly or hard to validate, or a lower Sol tier made a conceptual
-  mistake.
+  mistake;
+- runtime, preview, and visual probes (rendered UI, screenshots, Playwright
+  checks) use `gpt-6.1-terra` high at any depth; whether an observation is a
+  defect stays with the depth's model.
 
 Raise the route when repository evidence is riskier than the user's depth word.
 Do not silently downgrade when a selected route is unavailable. Use an

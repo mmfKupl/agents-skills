@@ -7,6 +7,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import unittest
 from pathlib import Path
@@ -811,6 +812,190 @@ class LockAndCliTests(RunnerTestCase):
         self.assertTrue(result_path.is_absolute())
         self.assertEqual(yaml.safe_load(result_path.read_text())["execution"]["status"], "invalid_task")
         self.assertEqual(completed.stderr, "")
+
+
+FAKE_CLAUDE = """#!{python}
+import json, os, signal, sys, time
+from pathlib import Path
+
+time.sleep(float(os.environ.get("FAKE_CLAUDE_DELAY", "0")))
+Path(os.environ["FAKE_CLAUDE_LOG"]).write_text(json.dumps(
+    {{"argv": sys.argv[1:], "stdin": sys.stdin.read(), "cwd": os.getcwd()}}
+))
+if os.environ.get("FAKE_CLAUDE_WAIT"):
+    ready = Path(os.environ["FAKE_CLAUDE_WAIT"])
+
+    def stop(signum, _frame):
+        ready.with_suffix(".signal").write_text(signal.Signals(signum).name)
+        sys.exit(130)
+
+    signal.signal(signal.SIGINT, stop)
+    ready.write_text("ready")
+    while True:
+        time.sleep(0.05)
+sys.stdout.write(os.environ.get("FAKE_CLAUDE_RESPONSE", ""))
+"""
+
+
+def claude_response(output: object = None, **updates: object) -> dict[str, object]:
+    value: dict[str, object] = {
+        "type": "result",
+        "subtype": "success",
+        "is_error": False,
+        "session_id": "session-1",
+        "result": "",
+        "structured_output": worker_output() if output is None else output,
+        "usage": {
+            "input_tokens": 4,
+            "cache_creation_input_tokens": 10,
+            "cache_read_input_tokens": 100,
+            "output_tokens": 20,
+            "output_tokens_details": {"thinking_tokens": 5},
+        },
+        "modelUsage": {"claude-opus-5-5": {"contextWindow": 1000000}},
+    }
+    value.update(updates)
+    return value
+
+
+class ClaudeEngineTests(RunnerTestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        claude_bin = self.cli_dir / "claude"
+        claude_bin.write_text(FAKE_CLAUDE.format(python=sys.executable), encoding="utf-8")
+        claude_bin.chmod(0o755)
+        self.claude_bin = claude_bin
+        self.log = self.root / "claude-call.json"
+        env_patch = mock.patch.dict(os.environ, {"FAKE_CLAUDE_LOG": str(self.log)})
+        env_patch.start()
+        self.addCleanup(env_patch.stop)
+
+    def claude_task(self, sandbox_mode: str = "read_only") -> dict[str, object]:
+        return self.task_value(
+            agent={"model": "claude-opus-5-5", "reasoning_effort": "high"},
+            permissions={
+                "sandbox_mode": sandbox_mode,
+                "approval_policy": "never",
+                "network_access": sandbox_mode == "danger_full_access",
+            },
+        )
+
+    def run_claude(self, response: object, task: dict[str, object] | None = None, **kwargs: object):
+        path = self.write_task(task or self.claude_task())
+        factory = Factory([])
+        payload = response if isinstance(response, str) else json.dumps(response)
+        with mock.patch.dict(os.environ, {"FAKE_CLAUDE_RESPONSE": payload}):
+            invocation = runner.run_invocation(str(path), sdk_factory=factory, **kwargs)
+        self.assertEqual(factory.instances, [])
+        result = yaml.safe_load(invocation.path.read_text(encoding="utf-8"))
+        call = json.loads(self.log.read_text()) if self.log.exists() else None
+        return invocation, result, call
+
+    @staticmethod
+    def option(argv: list[str], name: str) -> str:
+        return argv[argv.index(name) + 1]
+
+    def test_read_only_job_runs_sandboxed_headless_claude(self) -> None:
+        invocation, result, call = self.run_claude(claude_response())
+        self.assertEqual(invocation.status, "completed")
+        self.assertEqual(result["outcome"], worker_output())
+        argv = call["argv"]
+        self.assertEqual(argv[0], "-p")
+        self.assertEqual(self.option(argv, "--model"), "claude-opus-5-5")
+        self.assertEqual(self.option(argv, "--effort"), "high")
+        self.assertEqual(self.option(argv, "--tools"), "Read,Grep,Glob,Bash")
+        self.assertEqual(self.option(argv, "--permission-mode"), "dontAsk")
+        self.assertEqual(self.option(argv, "--permission-prompts"), "none")
+        self.assertEqual(json.loads(self.option(argv, "--json-schema")), runner.WORKER_OUTPUT_SCHEMA)
+        self.assertIn("Do not create subagents", self.option(argv, "--append-system-prompt"))
+        self.assertIn("--strict-mcp-config", argv)
+        self.assertIn("--no-session-persistence", argv)
+        sandbox = json.loads(self.option(argv, "--settings"))["sandbox"]
+        self.assertEqual(sandbox["filesystem"], {"denyWrite": [str(self.workspace.resolve())]})
+        self.assertTrue(sandbox["failIfUnavailable"])
+        self.assertFalse(sandbox["allowUnsandboxedCommands"])
+        self.assertIn("Do one focused thing", call["stdin"])
+        self.assertEqual(Path(call["cwd"]).resolve(), self.workspace.resolve())
+        self.assertEqual(result["runner"]["claude_bin"], str(self.claude_bin.resolve()))
+        self.assertIn("claude", result["effective_configuration"])
+        self.assertNotIn("sdk", result["effective_configuration"])
+        self.assertEqual(result["attempts"][0]["thread_id"], "session-1")
+        self.assertEqual(result["attempts"][0]["token_usage"]["model_context_window"], 1000000)
+        self.assertEqual(result["usage"], {
+            "input_tokens": 114,
+            "cached_input_tokens": 100,
+            "cache_write_input_tokens": 10,
+            "output_tokens": 20,
+            "reasoning_output_tokens": 5,
+            "total_tokens": 134,
+        })
+
+    def test_write_and_full_access_mappings(self) -> None:
+        _, _, call = self.run_claude(claude_response(), self.claude_task("workspace_write"))
+        argv = call["argv"]
+        self.assertEqual(self.option(argv, "--permission-mode"), "acceptEdits")
+        self.assertIn("Edit", self.option(argv, "--tools").split(","))
+        self.assertNotIn("WebFetch", self.option(argv, "--tools").split(","))
+        sandbox = json.loads(self.option(argv, "--settings"))["sandbox"]
+        self.assertNotIn("filesystem", sandbox)
+
+        _, _, call = self.run_claude(claude_response(), self.claude_task("danger_full_access"))
+        argv = call["argv"]
+        self.assertEqual(self.option(argv, "--permission-mode"), "bypassPermissions")
+        self.assertIn("WebFetch", self.option(argv, "--tools").split(","))
+        self.assertNotIn("--settings", argv)
+
+    def test_large_prompt_reaches_a_slow_reader(self) -> None:
+        task = self.claude_task()
+        task["job"] = {"id": "job-1", "prompt": "x" * 200_000}
+        with mock.patch.dict(os.environ, {"FAKE_CLAUDE_DELAY": "0.5"}):
+            invocation, _, call = self.run_claude(claude_response(), task)
+        self.assertEqual(invocation.status, "completed")
+        self.assertIn("x" * 200_000, call["stdin"])
+
+    def test_blocked_role_output_is_blocked(self) -> None:
+        invocation, result, _ = self.run_claude(claude_response(worker_output("blocked")))
+        self.assertEqual(invocation.status, "blocked")
+        self.assertEqual(result["outcome"]["status"], "blocked")
+
+    def test_cli_errors_and_bad_output_fail(self) -> None:
+        for response, message in (
+            (claude_response(is_error=True, subtype="error_during_execution", result="API down"), "API down"),
+            (claude_response(output={"status": "completed"}), "invalid structured worker output"),
+            (claude_response(output=worker_output("checkpoint")), "do not rotate context"),
+            ("not json", "did not return a JSON result"),
+        ):
+            with self.subTest(message=message):
+                invocation, result, _ = self.run_claude(response)
+                self.assertEqual(invocation.status, "failed")
+                self.assertIn(message, result["error"]["message"])
+                self.assertEqual(result["attempts"][0]["status"], "failed")
+
+    def test_missing_claude_cli_fails(self) -> None:
+        self.claude_bin.unlink()
+        invocation, result, call = self.run_claude(claude_response())
+        self.assertEqual(invocation.status, "failed")
+        self.assertIn("Claude Code CLI not found", result["error"]["message"])
+        self.assertIsNone(call)
+
+    def test_signal_is_forwarded_and_finalizes_interrupted(self) -> None:
+        ready = self.root / "claude-ready"
+        state = runner.SignalState()
+
+        def trigger() -> None:
+            deadline = time.monotonic() + 5
+            while not ready.exists() and time.monotonic() < deadline:
+                time.sleep(0.01)
+            state.triggered = "SIGTERM"
+
+        thread = threading.Thread(target=trigger)
+        thread.start()
+        with mock.patch.dict(os.environ, {"FAKE_CLAUDE_WAIT": str(ready)}):
+            invocation, result, _ = self.run_claude(claude_response(), signals=state)
+        thread.join()
+        self.assertEqual(invocation.status, "interrupted")
+        self.assertEqual(result["error"]["type"], "signal")
+        self.assertEqual(ready.with_suffix(".signal").read_text(), "SIGINT")
 
 
 if __name__ == "__main__":

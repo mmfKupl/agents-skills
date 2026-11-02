@@ -1,10 +1,10 @@
 # Codex agent runner
 
-`agent-runner` is a foreground CLI for exactly one immutable YAML task. It starts one private Codex App Server through the stable Python SDK, runs one ephemeral worker at a time, writes one unique YAML result, prints that result's absolute path to stdout, and exits. `agent-run-manifest` is a separate one-shot companion that initializes runs from the source chat invocation, applies a run-wide model ceiling, validates and registers immutable tasks, reconciles their results into a develop-task `run.yaml`, and finalizes the run. Launch separate runner processes for independent parallel work; there is no daemon, queue, scheduler, MCP server, or persistent conversation history.
+`agent-runner` is a foreground CLI for exactly one immutable YAML task. It starts one private Codex App Server through the stable Python SDK, or one headless Claude Code process when the task model starts with `claude-`, runs one ephemeral worker at a time, writes one unique YAML result, prints that result's absolute path to stdout, and exits. `agent-run-manifest` is a separate one-shot companion that initializes runs from the source chat invocation, applies a run-wide model ceiling, validates and registers immutable tasks, reconciles their results into a develop-task `run.yaml`, and finalizes the run. Launch separate runner processes for independent parallel work; there is no daemon, queue, scheduler, MCP server, or persistent conversation history.
 
 ## Install and run
 
-Requirements: Python 3.10 or newer on POSIX and an installed `codex` CLI on `PATH`. Advisory locking uses `fcntl`, so Windows is not supported.
+Requirements: Python 3.10 or newer on POSIX and an installed `codex` CLI on `PATH`. Claude models also need the Claude Code CLI as `claude` on `PATH`, or its path in `AGENT_RUNNER_CLAUDE_BIN`. Advisory locking uses `fcntl`, so Windows is not supported.
 
 ```bash
 python3.12 -m venv .venv
@@ -131,6 +131,22 @@ error: null
 
 Attempts record fresh thread and turn IDs, timestamps, status, peak observed context tokens, an optional percentage diagnostic when the model reports its window, last and total token usage, and a structured checkpoint or fallback partial output when rotation is needed. Top-level usage sums the final per-attempt totals. Terminal statuses are `completed`, `blocked`, `failed`, `interrupted`, `worktree_locked`, `invalid_task`, and `context_exhausted`. `needs_approval` is reserved for future schemas and is unreachable under v2 deny-all policy.
 
+## Claude Code engine
+
+A task whose `agent.model` starts with `claude-` (for example `claude-opus-5-5`) runs through `claude -p` instead of the Codex SDK. The task schema, result schema, worktree lock, and exit codes are the same, so `agent-run-manifest` registers and reconciles these jobs like any other.
+
+The runner passes the model, the effort, the fixed and task developer instructions (`--append-system-prompt`), and the universal output schema (`--json-schema`). It always adds `--permission-prompts none`, `--strict-mcp-config`, and `--no-session-persistence`. The prompt goes to stdin. Claude Code file tools have no OS sandbox, so each permission mode limits the tool list and runs Bash in Claude's own sandbox:
+
+| Sandbox | Tools | Permission mode | Bash sandbox |
+| --- | --- | --- | --- |
+| `read_only` | Read, Grep, Glob, Bash | `dontAsk` | on, the Git worktree root (or working directory outside Git) write-denied by absolute path, network blocked |
+| `workspace_write` | adds Edit, Write, NotebookEdit | `acceptEdits` | on, writes limited to the working directory, network blocked |
+| `danger_full_access` | adds WebFetch, WebSearch | `bypassPermissions` | off |
+
+The sandbox uses `failIfUnavailable: true` and `allowUnsandboxedCommands: false`: where it cannot start (for example Linux without bubblewrap), the job fails instead of running unsandboxed. User and project settings, hooks, and `CLAUDE.md` still load; MCP servers do not.
+
+Claude Code compacts its own context, so these jobs have one attempt and no context rotation; `supervision.context` is recorded but not enforced. A returned `checkpoint` status fails the job. Usage follows the Codex convention: `input_tokens` is uncached input plus cache reads plus cache writes, `cached_input_tokens` is cache reads, `cache_write_input_tokens` is cache writes, and `reasoning_output_tokens` is thinking tokens. The attempt's `thread_id` is the Claude session ID, and `runner.claude_bin` records the CLI path. On SIGINT or SIGTERM the runner forwards SIGINT to the CLI's process group, kills it after the cleanup grace period, and finalizes `interrupted`.
+
 ## Context rotation, signals, and cleanup
 
 The runner observes public `thread/tokenUsage/updated` stream events. Accumulated thread totals and the reported model context window are diagnostic only. At the absolute soft token limit it steers once for a structured checkpoint. At the absolute hard token limit, or after checkpoint grace expires, it interrupts and waits for the old turn to become terminal before starting a fresh ephemeral thread. Only the task, fixed instructions, and the structured checkpoint (or fallback partial agent output) cross the boundary; dialogue history does not.
@@ -168,11 +184,18 @@ Parameters immediately after the skill name are authoritative:
   named ceiling;
 - no restriction keeps `adaptive`.
 
-Supported ceilings follow this order: `gpt-6-luna`, `gpt-6-sol`,
-`gpt-6.1-sol`, `gpt-6-astra`. Sol resolves to `gpt-6.1-sol` for new runs;
-use the full `gpt-6-sol` ID for a previous-generation ceiling. Existing pinned
-Sol ceilings retain their recorded model. Terra and full GPT-5.6 IDs are rejected
-for new runs and jobs; a former Terra ceiling needs an explicit new choice.
+Supported ceilings follow this order: `gpt-6-luna`, `gpt-6.1-terra`,
+`gpt-6-sol`, `gpt-6.1-sol`, `gpt-6-astra`. Claude models share their GPT
+peer's rank: `claude-haiku-5-5` = Luna, `claude-sonnet-5-5` = Terra,
+`claude-opus-5-5` = GPT-6.1 Sol, `claude-fable-5-1` = Astra. Short names
+(`Luna`, `Terra`, `Sol`, `Astra`, `Haiku`, `Sonnet`, `Opus`, `Fable`) resolve
+to these IDs. A capped job keeps its vendor: it gets that vendor's strongest
+model at or below the ceiling's rank, so `E Terra` caps `claude-opus-5-5` to
+`claude-sonnet-5-5`, and `gpt-6-sol` caps it to Sonnet as well. Sol resolves to
+`gpt-6.1-sol` for new runs; use the full `gpt-6-sol` ID for a
+previous-generation ceiling. Existing pinned Sol ceilings retain their recorded
+model. Full GPT-5.6 IDs, including `gpt-5.6-terra`, are rejected for new runs
+and jobs.
 
 Main still interprets natural-language constraints. It may pass
 `--mode main_ceiling`, or `--mode explicit_ceiling --maximum-model Luna` with

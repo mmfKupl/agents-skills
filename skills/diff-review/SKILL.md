@@ -12,12 +12,6 @@ If you are running in Claude Code rather than Codex, read
 anything else. It maps Codex tools, model names, and delegation to Claude
 Code; every gate and rule in this skill still applies.
 
-## Writing quality
-
-Before drafting the review report, read [`../unslop/SKILL.md`](../unslop/SKILL.md)
-and apply its relevant editing guidance. Preserve user-provided wording, exact
-quotes, and the required output format when they conflict with that guidance.
-
 ## Goal
 
 Review the current local diff as independently as possible. Find correctness risks, missing tests, overengineering, scope creep, and simpler approaches before the change is committed or used to resolve a review thread.

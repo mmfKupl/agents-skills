@@ -71,7 +71,6 @@ It also copies custom agents from `${CODEX_HOME:-$HOME/.codex}/agents/*.toml`.
 
 Skills:
 
-- `unslop` - shared writing-quality layer used by every skill in this repository for clear, natural user-facing prose.
 - `brainstorm-task` - repository-grounded Spike, Bounded, or Architectural discovery with proportionate approval and optional delivery-slice contracts.
 - `develop-task` - single-writer repository implementation workflow with one GPT-6 Luna / GPT-6.1 Terra / GPT-6.1 Sol / GPT-6 Astra routing matrix, cross-vendor Codex/Claude postflight review, cumulative agent-usage handoffs, model ceilings on one ladder for GPT and Claude models, mandatory preflight/postflight gates, supervised runner jobs by default, an explicit direct-subagent fallback, focused validation, logical commits, and draft PR creation.
 - `develop-draft` - quick working prototypes with the same model tiers and direct subagents in Codex and Claude Code. Fast changes skip agent preflight; every change gets independent final review. Validation has a small shared budget, allows one relevant existing quick test, and omits new tests and CI waits by default. Delivery defaults to a draft PR linked to the known ticket, with local-only delivery on request. Invoke as `$develop-draft` or `/develop-draft` in Claude Code.

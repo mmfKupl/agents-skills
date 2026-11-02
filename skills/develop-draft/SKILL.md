@@ -21,7 +21,6 @@ ceiling, and task-title mappings. This skill defines the workflow;
 the adapter supplies runtime mechanics only. Do not load the full
 `develop-task` workflow or inherit its test or runner defaults.
 Read applicable `AGENTS.md` and, in Claude Code, `CLAUDE.md` instructions.
-Use [`../unslop/SKILL.md`](../unslop/SKILL.md) for user-facing writing.
 
 Main owns framing, routing, validation, and integration. For Fast work, main
 checks the plan against repository evidence and may implement directly, without

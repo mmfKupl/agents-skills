@@ -13,13 +13,6 @@ anything else, including the entry task title. It maps Codex tools, model
 names, task titles, and delegation to Claude Code; every gate and rule in this
 skill still applies.
 
-## Writing quality
-
-Before drafting user-facing prose for this workflow, read
-[`../unslop/SKILL.md`](../unslop/SKILL.md) and apply its relevant editing
-guidance. Preserve user-provided wording, exact quotes, and required report
-formats when they conflict with that guidance.
-
 ## Task title
 
 Task titles are a best-effort sidebar indicator, never a workflow gate.

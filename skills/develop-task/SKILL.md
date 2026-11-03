@@ -16,11 +16,11 @@ skill still applies.
 ## Task title
 
 Task titles are a best-effort sidebar indicator, never a workflow gate.
-Put the status letter first so it is visible in a truncated sidebar.
-With a known ticket, use `<status> <ticket-id> <description>: <type>`.
-Without one, use `<status> <description>: <type>`.
+Put the status letter and type first so they are visible in a truncated
+sidebar. With a known ticket, use `<status> <type>: <ticket-id> <description>`.
+Without one, use `<status> <type>: <description>`.
 Write the ticket ID as plain text, never in square or round brackets.
-For example: `W UIB-5295 Storybook update: develop`.
+For example: `W develop: UIB-5295 Storybook update`.
 When reusing a title with a bracketed ticket ID, remove those brackets.
 Prefer a two-word description, with three words maximum; describe the subject
 without filler such as "task", "implementation", or "scope".
@@ -48,8 +48,8 @@ there is no E status. A title-tool failure never changes the work's status.
 At entry, take one small `list_threads` snapshot when available. Reuse the
 most recent matching description for the same explicit ticket, shortening it
 to the word limit if necessary; otherwise choose from known task context.
-Recognize current titles, the previous `<description>: <status> <type>`
-format, and both older `<description>: <type>` and
+Recognize current titles, the previous `<status> <description>: <type>` and
+`<description>: <status> <type>` formats, and both older `<description>: <type>` and
 `<type>: <description>` formats. Keep the chosen description stable.
 Best-effort align descriptions of matching tasks within the same short budget,
 preserving each task's own type and existing status. Never guess another

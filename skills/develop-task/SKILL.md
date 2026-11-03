@@ -462,7 +462,18 @@ Before the first delegated job, confirm that the other vendor can start: the
 `claude` CLI in Codex, or the resolved runner and its `codex` CLI in Claude
 Code. Report cross-vendor review together with the backend and model policy.
 If the other vendor is unavailable, stop and ask; never move a review to the
-home vendor silently. The user may turn cross-vendor review off for the run in
+home vendor silently. The one exception is an exhausted usage allowance: when
+the other-vendor job, or the startup check, fails because the account is out of
+usage, credits, or quota or is rate-limited (the runner error or CLI output
+says so, for example "usage limit", "hit your limit", "rate limit", "quota",
+"429", or "insufficient credits"), do not wait or retry that vendor. Rerun the
+same job as a fresh home-vendor job with the matrix model and effort, and keep
+every later cross-vendor job of the run on the home vendor until the user says
+otherwise. Say so in the next progress update, mark each such job
+`home-vendor fallback: usage limit` in the usage table, and report it with the
+cross-vendor review state. The fallback reviewer still gets a fresh context and
+never the writer's conversation. Missing CLIs, authentication failures, and
+other errors are not this exception; stop and ask for them. The user may turn cross-vendor review off for the run in
 plain words (for example "без кросс-ревью" or "review on Codex only"); record
 that choice, then run those jobs on the home vendor with the matrix model.
 

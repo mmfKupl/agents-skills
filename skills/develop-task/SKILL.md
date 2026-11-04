@@ -442,9 +442,9 @@ share the writer's blind spots. That is the purpose of the rule; it is never a
 reason to raise the review tier.
 
 Other-vendor jobs always run through `agent-runner`, whatever the backend: the
-runner starts Claude Code for `claude-*` models and Codex otherwise. Codex
-runner mode registers them in the manifest like any other job. Codex
-direct-subagent mode and every Claude Code run write one strict `agent-task`
+runner starts Claude Code for `claude-*` models and Codex otherwise. Runner
+mode registers them in the manifest like any other job. Direct-subagent mode
+writes one strict `agent-task`
 v2 file per job into a private temporary directory outside the repository,
 apply the model ceiling before writing it, and follow
 [`references/agent-runner.md`](references/agent-runner.md) for role

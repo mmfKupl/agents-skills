@@ -104,11 +104,14 @@ WORKER_OUTPUT_SCHEMA: dict[str, Any] = {
 CLAUDE_PERMISSIONS: dict[str, dict[str, Any]] = {
     "read_only": {
         "tools": "Read,Grep,Glob,Bash",
-        "permission_mode": "dontAsk",
+        # dontAsk would deny every Bash call, including git diff; the sandbox
+        # blocks writes and network, and prompts are off.
+        "permission_mode": "default",
         "sandbox": {
             "enabled": True,
             "failIfUnavailable": True,
             "allowUnsandboxedCommands": False,
+            "autoAllowBashIfSandboxed": True,
         },
     },
     "workspace_write": {
@@ -118,6 +121,7 @@ CLAUDE_PERMISSIONS: dict[str, dict[str, Any]] = {
             "enabled": True,
             "failIfUnavailable": True,
             "allowUnsandboxedCommands": False,
+            "autoAllowBashIfSandboxed": True,
         },
     },
     "danger_full_access": {

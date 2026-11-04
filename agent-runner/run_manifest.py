@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import fcntl
+import glob
 import hashlib
 import json
 import os
@@ -236,6 +237,82 @@ def _rollout_paths(thread_id: str, codex_home: Path | None = None) -> list[Path]
     return candidates
 
 
+def _claude_transcript(session_id: str) -> Path | None:
+    configured_home = os.environ.get("CLAUDE_CONFIG_DIR")
+    home = Path(configured_home).expanduser() if configured_home else Path.home() / ".claude"
+    matches = sorted((home / "projects").glob(f"*/{glob.escape(session_id)}.jsonl"))
+    return matches[0] if matches else None
+
+
+def _session_id() -> str:
+    return _nonempty(
+        os.environ.get("CODEX_THREAD_ID") or os.environ.get("CLAUDE_CODE_SESSION_ID"),
+        "CODEX_THREAD_ID / CLAUDE_CODE_SESSION_ID",
+    )
+
+
+def _claude_entries(path: Path) -> Iterator[dict[str, Any]]:
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError as exc:
+        raise ManifestError(f"cannot read transcript {path}: {exc}") from exc
+    for line in lines:
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(entry, dict) and not entry.get("isSidechain"):
+            yield entry
+
+
+def _claude_model(entry: dict[str, Any]) -> str | None:
+    message = entry.get("message")
+    model = message.get("model") if isinstance(message, dict) else None
+    if entry.get("type") != "assistant" or not isinstance(model, str):
+        return None
+    return None if model.startswith("<") else model
+
+
+def _claude_user_text(entry: dict[str, Any]) -> str:
+    """Return a real user message with slash commands in the skill's $ spelling."""
+    if entry.get("type") != "user" or entry.get("isMeta"):
+        return ""
+    content = (entry.get("message") or {}).get("content")
+    if isinstance(content, list):
+        content = "\n".join(
+            part["text"]
+            for part in content
+            if isinstance(part, dict) and part.get("type") == "text"
+            and isinstance(part.get("text"), str)
+        )
+    if not isinstance(content, str):
+        return ""
+    command = re.search(r"<command-name>/([^<\s]+)</command-name>", content)
+    if command:
+        arguments = re.search(r"<command-args>(.*?)</command-args>", content, re.DOTALL)
+        return f"${command[1]} {arguments[1] if arguments else ''}".rstrip()
+    return re.sub(r"(?<![\w/.-])/develop-task(?![\w/-])", "$develop-task", content)
+
+
+def _claude_invocation(session_id: str, path: Path, source: dict[str, Any] | None) -> Invocation:
+    selected: Invocation | None = None
+    selected_model: str | None = None
+    awaiting_model = False
+    for entry in _claude_entries(path):
+        if awaiting_model and selected_model is None:
+            selected_model = _claude_model(entry)
+        message = _claude_user_text(entry)
+        if not DEVELOP_TASK_INVOCATION.search(_invocation_text(message)):
+            continue
+        candidate = Invocation(session_id, _nonempty(entry.get("uuid"), "message uuid"), message, None)
+        if source is not None and candidate.source != source:
+            continue
+        selected, selected_model, awaiting_model = candidate, None, True
+    if selected is None:
+        raise ManifestError("cannot find the source develop-task invocation in the Claude transcript")
+    return Invocation(session_id, selected.turn_id, selected.message, selected_model)
+
+
 def _rollout_items(path: Path) -> Iterator[dict[str, Any]]:
     try:
         with path.open(encoding="utf-8") as handle:
@@ -272,9 +349,13 @@ def _recorded_model(item: dict[str, Any]) -> str | None:
 def resolve_main_model(
     thread_id: str | None = None, codex_home: Path | None = None
 ) -> str:
-    thread_id = _nonempty(
-        thread_id or os.environ.get("CODEX_THREAD_ID"), "CODEX_THREAD_ID"
-    )
+    thread_id = thread_id or _session_id()
+    transcript = None if os.environ.get("CODEX_THREAD_ID") else _claude_transcript(thread_id)
+    if transcript is not None:
+        models = [m for m in map(_claude_model, _claude_entries(transcript)) if m]
+        if not models:
+            raise ManifestError("the Claude transcript does not record the current model")
+        return models[-1]
     paths = _rollout_paths(thread_id, codex_home)
     model = None
     model_order: tuple[str, int, int] | None = None
@@ -338,10 +419,10 @@ class Invocation:
 
 
 def resolve_invocation(source: dict[str, Any] | None = None) -> Invocation:
-    thread_id = _nonempty(
-        source["thread_id"] if source is not None else os.environ.get("CODEX_THREAD_ID"),
-        "source thread_id / CODEX_THREAD_ID",
-    )
+    thread_id = _nonempty(source["thread_id"], "source thread_id") if source is not None else _session_id()
+    transcript = None if os.environ.get("CODEX_THREAD_ID") else _claude_transcript(thread_id)
+    if transcript is not None:
+        return _claude_invocation(thread_id, transcript, source)
     paths = _rollout_paths(thread_id)
     turn_models: dict[str, str] = {}
     selected: Invocation | None = None

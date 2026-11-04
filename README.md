@@ -43,8 +43,10 @@ the preferred Python 3.10+ interpreter is not discoverable as `python3.12`,
   Re-run the script after changing a TOML file.
 - `develop-task`, `develop-draft`, `review-task`, `brainstorm-task`, `diff-review`, and `trim-diff` read
   `skills/develop-task/references/claude-code.md` when they run in Claude Code. It maps
-  `$skill` to `/skill`, Luna/Terra/Sol/Astra to `haiku`/`sonnet`/`opus`/`fable`, task titles
-  to the desktop session-title tool, and the runner backend to Claude subagents.
+  `$skill` to `/skill`, Luna/Terra/Sol/Astra to `haiku`/`sonnet`/`opus`/`fable`, and task titles
+  to the desktop session-title tool. `develop-task` uses `agent-runner` by default here too,
+  starting `claude -p` for Claude models; asking for subagents ("используй сабагентов") switches it to
+  Claude subagents. This needs `install-skills.sh` as well, which installs the runner and role files.
 - `develop-task` runs postflight and diagnosis on the other vendor: Claude when main runs in
   Codex, GPT when main runs in Claude Code. Both directions go through `agent-runner`, which
   starts `claude -p` for `claude-*` models. A machine therefore needs both CLIs signed in and

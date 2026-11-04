@@ -23,33 +23,45 @@ lifecycle rules stay exactly as the skill describes them.
 
 ## Delegation backend
 
-- The `runner` backend (`agent-run-manifest` and its run manifest) reads
-  Codex session files and is not available in Claude Code. In Claude Code the
-  backend is always `subagents`. Report it as `subagents (Claude Code)` in the
-  first progress update. This is not the forbidden silent fallback: the user
-  chose the runtime by invoking the skill in Claude Code.
-- Home-vendor jobs are Claude subagents. Other-vendor jobs under the skill's
-  Cross-Vendor Review (postflight, diagnosis, the Reduction Pass, and the
-  specialists postflight or diagnosis request)
-  keep the GPT model the matrix names and run through `agent-runner` without a
-  manifest, as `references/agent-runner.md` describes under Other-Vendor Jobs.
-  Start each runner call with Bash `run_in_background: true` and wait for its
+- The backend rule is the same as in Codex: `runner` by default, `subagents`
+  only when the user explicitly asks for them ("используй сабагентов", "не
+  используй runner", "use subagents"). Follow `references/agent-runner.md`,
+  including `agent-run-manifest`. It reads this session's transcript through
+  `CLAUDE_CODE_SESSION_ID`.
+- In `runner` mode, home-vendor jobs use the Claude peer model (`agent.model:
+  claude-opus-5-5`) and start `claude -p`; other-vendor jobs keep the GPT model
+  and start `codex`. The Agent tool is not used for roles. Role contracts come
+  from `${CODEX_HOME:-$HOME/.codex}/agents/<role>.toml`, and the runner lives
+  under `${CODEX_HOME:-$HOME/.codex}/tools`, so the machine needs
+  `scripts/install-skills.sh` as well as `scripts/install-claude.sh`.
+- Start each runner call with Bash `run_in_background: true` and wait for its
   completion notification instead of polling. The runner needs network access
-  and starts `codex`; if the Bash sandbox blocks it, ask the user before
-  rerunning it outside the sandbox.
-- For routing evaluation and the final usage table, the Agent tool reports only
-  a total. Get the per-column numbers for Claude subagents and for main from
-  their transcripts:
+  and starts `claude` and `codex`; if the Bash sandbox blocks it, ask the user
+  before rerunning it outside the sandbox.
+- Runner jobs have no MCP tools, no web tools, and no network. Put ticket text,
+  PR comments, and other external evidence in the job prompt. Keep checks that
+  need network, Docker, or MCP in main: run them after the writer stops, and
+  tell the writer which checks those are. Runner jobs keep no transcript, so
+  the result file is the only record.
+- In `subagents` mode, home-vendor jobs are Claude subagents and other-vendor
+  jobs still go through `agent-runner` without a manifest, as
+  `references/agent-runner.md` describes under Other-Vendor Jobs.
+- For routing evaluation and the final usage table, runner jobs report usage
+  through their result files and the reconciled manifest. Main's own usage, and
+  Claude subagents in `subagents` mode, where the Agent tool reports only a
+  total, come from their transcripts:
   `python3 <this skill>/scripts/claude_usage.py` (it reads
   `$CLAUDE_CODE_SESSION_ID`; pass `--session <id>` otherwise, `--json` for
   machine-readable output). It prints uncached input, cache write, cached
   input, and output with thinking for each subagent ID and for main. Match
-  rows to jobs by the agent ID the Agent tool returns. For GPT jobs, use the
-  `usage` block of each runner result. Show cache write as its own column.
+  rows to jobs by the agent ID the Agent tool returns. Show cache write as its
+  own column.
   Fall back to the Agent tool total, marked partial, only when the script
   cannot find the session.
 
 ## Spawning roles
+
+This table applies only to the `subagents` backend.
 
 | Codex mechanic | Claude Code equivalent |
 | --- | --- |
@@ -71,12 +83,12 @@ role.
 Home-vendor jobs map each GPT model in the matrix to its Claude peer and keep
 the effort level unchanged (`low`, `medium`, `high`, `xhigh`, `max`):
 
-| GPT name in the skill | Claude Agent `model` | Claude model |
+| GPT name in the skill | Claude Agent `model` | Runner `agent.model` |
 | --- | --- | --- |
-| `gpt-6-luna`, Luna | `haiku` | Claude Haiku 5.5 |
-| `gpt-6.1-terra`, Terra | `sonnet` | Claude Sonnet 5.5 |
-| `gpt-6.1-sol`, `gpt-6-sol`, Sol | `opus` | Claude Opus 5.5 |
-| `gpt-6-astra`, Astra | `fable` | Claude Fable 5.1 |
+| `gpt-6-luna`, Luna | `haiku` | `claude-haiku-5-5` |
+| `gpt-6.1-terra`, Terra | `sonnet` | `claude-sonnet-5-5` |
+| `gpt-6.1-sol`, `gpt-6-sol`, Sol | `opus` | `claude-opus-5-5` |
+| `gpt-6-astra`, Astra | `fable` | `claude-fable-5-1` |
 
 Other-vendor jobs keep the GPT model and run through the runner.
 

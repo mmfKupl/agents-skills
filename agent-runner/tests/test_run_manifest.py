@@ -380,6 +380,63 @@ class RunManifestTests(unittest.TestCase):
         self.assertEqual(job["selected_model"], "gpt-6-luna")
         self.assertEqual(job["limited_by"], "main_ceiling")
 
+    def write_claude_session(self, entries: list[dict[str, object]]) -> None:
+        config = self.root / "claude-home"
+        transcript = config / "projects" / "-repo" / "claude-session.jsonl"
+        transcript.parent.mkdir(parents=True, exist_ok=True)
+        transcript.write_text("".join(json.dumps(entry) + "\n" for entry in entries), encoding="utf-8")
+        environment = patch.dict(os.environ, {
+            "CLAUDE_CODE_SESSION_ID": "claude-session", "CLAUDE_CONFIG_DIR": str(config),
+        })
+        environment.start()
+        self.addCleanup(environment.stop)
+        del os.environ["CODEX_THREAD_ID"]
+
+    def claude_user(self, content: object, uuid: str, **extra: object) -> dict[str, object]:
+        return {"type": "user", "uuid": uuid, "message": {"content": content}, **extra}
+
+    def claude_assistant(self, model: str, **extra: object) -> dict[str, object]:
+        return {"type": "assistant", "message": {"model": model}, **extra}
+
+    def test_init_reads_claude_slash_command_and_invocation_model(self) -> None:
+        self.write_claude_session([
+            self.claude_user(
+                "<command-message>develop-task</command-message>\n"
+                "<command-name>/develop-task</command-name>\n"
+                "<command-args>M UIB-1 fix</command-args>", "u1",
+            ),
+            self.claude_user([{"type": "text", "text": "Base directory: develop-task"}], "u2", isMeta=True),
+            self.claude_assistant("<synthetic>"),
+            self.claude_assistant("claude-haiku-5-5", isSidechain=True),
+            self.claude_assistant("claude-sonnet-5-5"),
+            self.claude_assistant("claude-opus-5-5"),
+        ])
+        document = self.read_run(self.init_run())
+        self.assertEqual(document["run"]["model_policy"], {
+            "mode": "main_ceiling", "maximum_model": "claude-sonnet-5-5",
+        })
+        self.assertEqual(document["run"]["model_policy_source"]["thread_id"], "claude-session")
+        self.assertEqual(document["run"]["model_policy_source"]["turn_id"], "u1")
+        self.assertEqual(run_manifest.resolve_main_model(), "claude-opus-5-5")
+
+    def test_init_reads_plain_claude_slash_mention(self) -> None:
+        self.write_claude_session([
+            self.claude_user("start via /develop-please + /develop-task", "u1"),
+            self.claude_assistant("claude-opus-5-5"),
+        ])
+        document = self.read_run(self.init_run())
+        self.assertEqual(document["run"]["model_policy"]["mode"], "adaptive")
+        run_manifest._verify_model_policy(document["run"])
+
+    def test_init_ignores_claude_tool_results_and_quoted_mentions(self) -> None:
+        self.write_claude_session([
+            self.claude_user([{"type": "tool_result", "content": "$develop-task E Luna"}], "u1"),
+            self.claude_user("what does `/develop-task` do?", "u2"),
+            self.claude_user("see skills/develop-task/SKILL.md", "u3"),
+        ])
+        with self.assertRaisesRegex(run_manifest.ManifestError, "Claude transcript"):
+            run_manifest.init_manifest(str(self.root))
+
     def test_init_infers_m_from_actual_desktop_invocation(self) -> None:
         message = (
             "[$develop-please](/repo/.codex/skills/develop-please/SKILL.md) + "

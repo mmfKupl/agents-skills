@@ -36,7 +36,8 @@ agent-run-manifest init --workspace /absolute/worktree/path
 The command creates a unique private temporary directory and prints only its
 absolute `run.yaml` path. Keep that path for all later helper calls. It reads the
 latest unquoted develop-task invocation from actual user messages across every
-rollout identified by `CODEX_THREAD_ID`, excluding injected skill/context text
+rollout identified by `CODEX_THREAD_ID`, or in Claude Code from the transcript
+identified by `CLAUDE_CODE_SESSION_ID`, excluding injected skill/context text
 and quoted examples. Multiple matching files after compaction are normal; never
 delete or move them to initialize a run. Parameters directly after
 `$develop-task` (including its Markdown-link form), or plain `develop-task`, are
@@ -376,6 +377,8 @@ the same. Differences that matter to main:
   unsandboxed;
 - a Claude job has one attempt and no context rotation; its supervision budget
   is recorded, not enforced;
+- a read-only Claude job can run Bash inside the sandbox, which blocks writes
+  and network; a compound command may be denied, so keep commands simple;
 - `input_tokens` includes cache reads and cache writes, which are also reported
   separately.
 
@@ -383,7 +386,7 @@ Run `agent-runner` outside the Codex sandbox, as for any runner job: both
 engines need network access, and Claude's sandbox may fail to start inside
 another sandbox.
 
-Without the runner backend (Codex direct subagents, or Claude Code), prepare
+Without the runner backend (direct subagents in Codex or Claude Code), prepare
 the task as under Create One Task with the selected model after the ceiling,
 write it to `<private-temp-dir>/<job-id>/task.yaml` with mode `0700` on the
 directory, run `agent-runner` on that path, and read its single result under

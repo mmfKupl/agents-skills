@@ -428,6 +428,36 @@ class RunManifestTests(unittest.TestCase):
         self.assertEqual(document["run"]["model_policy"]["mode"], "adaptive")
         run_manifest._verify_model_policy(document["run"])
 
+    def claude_queued(self, prompt: str, uuid: str, kind: str = "human") -> dict[str, object]:
+        return {"type": "attachment", "uuid": uuid, "attachment": {
+            "type": "queued_command", "prompt": prompt, "commandMode": "prompt",
+            "origin": {"kind": kind},
+        }}
+
+    def test_init_reads_message_sent_during_a_running_turn(self) -> None:
+        self.write_claude_session([
+            self.claude_user("look at the ticket", "u1"),
+            self.claude_assistant("claude-haiku-5-5"),
+            self.claude_queued("делай через /develop-please + /develop-task M", "q1"),
+            self.claude_assistant("claude-sonnet-5-5"),
+        ])
+        document = self.read_run(self.init_run())
+        self.assertEqual(document["run"]["model_policy"], {
+            "mode": "main_ceiling", "maximum_model": "claude-sonnet-5-5",
+        })
+        self.assertEqual(document["run"]["model_policy_source"]["turn_id"], "q1")
+        run_manifest._verify_model_policy(document["run"])
+
+    def test_init_ignores_non_human_queued_commands_and_skill_mentions(self) -> None:
+        self.write_claude_session([
+            self.claude_queued("/develop-task", "q1", kind="task-notification"),
+            {"type": "attachment", "uuid": "a1", "attachment": {
+                "type": "skill_mention", "skillName": "develop-task",
+            }},
+        ])
+        with self.assertRaisesRegex(run_manifest.ManifestError, "Claude transcript"):
+            run_manifest.init_manifest(str(self.root))
+
     def test_init_ignores_claude_tool_results_and_quoted_mentions(self) -> None:
         self.write_claude_session([
             self.claude_user([{"type": "tool_result", "content": "$develop-task E Luna"}], "u1"),

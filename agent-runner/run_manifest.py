@@ -275,9 +275,20 @@ def _claude_model(entry: dict[str, Any]) -> str | None:
 
 def _claude_user_text(entry: dict[str, Any]) -> str:
     """Return a real user message with slash commands in the skill's $ spelling."""
-    if entry.get("type") != "user" or entry.get("isMeta"):
+    attachment = entry.get("attachment")
+    if entry.get("type") == "attachment" and isinstance(attachment, dict):
+        # A message sent during a running turn is recorded as a queued command.
+        if (
+            attachment.get("type") != "queued_command"
+            or attachment.get("commandMode") != "prompt"
+            or (attachment.get("origin") or {}).get("kind") != "human"
+        ):
+            return ""
+        content = attachment.get("prompt")
+    elif entry.get("type") != "user" or entry.get("isMeta"):
         return ""
-    content = (entry.get("message") or {}).get("content")
+    else:
+        content = (entry.get("message") or {}).get("content")
     if isinstance(content, list):
         content = "\n".join(
             part["text"]

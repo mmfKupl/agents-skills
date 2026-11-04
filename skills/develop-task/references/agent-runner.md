@@ -33,6 +33,9 @@ Once the target worktree is known, initialize the run before the first job:
 agent-run-manifest init --workspace /absolute/worktree/path
 ```
 
+Check its exit status before using the output: on failure it prints nothing, and
+a later `sed` or `cat` on the empty path waits on stdin forever.
+
 The command creates a unique private temporary directory and prints only its
 absolute `run.yaml` path. Keep that path for all later helper calls. It reads the
 latest unquoted develop-task invocation from actual user messages across every

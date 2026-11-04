@@ -869,6 +869,7 @@ class ClaudeEngineTests(RunnerTestCase):
         env_patch = mock.patch.dict(os.environ, {"FAKE_CLAUDE_LOG": str(self.log)})
         env_patch.start()
         self.addCleanup(env_patch.stop)
+        os.environ.pop("AGENT_RUNNER_CLAUDE_BIN", None)
 
     def claude_task(self, sandbox_mode: str = "read_only") -> dict[str, object]:
         return self.task_value(
@@ -974,7 +975,9 @@ class ClaudeEngineTests(RunnerTestCase):
 
     def test_missing_claude_cli_fails(self) -> None:
         self.claude_bin.unlink()
-        invocation, result, call = self.run_claude(claude_response())
+        # Hide any real CLI, which would otherwise run the job for real.
+        with mock.patch.dict(os.environ, {"PATH": str(self.cli_dir)}):
+            invocation, result, call = self.run_claude(claude_response())
         self.assertEqual(invocation.status, "failed")
         self.assertIn("Claude Code CLI not found", result["error"]["message"])
         self.assertIsNone(call)

@@ -53,7 +53,9 @@ lifecycle rules stay exactly as the skill describes them.
   `python3 <this skill>/scripts/claude_usage.py` (it reads
   `$CLAUDE_CODE_SESSION_ID`; pass `--session <id>` otherwise, `--json` for
   machine-readable output). It prints uncached input, cache write, cached
-  input, and output with thinking for each subagent ID and for main. Match
+  input, and output with thinking for each subagent ID and for main. Output is
+  `n/a` or a lower bound when a Claude Code version did not record final usage;
+  keep it that way in the table and mark the totals partial. Match
   rows to jobs by the agent ID the Agent tool returns. Show cache write as its
   own column.
   Fall back to the Agent tool total, marked partial, only when the script

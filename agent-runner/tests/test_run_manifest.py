@@ -448,6 +448,21 @@ class RunManifestTests(unittest.TestCase):
         self.assertEqual(document["run"]["model_policy_source"]["turn_id"], "q1")
         run_manifest._verify_model_policy(document["run"])
 
+    def test_init_skips_compaction_summary_and_notifications_after_invocation(self) -> None:
+        self.write_claude_session([
+            self.claude_user("сделай через /develop-please + /develop-task M", "u1", origin={"kind": "human"}),
+            self.claude_assistant("claude-sonnet-5-5"),
+            self.claude_user("develop-task E Luna, then develop-task again", "s1", isCompactSummary=True),
+            self.claude_user("<task-notification>develop-task</task-notification>", "n1",
+                             origin={"kind": "task-notification"}),
+            self.claude_assistant("claude-opus-5-5"),
+        ])
+        document = self.read_run(self.init_run())
+        self.assertEqual(document["run"]["model_policy"], {
+            "mode": "main_ceiling", "maximum_model": "claude-sonnet-5-5",
+        })
+        self.assertEqual(document["run"]["model_policy_source"]["turn_id"], "u1")
+
     def test_init_ignores_non_human_queued_commands_and_skill_mentions(self) -> None:
         self.write_claude_session([
             self.claude_queued("/develop-task", "q1", kind="task-notification"),

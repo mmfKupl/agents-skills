@@ -285,7 +285,14 @@ def _claude_user_text(entry: dict[str, Any]) -> str:
         ):
             return ""
         content = attachment.get("prompt")
-    elif entry.get("type") != "user" or entry.get("isMeta"):
+    elif (
+        entry.get("type") != "user"
+        or entry.get("isMeta")
+        # A compaction summary or a background-task notification quotes earlier
+        # text; only the person's own messages can invoke the skill.
+        or entry.get("isCompactSummary")
+        or (entry.get("origin") or {}).get("kind") not in (None, "human")
+    ):
         return ""
     else:
         content = (entry.get("message") or {}).get("content")

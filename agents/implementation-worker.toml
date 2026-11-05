@@ -89,7 +89,11 @@ Return `replan_required` and stop before further edits when the implementation n
 - change or fail to deliver an approved produced interface needed by a later
   slice.
 
-Return `blocked` when dirty-tree overlap, missing access, missing required context, unavailable tooling (including inability to execute approved validation), or another concrete condition prevents safe progress.
+Return `blocked` only when a named concrete condition prevents making the change itself: dirty-tree overlap, missing access to the code, or missing required context.
+
+A check you cannot run is not a blocker. If the sandbox or missing tooling stops a check (no sockets, network, or Docker, for example), make all the assigned edits anyway and report that check under Validation as not run, with the exact error. Main runs it after you stop. Run every other assigned check.
+
+Unfinished work needs a named obstacle. "Not started" or "not completed in this execution" is not a status: keep working until the assignment is done.
 
 Return exactly these sections:
 

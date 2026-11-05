@@ -45,6 +45,9 @@ Runner constraints (these override any conflicting task-specific instruction):
 - Do not create subagents, delegate work, or orchestrate other agents.
 - Do not create or modify runner, planning, lock, run, or orchestration files.
 - Return exactly one object matching the required structured output schema.
+- Your final message ends this job and nothing resumes it. Do not send progress updates
+  or plans as messages; keep working through tool calls until the assigned work is done.
+- Return unfinished work only with the named obstacle that stopped it.
 - Use status "checkpoint" when asked to stop for context rotation; summarize durable
   progress precisely so a fresh worker can continue without dialogue history.
 """
@@ -417,6 +420,23 @@ class AtomicResultWriter:
             if temp_path is not None:
                 with contextlib.suppress(FileNotFoundError):
                     temp_path.unlink()
+
+
+def _log_event(writer: AtomicResultWriter, record: Any) -> None:
+    """Append to the job's event log; a logging failure never affects the job."""
+    with contextlib.suppress(OSError, TypeError, ValueError):
+        descriptor = os.open(
+            writer.path.with_suffix(".events.jsonl"), os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600
+        )
+        with os.fdopen(descriptor, "a", encoding="utf-8") as handle:
+            handle.write(record if isinstance(record, str) else json.dumps(record, default=str) + "\n")
+
+
+def _event_payload(payload: Any) -> Any:
+    try:
+        return payload.model_dump(mode="json")
+    except Exception:
+        return repr(payload)
 
 
 def _initial_result(execution_id: str, task_path: Path, task_sha256: str | None) -> dict[str, Any]:
@@ -797,6 +817,11 @@ async def _run_attempt(
 
             method = getattr(event, "method", "")
             payload = getattr(event, "payload", None)
+            if not method.endswith("delta") and method != "thread/tokenUsage/updated":
+                _log_event(writer, {
+                    "time": _utc_now(), "attempt": attempt_number,
+                    "method": method, "payload": _event_payload(payload),
+                })
             if method == "item/agentMessage/delta":
                 delta = getattr(payload, "delta", None)
                 if isinstance(delta, str):
@@ -1021,7 +1046,8 @@ def _claude_command(claude_bin: str, task: dict[str, Any], configuration: dict[s
     command = [
         claude_bin,
         "-p",
-        "--output-format", "json",
+        "--output-format", "stream-json",
+        "--verbose",
         "--json-schema", json.dumps(WORKER_OUTPUT_SCHEMA),
         "--model", task["agent"]["model"],
         "--effort", task["agent"]["reasoning_effort"],
@@ -1058,6 +1084,16 @@ def _claude_usage(value: Any) -> dict[str, int]:
         "reasoning_output_tokens": count(details.get("thinking_tokens")) if isinstance(details, dict) else 0,
         "total_tokens": input_tokens + output,
     }
+
+
+def _claude_final_event(stdout: str) -> dict[str, Any] | None:
+    """Return the result event of a stream-json run; system events may follow it."""
+    for line in reversed(stdout.splitlines()):
+        with contextlib.suppress(ValueError):
+            event = json.loads(line)
+            if isinstance(event, dict) and event.get("type", "result") == "result":
+                return event
+    return None
 
 
 def _communicate_claude(
@@ -1156,10 +1192,8 @@ def _execute_claude(
                     os.killpg(process.pid, signal.SIGKILL)
                 process.wait()
     attempt["finished_at"] = _utc_now()
-    try:
-        response = json.loads(stdout)
-    except ValueError:
-        response = None
+    _log_event(writer, stdout)
+    response = _claude_final_event(stdout)
     if isinstance(response, dict):
         usage = _claude_usage(response.get("usage"))
         model_usage = response.get("modelUsage")

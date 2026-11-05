@@ -851,7 +851,9 @@ distinguishes confirmed, probable, and unknown causes before another edit.
     worktree-preserving check after the worker stops; transfer authorized-mutator
     ownership explicitly before any check that may update snapshots, generated
     files, lockfiles, caches inside the repository, or other artifacts, then
-    inspect the resulting diff.
+    inspect the resulting diff. Run Main validation and any check the writer
+    reported as not run. Send long check output to a file in a private temporary
+    directory and read only its summary and failures.
 12. Run the Reduction Pass: dispatch `code-simplicity-review` on the full task
     diff, have the same writer apply its cut list as a `reduction` change, and
     rerun affected validation. Record applied and declined cuts.
@@ -908,10 +910,15 @@ Evidence for non-obvious behavior:
 Contracts to preserve:
 Implementation hypothesis:
 Dirty-tree constraints:
-Validation commands/expectations:
+Writer validation:
+Main validation:
 Replan triggers:
 Expected return:
 ```
+
+Split validation before dispatch. Writer validation holds only checks that can
+run in the writer's sandbox. A runner writer has no network, and its sandbox may
+also block local sockets and Docker; checks that need them go to Main validation.
 
 Keep goal, acceptance criteria, ownership, out-of-scope boundary, evidence,
 preserved contracts, validation expectations, and replan triggers strict. Keep
@@ -949,8 +956,9 @@ packet, including:
 - removing, weakening, or intentionally skipping approved validation;
 - making an unsupported product assumption.
 
-Inability to run an approved validation command because tooling or access is
-unavailable is `blocked`, not `replan_required`.
+A check the writer cannot run is neither `blocked` nor `replan_required`. The
+writer finishes the edits and reports that check as not run, and main runs it.
+`blocked` means the change itself cannot be made.
 
 ## Repeated Failure Diagnosis
 
@@ -992,6 +1000,10 @@ technical adjustment that stays inside the approved contract.
   current diff and findings.
 - A different small finding in a later cycle does not automatically require
   promotion.
+- Writer returned no edits or clearly incomplete work with no named obstacle:
+  main decides whether to retry on the same route or promote the model within
+  any ceiling, and records the choice. With an unchanged contract and profile
+  this needs no fresh preflight and consumes no review round.
 - Follow Bounded Review Loop; promotions and replans do not reset its budget.
 
 ## Bounded Review Loop

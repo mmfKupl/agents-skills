@@ -69,6 +69,11 @@ Prioritize:
   security/correctness failure at the changed boundary;
 - silent compromises: skipped fixes, unverified claims, or weakened behavior hidden by wording;
 
+Main-run checks:
+- A check the writer reported as not run needs main's result in the packet.
+  Without it, or an explicit reason why main could not run it either, return
+  `Approval: no` and name the check.
+
 Reduction:
 - The packet includes the Reduction Pass ledger and its applied and declined
   cuts. Check declined cuts against their evidence and check the remaining diff

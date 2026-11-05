@@ -430,6 +430,7 @@ class ResultAndSdkTests(RunnerTestCase):
         self.assertIs(thread_call["approval_mode"], runner.ApprovalMode.deny_all)
         self.assertIs(thread_call["sandbox"], runner.Sandbox.read_only)
         self.assertTrue(thread_call["ephemeral"])
+        self.assertTrue(invocation.path.with_suffix(".events.jsonl").read_text(encoding="utf-8"))
         self.assertEqual(thread_call["model"], "gpt-test")
         self.assertEqual(thread_call["cwd"], str(self.workspace))
         self.assertIn("Do not create subagents", thread_call["developer_instructions"])
@@ -972,6 +973,26 @@ class ClaudeEngineTests(RunnerTestCase):
                 self.assertEqual(invocation.status, "failed")
                 self.assertIn(message, result["error"]["message"])
                 self.assertEqual(result["attempts"][0]["status"], "failed")
+
+    def test_stream_output_is_parsed_and_saved_as_the_event_log(self) -> None:
+        stream = "\n".join(json.dumps(event) for event in (
+            {"type": "assistant", "message": {"content": []}},
+            {"type": "result", **claude_response()},
+            {"type": "system", "subtype": "session_end"},
+        ))
+        invocation, result, call = self.run_claude(stream)
+        self.assertEqual(invocation.status, "completed")
+        self.assertEqual(result["outcome"], worker_output())
+        self.assertEqual(self.option(call["argv"], "--output-format"), "stream-json")
+        self.assertIn("--verbose", call["argv"])
+        events = invocation.path.with_suffix(".events.jsonl")
+        self.assertIn('"type": "assistant"', events.read_text(encoding="utf-8"))
+        self.assertEqual(events.stat().st_mode & 0o777, 0o600)
+
+    def test_stream_cut_off_before_the_result_fails(self) -> None:
+        invocation, result, _ = self.run_claude(json.dumps({"type": "assistant"}))
+        self.assertEqual(invocation.status, "failed")
+        self.assertIn("did not return a JSON result", result["error"]["message"])
 
     def test_missing_claude_cli_fails(self) -> None:
         self.claude_bin.unlink()

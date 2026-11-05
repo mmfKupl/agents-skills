@@ -89,7 +89,7 @@ All keys are required, no extra keys are allowed, string-array elements must be 
 
 ## Result contract
 
-For `/path/to/task.yaml`, every invocation creates a different `/path/to/results/<execution-id>.yaml`. It first writes status `running`, then rewrites the same result atomically using a same-directory temporary file, file `fsync`, `os.replace`, and directory `fsync`. Milestones and usage events are persisted immediately; noisy progress events use a rate-limited heartbeat. Lock files are always external, but avoiding result artifacts in the repository depends on the caller placing the task outside it as required above.
+For `/path/to/task.yaml`, every invocation creates a different `/path/to/results/<execution-id>.yaml`, and `<execution-id>.events.jsonl` next to it with the job's messages and tool calls (mode `0600`; it may contain file contents). It first writes status `running`, then rewrites the same result atomically using a same-directory temporary file, file `fsync`, `os.replace`, and directory `fsync`. Milestones and usage events are persisted immediately; noisy progress events use a rate-limited heartbeat. Lock files are always external, but avoiding result artifacts in the repository depends on the caller placing the task outside it as required above.
 
 ```yaml
 kind: agent-result

@@ -39,10 +39,8 @@ lifecycle rules stay exactly as the skill describes them.
   and starts `claude` and `codex`; if the Bash sandbox blocks it, ask the user
   before rerunning it outside the sandbox.
 - Runner jobs have no MCP tools, no web tools, and no network. Put ticket text,
-  PR comments, and other external evidence in the job prompt. Keep checks that
-  need network, Docker, or MCP in main: run them after the writer stops, and
-  tell the writer which checks those are. Runner jobs keep no transcript, so
-  the result file is the only record.
+  PR comments, and other external evidence in the job prompt. Checks that need
+  MCP go to Main validation.
 - In `subagents` mode, home-vendor jobs are Claude subagents and other-vendor
   jobs still go through `agent-runner` without a manifest, as
   `references/agent-runner.md` describes under Other-Vendor Jobs.

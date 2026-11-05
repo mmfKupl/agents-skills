@@ -86,7 +86,8 @@ with mode `0700`. Keep it outside the repository and target worktree.
 └── jobs/
     ├── 001-preflight/
     │   ├── task.yaml
-    │   └── results/<execution-id>.yaml
+    │   ├── results/<execution-id>.yaml
+    │   └── results/<execution-id>.events.jsonl
     ├── 002-implementation/
     │   ├── task.yaml
     │   └── results/<execution-id>.yaml
@@ -102,6 +103,10 @@ pending entry. The runner exclusively creates result files. The manifest helper
 also reconciles result-derived job fields and owns run lifecycle timestamps
 under a short file lock with atomic replacement. Workers must not receive
 orchestration paths and must not edit orchestration files.
+
+The `.events.jsonl` file is the job's own log of messages and tool calls, for
+diagnosing why a job stopped. It may contain file contents; keep it in the run
+directory and do not copy it into reports.
 
 Use a monotonically increasing sequence plus a short role slug for job
 directories. Treat a task file as immutable after its process starts. Create a

@@ -144,8 +144,8 @@ postflight that follows a `substantive` or `replan` fix:
 
 1. Dispatch a fresh `code-simplicity-review` job on the other vendor at the
    postflight minimum model/effort, with the requirements and amendments with IDs,
-   the requirements revision, the full task diff against base, the worker report, and
-   validation results. Do not give it the hypothesis or prior reasoning.
+   the requirements revision, the full task diff against base inline (a sandboxed
+   reviewer may be unable to run `git`), the worker report, and validation results. Do not give it the hypothesis or prior reasoning.
 2. Return a non-empty cut list to the same writer responsibility as a `reduction`
    change: apply exactly the listed cuts, add no new code except a call to the named
    helper, and rerun affected validation. Main may decline a cut only with concrete
@@ -392,7 +392,7 @@ Pass, so a gate requests it there only for a new question).
     `references/composed-workflows.md`.
 14. After all slices finish, dispatch `postflight-review` on the combined change on the
     other vendor with the task packet, preflight
-    decision, writer result, changed files, diff, validation, cycle, shared round count,
+    decision, writer result, changed files, the diff inline, validation, cycle, shared round count,
     contract revision, approving preflight, prior findings and fixes, the Reduction Pass
     record, the full requirements and amendments, and the worker's coverage. Require
     independent source-to-diff verification.

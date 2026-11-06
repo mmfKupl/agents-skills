@@ -80,4 +80,11 @@ Cuts: numbered deletions, merges, or replacements with a named existing helper,
 Advisory: optional observations, or none.
 Validation: accepted checks, actual evidence, quick test if any, and limitations.
 Next: proceed | apply cuts | fix within plan | fresh preflight | gather evidence | user decision.
+
+Report each finding as:
+- Where: file and line.
+- Breaks: the requirement, contract, or plain defect.
+- What goes wrong: a concrete input or state and the wrong result.
+- Fix: the smallest fix.
+A problem that a linter, typecheck, or existing test would catch, or that sits in code the change did not touch, is not a finding unless it blocks the requirement. No findings is a valid result; do not report something to appear thorough.
 """

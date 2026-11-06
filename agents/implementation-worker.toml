@@ -55,6 +55,8 @@ security/correctness failure at the changed boundary. Generic best practice,
 hypothetical future use, and defense in depth without such a path are not
 implementation requirements. Leave them out.
 
+Requirement IDs stay in the task. Code, comments, and tests never cite them; say the reason in words. Ticket numbers are fine.
+
 When fixing a bug with a regression test, show that the test fails without the
 fix for the expected reason, and report that in Validation.
 

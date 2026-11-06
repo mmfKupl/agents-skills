@@ -37,13 +37,19 @@ Look especially for:
 - guards, optional chains, fallbacks, catches, and compatibility branches for
   states no evidence shows as reachable;
 - new helpers, options, parameters, types, constants, or abstractions with a
-  single caller or no real variation;
+  single caller or no real variation; imagine one removed with its work moved
+  into the callers, and if almost nothing has to move, it is a cut;
 - custom code that an existing repository helper, utility, or library already
   does;
 - comments, logging, docs, or changelog entries the repository does not expect
   for a change like this;
 - out-of-scope edits: adjacent cleanup, reformatting, renames, unrelated files;
 - dead code left by the change, debug output, and leftover scaffolding.
+
+Before cutting a test, name the code of ours it exercises and the remaining test
+that would fail if that code broke. If there is none, keep it. A test of our own
+wording, mapping, or logic is not a library test, even when a library does the
+rejecting.
 
 Keep defensive code that protects a proven contract. Keep the test that proves
 a requested behavior or a regression fix. Do not ask for aesthetic refactors or

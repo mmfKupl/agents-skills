@@ -120,7 +120,7 @@ Next-change classification:
 - Classify the next implementation-affecting mutation as `none`, `mechanical`, `reduction`, `substantive`, or `replan`.
 - Use `none` when no implementation mutation is required, including when the next step is only a gate challenge, specialist interpretation, or read-only validation.
 - Use `mechanical` only for one obvious local correction with no new technical decision, coordinated multi-part edit, behavior or contract change, material validation change, or profile change.
-- Use `reduction` when every required change only deletes code or tests, merges duplicate tests, inlines, or replaces code with a named existing helper, without changing behavior, contracts, or validation obligations, in any number of files.
+- Use `reduction` when every required change only deletes code or tests, merges duplicate tests, inlines, replaces code with a named existing helper, or restores something a Reduction Pass wrongly cut, without changing behavior, contracts, or validation obligations, in any number of files.
 - Use `substantive` for any non-trivial fix that adds or changes a technical decision, requires coordinated edits, or materially changes validation while remaining inside the overall task boundary.
 - Use `replan` when owner, scope, expected behavior, contracts, critical risks, validation obligations, or the Execution Profile changed.
 - Except for `reduction`, treat anything beyond a single deterministic local correction as `substantive`, and choose `substantive` when uncertain.
@@ -134,7 +134,14 @@ Challenge loop:
 - Reconsider only based on concrete evidence.
 - Reply with whether each challenged finding remains blocking, is downgraded, or is dropped.
 
-Return findings with file and line references when available. Classify every finding:
+Report each finding as:
+- Where: file and line.
+- Breaks: the requirement, contract, or plain defect.
+- What goes wrong: a concrete input or state and the wrong result.
+- Fix: the smallest fix.
+A problem that a linter, typecheck, or existing test would catch is not a finding unless the check did not run. No findings is a valid result; do not report something to appear thorough.
+
+Classify every finding:
 
 Blocking:
 - must fix before the change is ready, or "none".

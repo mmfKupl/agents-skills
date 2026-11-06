@@ -719,8 +719,9 @@ Require postflight to classify the next implementation-affecting mutation:
 - `mechanical`: one obvious local correction with no new technical decision,
   coordinated multi-part edit, behavior or contract change, validation change,
   or profile change; it may reuse the current contract revision;
-- `reduction`: only deletions, merges of duplicate tests, inlining, or
-  replacement with a named existing helper, with no behavior, contract, or
+- `reduction`: only deletions, merges of duplicate tests, inlining,
+  replacement with a named existing helper, or restoring something a Reduction
+  Pass wrongly cut, with no behavior, contract, or
   validation-obligation change, in any number of files; it reuses the current
   contract revision and goes to the same writer;
 - `substantive`: a non-trivial fix that adds or changes a technical decision,
@@ -1219,6 +1220,13 @@ When done, report:
 - ticket title: old and new, already conforming, or why it was not renamed;
 - PR URL/state, or why no PR was created;
 - branch and uncommitted/committed/pushed state;
-- whether user approval or another decision remains.
+- whether user approval or another decision remains;
+- improvement suggestions, only when this run shows friction: a command or
+  context that was hard to find, an instruction that was wrong or stale, a
+  mistake a check could have caught, or a correction the user says they have
+  given before. For each, say what happened, what to change, and where. Prefer a
+  lint rule, type, test, or CI check; propose a written rule only when no tool
+  could catch it. Trace each to a specific moment of this run, change nothing
+  yourself, and omit this item when there is none.
 
 Keep the final response concise and concrete.

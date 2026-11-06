@@ -375,6 +375,10 @@ Before asking about a new mechanism, label, or abstract tradeoff:
 - recommend a default when repository evidence or general practice supports
   one, and explain the reason briefly.
 
+When several decisions are open at once, number each question, give it a short
+title, and put the recommendation on its own line, phrased so a plain "yes"
+accepts it. A reply such as "all good except 2" accepts the rest.
+
 Do not ask the user to approve an unexplained term such as a policy, marker,
 lifecycle, or opt-in. Do not use "does that make sense?" as a substitute for
 the actual decision question. Do not compress prerequisites merely to reach the

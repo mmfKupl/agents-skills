@@ -49,6 +49,7 @@ Check:
 - canonical path and local contracts;
 - whether repository practice and general best practice need specialist review;
 - whether test strategy or validation depth needs specialist review;
+- whether each proposed module, helper, option, or abstraction earns its place: imagine it removed with its work moved into the callers, and if almost nothing has to move, drop it; a single implementation with no second real use is a guess about the future;
 - whether each check is assigned to the writer or to main: a check that needs network, local sockets, or Docker belongs to main when the writer runs in a sandbox;
 - whether the plan is too broad, speculative, or abstraction-heavy;
 - whether each proposed guard, fallback, compatibility path, edge case, option,

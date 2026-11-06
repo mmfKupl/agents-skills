@@ -1,0 +1,4 @@
+interface:
+  display_name: "Ticket Title"
+  short_description: "Keep tracker ticket titles clear and uniform."
+  default_prompt: "Use $ticket-title to check this ticket's title against the shared format."

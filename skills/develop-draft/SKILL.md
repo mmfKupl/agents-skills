@@ -36,69 +36,10 @@ blocker. Do not substitute main's self-review for independent approval.
 
 ## Task title
 
-Task titles are a best-effort sidebar indicator, never a workflow gate.
-Put the status letter and type first so they are visible in a truncated
-sidebar. With a known ticket, use `<status> <type>: <ticket-id> <description>`.
-Without one, use `<status> <type>: <description>`.
-Write the ticket ID as plain text, never in square or round brackets.
-For example: `W draft: UIB-5295 Storybook update`.
-When reusing a title with a bracketed ticket ID, remove those brackets.
-Prefer a two-word description, with three words maximum; describe the subject
-without filler such as "task", "implementation", or "scope".
-
-Use `draft` as the type when this is the active user-requested workflow.
-An embedded review, worker, or validation step must not replace the outer
-workflow's type or mark its task done. Only the user-facing coordinator owns
-the current task's title; change type when a different requested workflow
-actually starts.
-
-Use only these statuses:
-
-- `W` Working: progressing independently, including waiting for tests, CI, or
-  agents that the workflow will handle without a user reply.
-- `R` Reply needed: pausing for the user's answer, choice, or approval.
-- `B` Blocked: stopped by an obstacle such as missing access or an unavailable
-  dependency. Use R instead when the next step is a user decision.
-- `D` Done: the requested work is complete, not simply the current turn.
-
-For draft, D requires final approval of the current diff and completed
-Delivery: the draft PR and applicable ticket link, the requested local-only
-result, or the handoff to an outer workflow that owns publication. It does not
-mean production-ready or merged.
-Use W again when work resumes. Recoverable errors remain W while being handled;
-there is no E status. A title-tool failure never changes the work's status.
-
-At entry, take one small `list_threads` snapshot when available. Reuse the
-most recent matching description for the same explicit ticket, shortening it
-to the word limit if necessary; otherwise choose from known task context.
-Recognize current titles, the previous `<status> <description>: <type>` and
-`<description>: <status> <type>` formats, and both older `<description>: <type>` and
-`<type>: <description>` formats. Keep the chosen description stable.
-Best-effort align descriptions of matching tasks within the same short budget,
-preserving each task's own type and existing status. Never guess another
-task's status, add one to a legacy title, or rename unrelated tasks.
-
-Update the current title with `set_thread_title` at entry and when its status
-or active workflow changes, including before asking a blocking question or
-sending the final result. Skip already-confirmed identical titles. A successful
-tool response confirms the update; do not add a separate readback after success.
-
-Keep this cheap: use bounded/asynchronous execution with a shared foreground
-wait budget of about two seconds per checkpoint for all title tools, including
-listing and readback. If unavailable, slow, or failed, continue the real work;
-defer further title calls and retain only the latest desired title as pending.
-Do not stack in-flight title writes. At a later natural work checkpoint, make
-at most one deferred verification/retry per turn, plus one final attempt before
-yielding to the user. Check any existing attempt first; if its outcome is
-unknown, use a single small snapshot before retrying. Replace stale pending
-states with the current one. Apart from the final attempt, leave further retries
-for the next turn.
-Do not repeatedly list tasks, poll, sleep, create a reminder, diagnose the app,
-or ask the user for help solely to update a title. Do not claim success without
-confirmation. Titles may be stale while the desktop app is offline.
-
-These narrow Codex title updates do not authorize ticket, PR, code, or other
-external changes beyond Delivery below.
+At entry, read [`../chat-title/SKILL.md`](../chat-title/SKILL.md) and follow it with
+the type `draft`. `D` requires final approval of the current diff and completed Delivery: the draft PR
+and applicable ticket link, the requested local-only result, or the handoff to an
+outer workflow that owns publication. It does not mean production-ready or merged.
 
 ## Prototype contract
 

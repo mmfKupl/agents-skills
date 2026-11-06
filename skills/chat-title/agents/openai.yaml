@@ -1,0 +1,4 @@
+interface:
+  display_name: "Chat Title"
+  short_description: "Keep chat titles in one format."
+  default_prompt: "Use $chat-title to set this chat's title in the shared format."

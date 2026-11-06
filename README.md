@@ -43,8 +43,7 @@ the preferred Python 3.10+ interpreter is not discoverable as `python3.12`,
   Re-run the script after changing a TOML file.
 - `develop-task`, `develop-draft`, `review-task`, `brainstorm-task`, `diff-review`, and `trim-diff` read
   `skills/develop-task/references/claude-code.md` when they run in Claude Code. It maps
-  `$skill` to `/skill`, Luna/Terra/Sol/Astra to `haiku`/`sonnet`/`opus`/`fable`, and task titles
-  to the desktop session-title tool. `develop-task` uses `agent-runner` by default here too,
+  `$skill` to `/skill`, and Luna/Terra/Sol/Astra to `haiku`/`sonnet`/`opus`/`fable`. `develop-task` uses `agent-runner` by default here too,
   starting `claude -p` for Claude models; asking for subagents ("используй сабагентов") switches it to
   Claude subagents. This needs `install-skills.sh` as well, which installs the runner and role files.
 - `develop-task` runs postflight and diagnosis on the other vendor: Claude when main runs in
@@ -73,6 +72,8 @@ It also copies custom agents from `${CODEX_HOME:-$HOME/.codex}/agents/*.toml`.
 
 Skills:
 
+- `chat-title` - one title format for every chat: `<status> <type>: <ticket> <description>`.
+- `ticket-title` - one title format for tracker tickets: `<Type>: <clear title>`.
 - `brainstorm-task` - repository-grounded Spike, Bounded, or Architectural discovery with proportionate approval and optional delivery-slice contracts.
 - `develop-task` - single-writer repository implementation workflow with one GPT-6 Luna / GPT-6.1 Terra / GPT-6.1 Sol / GPT-6 Astra routing matrix, cross-vendor Codex/Claude postflight review, cumulative agent-usage handoffs, model ceilings on one ladder for GPT and Claude models, mandatory preflight/postflight gates with a Reduction Pass between them, supervised runner jobs by default, an explicit direct-subagent fallback, focused validation, logical commits, and draft PR creation.
 - `develop-draft` - quick working prototypes with the same model tiers and direct subagents in Codex and Claude Code. Fast changes skip agent preflight; every change gets independent final review. Validation has a small shared budget, allows one relevant existing quick test, and omits new tests and CI waits by default. Delivery defaults to a draft PR linked to the known ticket, with local-only delivery on request. Invoke as `$develop-draft` or `/develop-draft` in Claude Code.

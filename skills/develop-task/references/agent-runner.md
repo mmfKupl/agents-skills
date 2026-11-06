@@ -1,195 +1,86 @@
 # Agent Runner Backend
 
-Read this reference completely when the selected delegation backend is
-`runner`, and before the first other-vendor job under the skill's Cross-Vendor
-Review. Without the runner backend, use the sections on the command, task,
-role contracts, permissions, other-vendor jobs, supervision budgets, and
-execution, and skip every `agent-run-manifest` step.
+Read this completely when the backend is `runner`, and before the first other-vendor
+job under Cross-Vendor Review. Without the runner backend, use the sections on the
+command, task, role contracts, permissions, other-vendor jobs, supervision budgets,
+and execution, and skip every `agent-run-manifest` step.
 
 ## Resolve The Command
 
-Resolve one executable once per `develop-task` run, in this order:
+Resolve one executable once per run, in this order:
 
-1. an exact path explicitly supplied by the user;
+1. an exact path the user supplied;
 2. the nonempty `CODEX_AGENT_RUNNER` environment variable;
 3. `${CODEX_HOME:-$HOME/.codex}/tools/agent-runner/bin/agent-runner`;
 4. `agent-runner` from `PATH`.
 
-Require `agent-runner --help` to succeed before preflight. Do not install,
-upgrade, or repair the runner from inside `develop-task`. If no executable is
-available, fail closed and report the setup problem. Do not silently switch to
-direct subagents; only an explicit user instruction may select that backend.
+Require `agent-runner --help` to succeed before preflight. Do not install, upgrade, or
+repair the runner from inside the workflow. If none is available, fail closed and
+report it; only an explicit user instruction selects direct subagents.
 
-Resolve the companion `agent-run-manifest` executable from the same directory
-as the selected runner, then from `PATH`. Require `agent-run-manifest --help`
-to succeed before creating `run.yaml`. It is a one-shot YAML helper, not a
-daemon or scheduler.
+Resolve `agent-run-manifest` from the same directory, then from `PATH`, and require
+its `--help` to succeed before creating `run.yaml`.
 
 ## Initialize The Run And Model Policy
 
-Once the target worktree is known, initialize the run before the first job:
+Once the target worktree is known, before the first job:
 
 ```bash
 agent-run-manifest init --workspace /absolute/worktree/path
 ```
 
-Check its exit status before using the output: on failure it prints nothing, and
-a later `sed` or `cat` on the empty path waits on stdin forever.
+Check its exit status before using the output: on failure it prints nothing, and a
+later `sed` or `cat` on the empty path waits on stdin forever. On success it prints
+only the absolute `run.yaml` path, in a new private temporary directory (mode `0700`,
+outside the repository). Keep that path for later calls.
 
-The command creates a unique private temporary directory and prints only its
-absolute `run.yaml` path. Keep that path for all later helper calls. It reads the
-latest unquoted develop-task invocation from actual user messages across every
-rollout identified by `CODEX_THREAD_ID`, or in Claude Code from the transcript
-identified by `CLAUDE_CODE_SESSION_ID`, excluding injected skill/context text
-and quoted examples. Multiple matching files after compaction are normal; never
-delete or move them to initialize a run. Parameters directly after
-`$develop-task` (including its Markdown-link form), or plain `develop-task`, are
-resolved by the helper:
+`init` reads the latest unquoted develop-task invocation from real user messages, in
+every rollout for `CODEX_THREAD_ID` or in Claude Code the transcript for
+`CLAUDE_CODE_SESSION_ID`. Never delete or move those files. It resolves parameters
+right after the skill name:
 
-- `D`: optional compatibility alias for the single default matrix. Place it
-  before a ceiling, for example `$develop-task D M`. A mode is removed and
-  rejected before run creation;
-- `M` / `main_ceiling`: pin the supported model recorded for that invocation's
-  turn, not the current model of a later follow-up;
-- `E Luna`, `E Terra`, `E: Sol`, `E Astra`, `E Opus`, or
-  `explicit_ceiling gpt-6.1-sol`: pin the named model;
-- no restriction: preserve `adaptive`.
+- `D`: optional alias for the single matrix, placed before a ceiling (`$develop-task
+  D M`). Mode `A` is rejected;
+- `M` / `main_ceiling`: pins the model of the invocation turn, not of a later one;
+- `E Luna`, `E: Sol`, `E Opus`, or `explicit_ceiling gpt-6.1-sol`: pins the named model;
+- none: `adaptive`.
 
-Sol resolves to `gpt-6.1-sol` and Terra to `gpt-6.1-terra` for new runs.
-Supported ceilings are ordered `gpt-6-luna` < `gpt-6.1-terra` < `gpt-6-sol` <
-`gpt-6.1-sol` < `gpt-6-astra`. Claude models share their GPT peer's rank
-(`claude-haiku-5-5`, `claude-sonnet-5-5`, `claude-opus-5-5`,
-`claude-fable-5-1`), and a capped job keeps its vendor. Use the full
-`gpt-6-sol` ID for a previous-generation ceiling. Existing pinned Sol ceilings
-retain their recorded model.
-
-For a natural-language constraint, main still interprets the user's meaning and
-passes `--mode main_ceiling`, or `--mode explicit_ceiling --maximum-model Luna`
-(using the contextually chosen model). These options cannot contradict
-explicit M/E parameters with or without the optional D prefix. Do not pass an invented/default
-policy over a recognized alias.
-Read the generated policy and report it before the first job. Missing source,
-ambiguous invocation, unsupported ceiling, or conflicting options fail before
-the run is created; recover the evidence, not an unconstrained substitute.
-
-`current-model` remains a diagnostic command for the latest recorded model. It
-does not initialize a run or replace the invocation-turn snapshot.
+For a plain-language limit, main interprets it and passes `--mode main_ceiling` or
+`--mode explicit_ceiling --maximum-model Luna`. These cannot contradict explicit
+parameters; do not pass an invented or default policy over a recognized alias. Read the
+generated policy and report it before the first job. A missing source, ambiguous
+invocation, unsupported ceiling, or conflict fails before the run exists: recover the
+evidence, not an unconstrained substitute. `current-model` is diagnostic only.
 
 ## Run Directory And Ownership
-
-`init` creates one private run directory in the platform temporary directory
-with mode `0700`. Keep it outside the repository and target worktree.
 
 ```text
 <temporary-root>/codex-agent-run-<unique-id>/
 ├── run.yaml
-└── jobs/
-    ├── 001-preflight/
-    │   ├── task.yaml
-    │   ├── results/<execution-id>.yaml
-    │   └── results/<execution-id>.events.jsonl
-    ├── 002-implementation/
-    │   ├── task.yaml
-    │   └── results/<execution-id>.yaml
-    └── 003-postflight/
-        ├── task.yaml
-        └── results/<execution-id>.yaml
+└── jobs/<job.id>/
+    ├── task.yaml
+    └── results/<execution-id>.yaml, <execution-id>.events.jsonl
 ```
 
-The helper creates `run.yaml`; main prepares each task document and owns the
-semantic job plan. `agent-run-manifest new-job` validates the task, creates its
-final immutable job directory and `task.yaml`, and atomically registers the
-pending entry. The runner exclusively creates result files. The manifest helper
-also reconciles result-derived job fields and owns run lifecycle timestamps
-under a short file lock with atomic replacement. Workers must not receive
-orchestration paths and must not edit orchestration files.
+The helper owns `run.yaml` and its lifecycle timestamps; never hand-write it, append
+job entries, or create final job directories. Main prepares each task and owns the job plan. The runner alone creates
+result files. Workers must not receive orchestration paths or edit orchestration files.
 
-The `.events.jsonl` file is the job's own log of messages and tool calls, for
-diagnosing why a job stopped. It may contain file contents; keep it in the run
-directory and do not copy it into reports.
+The `.events.jsonl` file is the job's own log of messages and tool calls, for diagnosing
+why a job stopped. It may contain file contents; keep it in the run directory and do not
+copy it into reports.
 
-Use a monotonically increasing sequence plus a short role slug for job
-directories. Treat a task file as immutable after its process starts. Create a
-new job directory for every retry, gate challenge, specialist result
-interpretation, postflight cycle, or writer fix instead of editing an old task.
+Give each `job.id` a rising sequence and a short role slug, such as
+`002-implementation`; `new-job` creates its directory. A task is immutable once its process starts. Every retry, gate
+challenge, specialist interpretation, postflight cycle, or writer fix gets a new job.
 
-The generated run index and later registered jobs have this shape (not a
-template to hand-write):
+The matrix, policy, and their source are fixed for the run, including retries and
+resumes; `new-job` rejects a contradiction. Do not copy a manifest to another chat to
+bypass this. Older manifests stay readable: no `routing_matrix` means D, historical A
+runs cannot dispatch, a job added to one without a source gets the same check first, and
+no `requirements` means revision 1 with no amendments, without certifying old jobs.
 
-```yaml
-kind: develop-task-run
-schema_version: 1
-run:
-  id: <unique-id>
-  backend: runner
-  workspace: /absolute/worktree/path
-  status: running
-  started_at: <UTC timestamp>
-  finished_at: null
-  routing_matrix: D # single default; independent of the ceiling
-  model_policy:
-    mode: adaptive # adaptive | explicit_ceiling | main_ceiling
-    maximum_model: null # null or a supported GPT or Claude model
-  model_policy_source:
-    thread_id: <originating thread ID>
-    turn_id: <invocation turn ID>
-    message_sha256: <SHA-256 of the original user message>
-  requirements:
-    revision: 1
-    amendments: []
-jobs:
-  - id: 001-preflight
-    role: preflight-review
-    contract_revision: 1
-    requirements_revision: 1
-    approved_by_preflight: null
-    task_path: <absolute task path>
-    result_path: <absolute result path>
-    status: completed
-    execution_id: <runner execution id>
-    usage: <result usage mapping>
-    model: gpt-6.1-sol # effective compatibility field
-    requested_model: gpt-6.1-sol
-    selected_model: gpt-6.1-sol
-    limited_by: null
-    reasoning_effort: high
-  - id: 002-implementation
-    role: implementation-worker
-    contract_revision: 1
-    requirements_revision: 1
-    approved_by_preflight: 001-preflight
-    task_path: <absolute task path>
-    result_path: null
-    status: pending
-    execution_id: null
-    usage: null
-    model: gpt-6-luna
-    requested_model: gpt-6-luna
-    selected_model: gpt-6-luna
-    limited_by: null
-    reasoning_effort: medium
-```
-
-`init` starts with `jobs: []` and requirements revision 1. The matrix, policy,
-and their source are immutable for that run, including retries and resumes. `new-job`
-re-reads the pinned user message and invocation model; a contradictory matrix
-or policy is rejected before a worker can start. Legacy manifests remain
-readable. Before adding a job to a legacy/manual manifest without a source, the helper performs
-the same check using the calling chat's invocation and only then records its
-source. Missing policy is not an escape from a source `M`/`E`; a conflicting
-legacy policy is rejected, not silently rewritten. Do not copy old manifests
-to another chat to bypass source resolution.
-
-A legacy manifest without `run.routing_matrix` means D. Historical A manifests
-remain readable for reconciliation and usage, but cannot dispatch new jobs.
-The helper pins/verifies the matrix; main selects each job's model/effort from
-that matrix and includes the applicable routing rules in its packet.
-
-A legacy manifest without `run.requirements` means revision 1 with no recorded
-amendments; old jobs without `requirements_revision` remain readable, not
-retroactively certified.
-For each invocation, prepare the
-strict task YAML at a temporary path outside `jobs/`, then register it:
+Prepare each strict task YAML at a temporary path outside `jobs/`, then register it:
 
 ```bash
 agent-run-manifest new-job /absolute/path/to/run.yaml /absolute/path/to/task-draft.yaml \
@@ -198,39 +89,26 @@ agent-run-manifest new-job /absolute/path/to/run.yaml /absolute/path/to/task-dra
   --approved-by-preflight 001-preflight
 ```
 
-Omit `--approved-by-preflight` for the initial preflight. The command validates
-the complete task schema before creating anything, requires its workspace to
-match the run, verifies the model-policy source, applies the ceiling, creates
-`jobs/<job.id>/task.yaml`, atomically appends the pending entry, and prints the
-final task path for the foreground runner call. When capped, the immutable task
-contains the selected model while the manifest records the requested model,
-selected model, and limiting mode. Each new job also records the current
-`requirements_revision`, independently of `contract_revision`. Do not
-manually create final job directories or append job entries. The temporary
-source may be removed after successful registration.
+Omit `--approved-by-preflight` for the initial preflight. The command validates the task,
+requires its workspace to match the run, verifies the policy source, applies the ceiling,
+creates `jobs/<job.id>/task.yaml`, records the current `requirements_revision`, and prints
+the final task path. When capped, the task holds the selected model and the manifest
+records requested model, selected model, and limiting mode.
 
-After each process finishes, run `agent-run-manifest reconcile <run.yaml>`; do
-not hand-copy its result path, execution status, ID, or usage. Reconciliation
-verifies the immutable task hash and job ID, rejects multiple executions in one
-job directory, and writes those derived fields atomically. Keep full role
-reports in result files; do not copy them wholesale into `run.yaml`.
+After each process, run `agent-run-manifest reconcile <run.yaml>`; never hand-copy its
+result path, status, ID, or usage. Keep full reports in result files, not in `run.yaml`.
 
-Start at `contract_revision: 1` and increment it before every fresh preflight
-for a `substantive` or `replan` fix. A `mechanical` or `reduction` fix remains
-on the current revision. Preflight jobs use `approved_by_preflight: null`; every implementation
-and postflight job must name the exact approving preflight job. Other gate or
-specialist follow-ups record the current revision and use the approving
-preflight when one already exists. This linkage is required even when the same
-role, model, or writer responsibility continues.
+Start at `contract_revision: 1` and increment it before every fresh preflight for a
+`substantive` or `replan` fix; `mechanical` and `reduction` fixes stay on it. Preflight
+jobs have `approved_by_preflight: null`. Every implementation and postflight job names
+the exact approving preflight, even when role, model, or writer continues. Other gate or
+specialist follow-ups record the current revision and that preflight when one exists.
 
 ## Record Approved Requirement Changes
 
-Follow the skill's Requirements Fidelity rule. Main must recover an actual
-explicit developer decision before recording an amendment; a gate conclusion,
-existing code, or a claim that the ticket is stale is insufficient. Stop any
-affected writer first. If the run is terminal, resume it before recording the
-confirmed decision. Record each changed requirement through the same atomic
-manifest helper:
+Main must recover an actual explicit developer decision first; a gate conclusion,
+existing code, or a claim that the ticket is stale is not enough. Stop any affected
+writer. If the run is terminal, resume it. Then:
 
 ```bash
 agent-run-manifest amend-requirement /absolute/path/to/run.yaml R1 \
@@ -240,19 +118,13 @@ agent-run-manifest amend-requirement /absolute/path/to/run.yaml R1 \
   --reason 'The developer requested no temporary report files.'
 ```
 
-Use the exact previous/new wording and the real message or comment reference
-with its explicit decision. Record the developer's reason, or state that none
-was supplied. The helper appends `requirement_id`, `before`, `after`, `source`,
-`reason`, and the next `revision` to `run.requirements.amendments`, then advances
-`run.requirements.revision`. One amendment advances one revision; ordinary code
-fixes and fresh preflight cycles do not. It checks the record's structure, not
-whether its source is genuine or the amendment is semantically justified.
+Use the exact wording and the real message or comment reference, and the developer's
+reason, or say none was given. One amendment advances one revision; code fixes and fresh
+preflights do not. The helper checks structure, not whether the source is genuine.
 
-Keep old task/result files intact. New jobs capture the effective revision;
-main includes the applicable original excerpts and confirmed amendments in
-their prompts. Do not rewrite historical jobs to make a later decision appear
-to have been known earlier. Keep the ticket's synchronization status explicit
-in the next packet if its text still differs from the confirmed decision.
+Keep old task and result files intact and do not rewrite history. New jobs get the
+original excerpts and confirmed amendments in their prompts. State in the next packet when
+the ticket text still differs from the confirmed decision.
 
 ## Create One Task
 
@@ -284,46 +156,30 @@ supervision:
   max_attempts: 3
 ```
 
-Every field shown is required except `agent.developer_instructions`, which this
-workflow always supplies for delegated roles. Use absolute existing workspace
-paths. Put the normal adaptive requested model and approved effort in the draft;
-`agent-run-manifest new-job` applies any run-wide ceiling before the runner sees
-the immutable task.
+Every field is required except `agent.developer_instructions`, which this workflow always
+supplies. Use absolute existing paths. Put the adaptive requested model and approved
+effort in the draft; `new-job` applies any ceiling.
 
-Include the default routing matrix, requirements revision, contract revision and,
-for implementation and postflight, the approving preflight job ID inside
-`job.prompt`. Include stable requirement IDs, exact relevant source excerpts,
-source references, and confirmed amendments separately from main's technical
-hypothesis. Final postflight needs the complete source requirement set.
-These are prompt contents and manifest metadata; do not add unsupported keys
-to the strict `agent-task` v2 document.
+Inside `job.prompt`, include the routing matrix and applicable routing rules, requirements
+revision, contract revision, and for implementation and postflight the approving preflight
+job ID, plus requirement IDs, exact excerpts, source references, and confirmed amendments
+kept apart from main's hypothesis. Final postflight needs the complete requirement set. Add
+no unsupported keys to the document.
 
 ## Role Contracts And Output Envelope
 
-Supported roles are:
+Supported roles: `preflight-review`, `implementation-worker`, `postflight-review`,
+`repo-practice-review`, `best-practice-review`, `test-review`, `code-simplicity-review`,
+and `diagnosis-review`.
 
-- `preflight-review`;
-- `implementation-worker`;
-- `postflight-review`;
-- `repo-practice-review`;
-- `best-practice-review`;
-- `test-review`;
-- `code-simplicity-review`;
-- `diagnosis-review`.
+Composed discovery uses these specialist roles before initial preflight, with no approving
+preflight. Final review-task checks belong in a fresh `postflight-review` packet. Create no
+nested runs, skill-name roles, or extra schema fields. Model selection and the review-round
+count stay with main.
 
-Explicitly composed discovery uses these specialist roles before initial
-preflight, with no approving-preflight link. Final review-task checks belong
-in a fresh `postflight-review` packet and its existing report envelope. Do not
-create nested runs, unsupported skill-name roles, or extra task-schema fields
-for workflow composition. Model selection and the shared review-round count
-remain main's responsibility.
-
-Treat `${CODEX_HOME:-$HOME/.codex}/agents/<role>.toml` as the canonical role
-contract. Read its complete `developer_instructions` and place them in the task
-developer instructions. If the canonical file is unavailable, fail that
-mandatory role closed instead of reconstructing it from memory.
-
-Append these adapter instructions to every role contract:
+`${CODEX_HOME:-$HOME/.codex}/agents/<role>.toml` is the canonical role contract. Put its
+complete `developer_instructions` in the task. If the file is unavailable, fail that role
+closed rather than reconstructing it from memory. Append to every role contract:
 
 ```text
 The runner requires one universal structured output object. Perform the role
@@ -338,23 +194,18 @@ The universal status describes job execution, not the role decision:
 Do not create subagents or delegate.
 ```
 
-For `implementation-worker`, encode role status `implemented` as universal
-`completed`. Encode role status `replan_required` or `blocked` as universal
-`blocked`, and preserve the exact role status and explanation in `report`.
+For `implementation-worker`, role status `implemented` is universal `completed`;
+`replan_required` and `blocked` are universal `blocked`, with the exact role status and
+explanation in `report`.
 
-The main thread must interpret the role report. Never equate runner
-`completed` with preflight approval, postflight approval, or successful
-implementation without reading that report.
-
-Keep each cycle's `Requirements coverage` inside `outcome.report`, including
-the revision, IDs, exact effective wording/source, implementation or planned
-owner, validation, status, and any deviation with its decision source. Do not
-add fields to the universal output envelope. Main and reviewers verify this
-content; the generic runner neither interprets nor approves requirements.
+Main interprets the role report. Runner `completed` never means preflight approval,
+postflight approval, or successful implementation. Each cycle's `Requirements coverage`
+goes inside `outcome.report`, with no added envelope fields; the runner does not interpret
+requirements.
 
 ## Permission Mapping
 
-Use these v2 combinations only:
+Use only these combinations, always with `approval_policy: never`:
 
 | Job | sandbox_mode | network_access |
 | --- | --- | --- |
@@ -362,48 +213,37 @@ Use these v2 combinations only:
 | Normal implementation | `workspace_write` | `false` |
 | Implementation when the root run is explicitly unrestricted | `danger_full_access` | `true` |
 
-Always use `approval_policy: never`. Never broaden a job to full access merely
-because it needs network or an approval. If a safe task requires an unsupported
-permission combination, stop and ask the user to change the task, explicitly
-select direct subagents, or explicitly authorize unrestricted execution.
-
-The runner cannot pause for interactive approval. A denied operation becomes a
-semantic result that the main thread must surface. Do not retry it with broader
-permissions without a new user decision.
+Never broaden a job to full access merely because it needs network or an approval. If a
+safe task needs an unsupported combination, stop and ask the user to change the task,
+select direct subagents, or authorize unrestricted execution. The runner cannot pause for
+approval: a denied operation is a result main must surface, and it is not retried with
+broader permissions without a new user decision.
 
 ## Other-Vendor Jobs
 
-A task whose `agent.model` starts with `claude-` runs through the runner's
-Claude Code engine; every other model runs through Codex. The task and result
-schemas, the permission table, the worktree lock, and result interpretation are
-the same. Differences that matter to main:
+A task whose `agent.model` starts with `claude-` runs through the runner's Claude Code
+engine; every other model runs through Codex. Schemas, the permission table, the worktree
+lock, and result interpretation are the same. Differences:
 
 - the Claude engine needs a signed-in `claude` CLI on `PATH` or in
   `AGENT_RUNNER_CLAUDE_BIN`;
-- Bash runs in Claude's own sandbox; when that sandbox cannot start (for
-  example on Linux without bubblewrap), the job fails instead of running
-  unsandboxed;
-- a Claude job has one attempt and no context rotation; its supervision budget
-  is recorded, not enforced;
-- a read-only Claude job can run Bash inside the sandbox, which blocks writes
-  and network; a compound command may be denied, so keep commands simple;
-- `input_tokens` includes cache reads and cache writes, which are also reported
-  separately.
+- Bash runs in Claude's own sandbox; if it cannot start (for example on Linux without
+  bubblewrap), the job fails instead of running unsandboxed;
+- a Claude job has one attempt and no context rotation; its budget is recorded, not
+  enforced;
+- a read-only Claude job can run Bash in the sandbox, which blocks writes and network; a
+  compound command may be denied, so keep commands simple;
+- `input_tokens` includes cache reads and writes, which are also reported separately.
 
-Run `agent-runner` outside the Codex sandbox, as for any runner job: both
-engines need network access, and Claude's sandbox may fail to start inside
-another sandbox.
+Run `agent-runner` outside the Codex sandbox: both engines need network access, and Claude's
+sandbox may fail to start inside another one.
 
-Without the runner backend (direct subagents in Codex or Claude Code), prepare
-the task as under Create One Task with the selected model after the ceiling,
-write it to `<private-temp-dir>/<job-id>/task.yaml` with mode `0700` on the
-directory, run `agent-runner` on that path, and read its single result under
-`results/`. Do not call `agent-run-manifest` for these jobs. Report their
-usage from the result file in the Agent Usage summary.
+Without the runner backend, prepare the task as under Create One Task with the selected
+model after the ceiling, write it to `<private-temp-dir>/<job-id>/task.yaml` with mode `0700`
+on the directory, run `agent-runner` on that path, and read its single result under
+`results/`. Do not call `agent-run-manifest`. Report usage from the result file.
 
 ## Supervision Budgets
-
-Use these profile defaults:
 
 | Profile | soft | hard | grace seconds | attempts |
 | --- | ---: | ---: | ---: | ---: |
@@ -413,135 +253,76 @@ Use these profile defaults:
 | Critical | 350,000 tokens | 400,000 tokens | 60 | 5 |
 | Exceptional | 220,000 tokens | 250,000 tokens | 60 | 5 |
 
-Exceptional raises the reasoning tier, not the allowed job size. Keep its
-individual Astra job bounded and split separable responsibilities before
-preflight instead of giving one premium worker a Critical-sized packet.
-
-Use the requesting gate's effective profile for specialists. A changed profile
-or a materially larger task packet requires a new preflight decision before
-implementation. These limits control the latest worker turn's context, not a
-job's cumulative token usage or credits. Record observed attempts and usage in
-`run.yaml`. Runner jobs have no wall-clock timeout; the foreground caller may
-stop one explicitly with SIGINT or SIGTERM.
+Exceptional raises the reasoning tier, not the job size: keep an Astra job bounded and
+split separable responsibilities before preflight. Specialists use the requesting gate's
+profile. A changed profile or a materially larger packet needs a new preflight decision.
+These limits control the latest turn's context, not cumulative usage. Runner jobs have no
+wall-clock timeout; the caller may stop one with SIGINT or SIGTERM.
 
 ## Execute, Wait, And Interpret
 
-Invoke the resolved command in the foreground with the one task path. stdout
-must contain one absolute result path when the process exits.
+Invoke the command in the foreground with the one task path. On exit, stdout holds one
+absolute result path; silence until then is expected. Apply the Silent Long-Poll Discipline.
 
-Apply the skill's Silent Long-Poll Discipline throughout this wait. The rules
-below only map that discipline to the runner's two possible live handles.
-
-When the host exposes the programmatic `functions.exec` wrapper, start the
-foreground invocation with this first-line pragma so the outer cell also uses
-the five-minute wait window:
+When the host exposes the `functions.exec` wrapper, start the invocation with this first
+line so the outer cell uses the same wait:
 
 ```javascript
 // @exec: {"yield_time_ms": 300000}
 ```
 
-The transport may then yield either a nested shell `session_id` or an outer
-`functions.exec` `cell_id` before `agent-runner` exits. Treat both as
-transport-level yielding, not as job events:
+The transport may yield before the runner exits. Treat that as transport, not a job event,
+and stay on the same handle with the longest accepted wait, up to `yield_time_ms: 300000`:
+`write_stdin` with empty `chars` for a `session_id`, or `functions.wait` for a `cell_id`
+("Script running with cell ID ..."). Repeat silently until the terminal result, and do
+not read partial result YAML, repository state, or runner-owned files during the wait.
 
-- for a live `session_id`, wait with `write_stdin` using empty `chars` and
-  `yield_time_ms: 300000`;
-- when `functions.exec` reports `Script running with cell ID ...`, wait with
-  `functions.wait` using that `cell_id` and `yield_time_ms: 300000`;
-- continue with the same wait primitive and identifier until it returns a
-  terminal result; never alternate to short polling merely to check liveness;
-- if the host caps a wait below five minutes, use its maximum accepted wait and
-  repeat silently.
+The exit code reports transport, not semantic success:
 
-While either transport remains alive:
+- `0`: a trustworthy result was finalized; inspect it;
+- nonzero: no reliable result is guaranteed; stop the job and report stderr plus any safely
+  discoverable running artifact.
 
-- repeat that maximum five-minute long poll without commentary when it returns
-  the same live transport and no material state change;
-- never use short periodic polls merely to prove that the process is alive;
-- do not emit messages such as "still running", "still waiting", elapsed-time
-  reminders, or restatements of the unchanged phase;
-- do not inspect processes, heartbeats, partial result YAML, repository state,
-  or runner-owned files only to manufacture a progress update;
-- report only a terminal process/result, transport failure, approval or user
-  decision request, or a real semantic stage change that affects the workflow.
+Validate the result kind/schema, task path/hash, and terminal status before using the
+report. Then:
 
-If the user explicitly asks for status while the process is running, answer
-once from the current session state and then resume the same five-minute
-long-poll protocol. The absence of stdout is expected because the runner prints
-only its final result path. Waiting must not create model turns whose sole
-purpose is narrating unchanged state.
+- `completed`: interpret `outcome.report` by the role contract;
+- `blocked`: interpret the report and stop or replan as required;
+- `failed`, `interrupted`, `context_exhausted`: keep the artifact and decide whether the
+  evidence permits a new job;
+- `worktree_locked`: do not bypass the lock; wait for the known owner or stop with the conflict;
+- `invalid_task`: correct main-owned YAML in a new job directory;
+- `needs_approval`: reserved; stop for user input.
 
-The process exit code reports transport reliability, not semantic success:
+In runner mode, reconcile after validating and read the job entry before creating another
+job. A reconciliation failure is an orchestration error: keep the task and result, correct
+only main-owned metadata in a new safe action, and do not claim completion.
 
-- exit `0`: a trustworthy YAML result was finalized; inspect it;
-- nonzero: no reliable finalized result is guaranteed; stop the job and report
-  stderr plus any safely discoverable running artifact.
-
-Validate the result kind/schema, task path/hash, and terminal execution status
-before using the role report. Route statuses as follows:
-
-- `completed`: interpret `outcome.report` according to the role contract;
-- `blocked`: interpret the role report and stop or replan as required;
-- `failed`, `interrupted`, or `context_exhausted`: preserve the
-  artifact and decide whether evidence permits a new job;
-- `worktree_locked`: do not bypass the lock; wait for the known owner to finish
-  or stop with the conflict;
-- `invalid_task`: correct orchestration-owned YAML in a new job directory;
-- `needs_approval`: reserved; treat it as a stop requiring user input.
-
-In runner mode, after validating the result, invoke `agent-run-manifest reconcile` and read the
-reconciled job entry before creating another job. Treat reconciliation failure
-as an orchestration error: preserve the immutable task and result, correct only
-main-owned metadata in a new safe action, and do not claim the run completed.
-
-Read attempt diagnostics for failure, rotation analysis, budget tuning, or the
-required handoff/final usage summary. Follow Agent Usage At Handoff And
-Completion in the skill; do not expose the manifest path in user-facing reports.
-Pass future workers the approved task packet plus compact role reports and raw
-specialist evidence, never the entire prior result or hidden dialogue.
+Read attempt diagnostics for failures, rotation, budget tuning, or the usage summary. Give
+future workers the approved packet plus compact role reports and raw specialist evidence,
+never the entire prior result or hidden dialogue.
 
 ## Follow-Ups, Fixes, And Parallel Work
 
-Every runner process is one job and then exits. A later challenge or fix uses a
-fresh invocation. In runner mode, "same gate" or "same writer" means the same
-role, approved model/effort, ownership, and decision responsibility with all
-relevant prior artifacts supplied explicitly; it never means a resumed hidden
-thread.
+Every runner process is one job and then exits. In runner mode, "same gate" or "same writer"
+means the same role, approved route, ownership, and decision responsibility with prior
+artifacts supplied explicitly, never a resumed thread.
 
-An approved multi-slice Deep, Critical, or Exceptional implementation uses a
-separate fresh runner job for every ordered slice. Keep those writer jobs
-sequential in one worktree and link each to the same approving preflight and
-contract revision. Pass a later slice its approved contract, repository state,
-and exact consumed interfaces with compact prior-slice evidence. Fast and
-Standard work remains one implementation job unless preflight upgrades the task
-profile; do not micro-slice it.
+Each slice of an approved multi-slice plan is a separate job, sequential in one worktree and
+linked to the same preflight and revision, with its contract, repository state, and consumed
+interfaces. Fast and Standard work stays one job unless preflight upgrades the profile.
 
-A `mechanical` or `reduction` fix may keep the current `contract_revision`. Before a
-`substantive` or `replan` fix, create the next revision, dispatch a fresh
-preflight job, and link the later implementation and postflight jobs to that
-approval in `run.yaml`.
-
-Run independent read-only reviews concurrently through separate foreground
-tool calls when the tool layer supports parallel calls. Otherwise run them
-sequentially. Do not add a batch command, background process, daemon, shell
-`&`, or shared scheduler.
-
-Keep only one active implementation job per worktree. Different
-`agent-runner` processes already coordinate cooperating writers with a
-worktree lock, but `develop-task` must still sequence ownership explicitly and
-must not treat lock failure as a scheduler.
+Run independent read-only reviews concurrently through separate tool calls when the tool
+layer supports it, otherwise sequentially. Outside the Claude Code adapter's background calls,
+add no background process; never add a batch command, daemon, shell `&`, or shared scheduler. Keep one active implementation job per worktree. The runner's worktree lock
+coordinates cooperating writers, but the workflow still sequences ownership and must not treat
+lock failure as a scheduler.
 
 ## Reconcile And Finish The Run
 
-Before any final response in runner mode, run reconciliation again:
-
-```bash
-agent-run-manifest reconcile /absolute/path/to/run.yaml
-```
-
-Do not finish while any job is `pending` or `running`. Once the semantic
-terminal state is established, atomically close the manifest with exactly one
-of:
+Before any final response in runner mode, run `agent-run-manifest reconcile` again. Do not
+finish while a job is `pending` or `running`. Once the terminal state is established, close the
+run with one of:
 
 ```bash
 agent-run-manifest finish /absolute/path/to/run.yaml completed
@@ -550,10 +331,8 @@ agent-run-manifest finish /absolute/path/to/run.yaml needs_user_input
 agent-run-manifest finish /absolute/path/to/run.yaml stopped
 ```
 
-`finish` reconciles first and refuses an active job. Use `completed` only after
-postflight approval and required lifecycle actions. It also refuses any
-`jobs/*/task.yaml` that was not registered through the manifest. If a later
-user response legitimately resumes a terminal run, call
-`agent-run-manifest resume /absolute/path/to/run.yaml` before adding the next
-job. The helper does not decide whether a failed historical job was
-semantically resolved; the main thread and gates retain that responsibility.
+`finish` reconciles first, refuses an active job, and refuses any `jobs/*/task.yaml` not
+registered through the manifest. Use `completed` only after postflight approval and required
+lifecycle actions. If a later user response resumes a terminal run, call
+`agent-run-manifest resume /absolute/path/to/run.yaml` before the next job. The helper does not
+decide whether a failed historical job was resolved; main and the gates do.

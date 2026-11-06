@@ -63,7 +63,8 @@ evidence, not an unconstrained substitute. `current-model` is diagnostic only.
 ```
 
 The helper owns `run.yaml` and its lifecycle timestamps; never hand-write it, append
-job entries, or create final job directories. Main prepares each task and owns the job plan. The runner alone creates
+job entries, or create final job directories. Its fields are in
+[`run-manifest-schema.md`](run-manifest-schema.md), read only when you need one. Main prepares each task and owns the job plan. The runner alone creates
 result files. Workers must not receive orchestration paths or edit orchestration files.
 
 The `.events.jsonl` file is the job's own log of messages and tool calls, for diagnosing

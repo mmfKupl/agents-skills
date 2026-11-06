@@ -1,6 +1,6 @@
 ---
 name: ticket-title
-description: Give tracker tickets a clear title in one format, `<Type>: <clear title>`. Use whenever you work with a ticket, ideally always: when creating one, when starting implementation on one, and to suggest a better title when only reading one. Workflow skills also call it.
+description: "Give tracker tickets a clear title in one format, `<Type>: <clear title>`. Use whenever you work with a ticket, ideally always: when creating one, when starting implementation on one, and to suggest a better title when only reading one. Workflow skills also call it."
 ---
 
 # Ticket title

@@ -1,6 +1,6 @@
 ---
 name: develop-draft
-description: Build a working repository prototype quickly, with good implementation code, independent final review, preflight for non-trivial work, a small validation budget, and a draft PR linked to the known task. Use for $develop-draft, /develop-draft in Claude Code, or an explicit request for a quick prototype with minimal testing. Ordinary implementation requests belong to the normal development workflow.
+description: "Build a working repository prototype quickly: good code, independent final review, a small validation budget, and a draft PR. Use for `$develop-draft`, `/develop-draft` in Claude Code, or an explicit request for a quick prototype with minimal testing."
 ---
 
 # Develop draft

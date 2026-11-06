@@ -1,6 +1,6 @@
 ---
 name: trim-diff
-description: Shrink an existing diff without changing its behavior. A fresh read-only reviewer traces every added hunk and test to a requirement or concrete evidence, and the unjustified parts are deleted, merged, or replaced with existing helpers. Use for $trim-diff, /trim-diff in Claude Code, or when the user asks to remove junk, overengineering, extra tests, or bloat from the current changes, a branch, or a PR.
+description: Shrink an existing diff without changing behavior by removing code and tests nothing justifies. Use for `$trim-diff`, `/trim-diff` in Claude Code, or when asked to remove junk, overengineering, or extra tests from current changes, a branch, or a PR.
 ---
 
 # Trim Diff

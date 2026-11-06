@@ -1,6 +1,6 @@
 ---
 name: chat-title
-description: Keep the chat title in one format, `<status> <type>: <ticket> <description>`, so every chat reads the same in the sidebar. Use in every chat, ideally always: at its start and whenever its status changes. Workflow skills also call it.
+description: "Keep the chat title in one format, `<status> <type>: <ticket> <description>`, so every chat reads the same in the sidebar. Use in every chat, ideally always: at its start and whenever its status changes. Workflow skills also call it."
 ---
 
 # Chat title

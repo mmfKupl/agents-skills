@@ -1,6 +1,6 @@
 ---
 name: pdf-analysis-images
-description: Render missing PDF page images and agent-preview thumbnails for the glinet-file-mcp medical/lab analysis archive. Use when the user asks to process '/Volumes/Storage/kkupl/glinet-file-mcp/мама анализы', extract pictures/pages from PDFs, create images next to analysis PDFs, create agent-preview images, or refresh PDF/image preprocessing for the personal file MCP archive.
+description: "Render missing PDF page images and agent-preview thumbnails for the glinet-file-mcp medical and lab analysis archive. Use when asked to process that archive ('мама анализы') or refresh its PDF and image preprocessing."
 ---
 
 # PDF Analysis Images

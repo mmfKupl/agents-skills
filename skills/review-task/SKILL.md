@@ -1,6 +1,6 @@
 ---
 name: review-task
-description: Explicitly invoked deep audit workflow for already implemented repository tasks, local diffs, branches, pull requests, or ticket implementations. Use when the user writes `$review-task` (or `/review-task` in Claude Code) or asks to deeply review an implementation, verify whether a ticket was implemented correctly, find all credible risks, inspect tests, use preview/local runtime, run focused read-only validation, or create temporary probes such as Playwright checks. Invocation is an explicit request for read-only specialist delegation when useful. Do not use for implementing fixes.
+description: "Deep read-only audit of an implemented task, diff, branch, PR, or ticket: find credible risks, inspect tests, and run focused checks. Use only when the user writes `$review-task` (or `/review-task` in Claude Code) or asks for a deep review of an implementation. Not for implementing fixes."
 ---
 
 # Review Task

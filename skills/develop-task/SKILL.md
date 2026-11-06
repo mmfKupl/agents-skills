@@ -198,6 +198,12 @@ For the main chat, recommend `gpt-6.1-sol` low when coordinating a clear approve
 plan and medium when main must resolve substantive technical choices; keep the
 user's selection. Delegate difficult judgments to the gate tier.
 
+Use `gpt-6-luna` medium for bounded exploration and factual lookup, such as locating
+files, tracing an established flow, or extracting facts from documentation, and Luna
+high to correlate several sources on a clear question. Architecture, security, difficult
+root-cause, and other decision-determining questions use the requesting gate's tier or
+higher for their own risk.
+
 Do not create an agent job solely to run a known deterministic command. After the
 writer stops and mutation ownership is clear, main runs it. If an agent is needed
 only to choose a check or classify a deterministic log, use `gpt-6-luna` low or
@@ -264,8 +270,9 @@ on Codex only"); record it and run those jobs on the home vendor with the matrix
 - Main never silently overrides a gate, and never treats a specialist's report as the
   gate decision.
 - In runner mode, every implementation, including Fast, goes through an
-  `implementation-worker` job. In subagent mode, main writes product code only for a
-  confirmed Fast profile.
+  `implementation-worker` job. In subagent mode, main writes product code only when
+  preflight confirms Fast and main already holds the required context inside one local
+  ownership boundary.
 - Use the one generic `implementation-worker` role; add no language-specific workers
   without a demonstrated responsibility or tool-surface boundary.
 - One authorized worktree mutator at a time. Stop the current writer and transfer
@@ -290,7 +297,9 @@ Build a preliminary profile after minimal inspection. Treat Deep as Critical whe
 combines costly, difficult-to-reverse, or difficult-to-validate risks. `Critical`
 describes impact and reversibility; `Exceptional` describes reasoning difficulty
 beyond Critical, needs recorded evidence, and is never chosen merely for touching a
-critical domain.
+critical domain. Critical indicators include security, authentication, permissions,
+billing, persistence, migrations, destructive behavior, concurrency, public contracts,
+and low-validatability changes.
 
 | Profile | Use when | Preflight | Implementation | Postflight (other vendor) |
 | --- | --- | --- | --- | --- |
@@ -307,7 +316,8 @@ decision-determining questions stay on Sol or Astra unless a ceiling caps them.
 
 Fast and Standard work use one implementation job. For a preliminary Deep, Critical,
 or Exceptional task, when the source scope has Delivery slices, and before any
-promotion or diagnosis job, read [`references/routing.md`](references/routing.md).
+promotion or diagnosis job, and when preflight upgrades a task to slices, read
+[`references/routing.md`](references/routing.md).
 
 ## Gates and roles
 
@@ -343,7 +353,7 @@ prior result, diff, validation, findings, revision, and approving preflight job.
 Outside explicitly embedded discovery, specialists run only when a gate requests them
 for a concrete question: `repo-practice-review`, `best-practice-review`, `test-review`,
 and `code-simplicity-review` (on a plan; on the diff it already runs as the Reduction
-Pass).
+Pass, so a gate requests it there only for a new question).
 
 ## Workflow
 
@@ -363,14 +373,16 @@ Pass).
    return their raw reports to that gate.
 7. If preflight requires a stronger tier, rerun it. Resolve `revise first` or `blocked`.
 8. Build the Implementation Contract, or ordered slice contracts.
-9. Dispatch one `implementation-worker` per slice, sequentially, with the approved route.
+9. Dispatch one `implementation-worker` per slice, sequentially, with the approved
+   route, unless main may write the change itself under Ownership Invariants.
 10. After each slice, handle `implemented`, `replan_required`, or `blocked`, and inspect
     its coverage, interfaces, diff, and validation. Give the next writer the exact
     requirements, prior contracts, and produced interfaces. Do not start the next slice
     or expand the task after a replan trigger.
 11. Inspect status and diff. Run or verify focused validation and record failed,
-    unavailable, and skipped checks. Run Main validation and any check the writer
-    reported as not run. Transfer mutator ownership before a check that may update
+    unavailable, and skipped checks. The writer should run checks that may write files
+    before returning when its sandbox allows. Run Main validation and any check the
+    writer reported as not run. Transfer mutator ownership before a check that may update
     snapshots, generated files, lockfiles, or other artifacts, then inspect the diff.
     Send long output to a file in a private temporary directory and read only its summary
     and failures.
@@ -378,7 +390,8 @@ Pass).
 13. Recalculate the postflight floor from the request, profile, actual diff, deviations,
     and validation gaps. Prepare any selected review-task audit under
     `references/composed-workflows.md`.
-14. Dispatch `postflight-review` on the other vendor with the task packet, preflight
+14. After all slices finish, dispatch `postflight-review` on the combined change on the
+    other vendor with the task packet, preflight
     decision, writer result, changed files, diff, validation, cycle, shared round count,
     contract revision, approving preflight, prior findings and fixes, the Reduction Pass
     record, the full requirements and amendments, and the worker's coverage. Require
@@ -430,7 +443,8 @@ Everything is strict except the hypothesis: the writer may adjust local code sha
 naming, helpers, and test structure within the contract. Assign exact paths and remind
 it that other changes may exist. The role file defines its response format and replan
 triggers: any need beyond or different from the packet, such as changed behavior,
-owner, dependency, or critical contract, or intentionally weakening validation.
+owner, dependency, or critical contract, materially more files, an unsupported product
+assumption, or intentionally weakening validation.
 
 A check the writer cannot run is neither `blocked` nor `replan_required`: it finishes
 the edits, reports the check as not run, and main runs it.
@@ -491,7 +505,8 @@ new task. Diagnosis and fresh-preflight rules grant no extra rounds.
 
 After a gate requests a specialist, that gate owns its interpretation: which specialist,
 the exact question, required artifacts, and blocking or advisory. Gates never delegate
-recursively. Main picks the model/effort and dispatches on the gate's behalf.
+recursively. Main picks the model/effort from the Execution Profile and dispatches on
+the gate's behalf.
 
 Do not expand, rewrite, or adjudicate a request. Return the raw report to a fresh gate
 job with the complete prior gate report in runner mode, or to the same live gate in

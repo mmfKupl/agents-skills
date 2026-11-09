@@ -92,8 +92,8 @@ Exceptional. Use Astra xhigh only after Astra high makes a conceptual error or
 when preflight cites several inseparable Exceptional factors; never select
 Astra max automatically.
 
-Every preflight result must name one exact implementation model/effort and one
-exact postflight floor, never a range. Use `gpt-6-luna` medium for bounded
+Every preflight result names one profile, its slice types, and any route override, never
+a range; `dispatch` turns them into exact models. Use `gpt-6-luna` medium for bounded
 exploration and factual lookup: locating files, tracing an established flow,
 or extracting facts from documentation. Use Luna high when several sources
 must be correlated within a clear factual question. This applies to bounded

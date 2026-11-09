@@ -1153,7 +1153,9 @@ def _argument_parser() -> argparse.ArgumentParser:
     dispatch.add_argument("--for", dest="gate", default="preflight",
                           choices=("preflight", "postflight", "diagnosis"),
                           help="the gate a specialist serves")
-    dispatch.add_argument("--lookup", action="store_true", help="bounded factual lookup")
+    dispatch.add_argument("--lookup", nargs="?", const="medium", choices=("low", "medium", "high"),
+                          help="bounded factual lookup on Luna (default medium)")
+    dispatch.add_argument("--runner", help="exact agent-runner path the user supplied")
     dispatch.add_argument("--vendor", default="auto", choices=("auto", "home", "other"))
     dispatch.add_argument("--model", help="override the routed model; needs --reason")
     dispatch.add_argument("--effort", help="override the routed effort; needs --reason")
@@ -1170,7 +1172,8 @@ def _argument_parser() -> argparse.ArgumentParser:
     routing.add_argument("--slice", dest="slice_kind")
     routing.add_argument("--for", dest="gate", default="preflight",
                          choices=("preflight", "postflight", "diagnosis"))
-    routing.add_argument("--lookup", action="store_true")
+    routing.add_argument("--lookup", nargs="?", const="medium", choices=("low", "medium", "high"))
+    routing.add_argument("--ceiling", help="cap the model, as subagent mode must at every spawn")
     routing.add_argument("--vendor", default="auto", choices=("auto", "home", "other"))
     usage = commands.add_parser("usage", help="print the agent usage table")
     usage.add_argument("run_manifest", help="absolute path to run.yaml")
@@ -1219,6 +1222,7 @@ def main(argv: list[str] | None = None) -> int:
                 slice_kind=args.slice_kind, gate=args.gate, lookup=args.lookup,
                 vendor=args.vendor, model=args.model, effort=args.effort,
                 reason=args.reason, job_id=args.job_id, unrestricted=args.unrestricted,
+                runner=args.runner,
             )
             print(output, end="")
             return code
@@ -1230,7 +1234,8 @@ def main(argv: list[str] | None = None) -> int:
                 lookup=args.lookup,
             )
             vendor = run_dispatch.target_vendor(args.role, args.gate, args.vendor)
-            output = f"{run_dispatch.vendor_model(model, vendor)} {effort} ({rule}; {vendor} vendor)"
+            selected = run_dispatch.capped(run_dispatch.vendor_model(model, vendor), args.ceiling)
+            output = f"{selected} {effort} ({rule}; {vendor} vendor)"
         elif args.command == "usage":
             import run_dispatch
 

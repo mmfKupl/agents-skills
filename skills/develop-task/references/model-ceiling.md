@@ -2,6 +2,9 @@
 
 Read this when the invocation or the user sets a ceiling, in `M`, `E`, or plain words.
 
+The order is `gpt-6-luna` < `gpt-6.1-terra` < `gpt-6-sol` < `gpt-6.1-sol` < `gpt-6-astra`;
+`Sol` means `gpt-6.1-sol`, and the full `gpt-6-sol` ID requests the previous generation.
+
 - `adaptive` is the default: no ceiling.
 - `explicit_ceiling` (`E`) uses the model the user named: `E Sol`, `E: Luna`, `E Opus`, or
   "не выше модели Sol". Short names are Luna, Terra, Sol, Astra, Haiku, Sonnet, Opus, and
@@ -15,8 +18,11 @@ to translate it. `init` resolves explicit `M`/`E` itself; pass only your reading
 words through its `--mode` and `--maximum-model`. Report the mode and maximum model before
 the first job.
 
-The helpers enforce it: `dispatch` and `new-job` check the policy against its pinned source
-and cap every job, keeping its vendor and its effort. Do not change the source or policy to
+In runner mode the helpers enforce it: `dispatch` and `new-job` check the policy against its
+pinned source and cap every job, keeping its vendor and its effort. In subagent mode nothing
+does: pass `--ceiling` to `route` before every Agent or `spawn_agent` call and to `dispatch
+--no-manifest` for every other-vendor job, and state the requested and capped model in the
+packet when they differ. Do not change the source or policy to
 get past an error, and never fall back to `adaptive` when a constrained invocation cannot be
 resolved: recover the missing record.
 

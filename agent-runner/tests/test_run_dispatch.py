@@ -53,6 +53,7 @@ class RouteTests(unittest.TestCase):
             ("preflight-review", "exceptional"): ("gpt-6-astra", "high"),
             ("diagnosis-review", "standard"): ("gpt-6.1-sol", "high"),
             ("diagnosis-review", "critical"): ("gpt-6.1-sol", "xhigh"),
+            ("diagnosis-review", "fast"): ("gpt-6.1-sol", "high"),
         }
         for (role, profile), expected in cases.items():
             self.assertEqual(run_dispatch.route(role, profile)[:2], expected, (role, profile))
@@ -63,9 +64,14 @@ class RouteTests(unittest.TestCase):
                          ("gpt-6.1-terra", "high"))
         self.assertEqual(route("implementation-worker", "exceptional", slice_kind="exceptional")[:2],
                          ("gpt-6-astra", "high"))
-        self.assertEqual(route("diagnosis-review", "exceptional", slice_kind="exceptional")[:2],
-                         ("gpt-6-astra", "high"))
-        self.assertEqual(route("test-review", "standard", lookup=True)[:2], ("gpt-6-luna", "medium"))
+        self.assertEqual(route("test-review", "standard", lookup="medium")[:2], ("gpt-6-luna", "medium"))
+        self.assertEqual(route("test-review", "standard", lookup="high")[:2], ("gpt-6-luna", "high"))
+        self.assertEqual(route("test-review", "standard", gate="diagnosis")[:2], ("gpt-6.1-sol", "high"))
+        self.assertEqual(route("diagnosis-review", "exceptional")[:2], ("gpt-6-astra", "high"))
+        self.assertEqual(route("diagnosis-review", "deep")[:2], ("gpt-6.1-sol", "high"))
+        for bad in ({"lookup": "medium"}, {"gate": "postflight"}):
+            with self.assertRaises(run_manifest.ManifestError):
+                route("implementation-worker", "fast", **bad)
         self.assertEqual(route("code-simplicity-review", "fast", gate="postflight")[:2],
                          ("gpt-6.1-sol", "low"))
         for bad in ({"slice_kind": "visual"}, {"slice_kind": "critical-combined"}):
@@ -75,13 +81,15 @@ class RouteTests(unittest.TestCase):
             route("preflight-review", "deep", slice_kind="visual")
 
     def test_route_command(self) -> None:
-        with patch.dict(os.environ, {"CLAUDECODE": "1"}), patch("builtins.print") as printed:
+        with patch.dict(os.environ, {"CLAUDECODE": "1", "CODEX_THREAD_ID": ""}), patch("builtins.print") as printed:
             code = run_manifest.main(["route", "--role", "postflight-review", "--profile", "standard"])
-        self.assertEqual(code, 0)
-        self.assertEqual(printed.call_args[0][0], "gpt-6.1-sol medium (standard postflight; codex vendor)")
+            self.assertEqual(code, 0)
+            self.assertEqual(printed.call_args[0][0], "gpt-6.1-sol medium (standard postflight; codex vendor)")
+            run_manifest.main(["route", "--role", "preflight-review", "--profile", "deep", "--ceiling", "Sonnet"])
+            self.assertEqual(printed.call_args[0][0], "claude-sonnet-5-5 high (deep preflight; claude vendor)")
 
     def test_vendor(self) -> None:
-        with patch.dict(os.environ, {"CLAUDECODE": "1"}):
+        with patch.dict(os.environ, {"CLAUDECODE": "1", "CODEX_THREAD_ID": ""}):
             self.assertEqual(run_dispatch.target_vendor("postflight-review", "preflight", "auto"), "codex")
             self.assertEqual(run_dispatch.target_vendor("preflight-review", "preflight", "auto"), "claude")
             self.assertEqual(run_dispatch.target_vendor("code-simplicity-review", "postflight", "auto"), "codex")
@@ -125,6 +133,7 @@ class DispatchTests(unittest.TestCase):
         rollout.write_text("".join(json.dumps(item) + "\n" for item in items))
         environment = patch.dict(os.environ, {
             "CODEX_THREAD_ID": "thread-1", "CODEX_HOME": str(codex_home), "CLAUDECODE": "",
+            "CODEX_AGENT_RUNNER": "",
         })
         environment.start()
         self.addCleanup(environment.stop)
@@ -157,7 +166,7 @@ class DispatchTests(unittest.TestCase):
         self.assertEqual(task["supervision"]["max_attempts"], 3)
         self.assertIn("You are preflight-review.", task["agent"]["developer_instructions"])
         self.assertIn("universal structured output", task["agent"]["developer_instructions"])
-        self.assertTrue(task["job"]["prompt"].startswith("Routing: standard profile"))
+        self.assertTrue(task["job"]["prompt"].startswith("Routing: standard profile, preflight-review, gpt-6.1-terra"))
         job = yaml.safe_load(self.run_path.read_text())["jobs"][0]
         self.assertEqual((job["status"], job["limited_by"]), ("completed", "explicit_ceiling"))
 
@@ -172,7 +181,7 @@ class DispatchTests(unittest.TestCase):
 
         table = run_dispatch.usage_table(str(self.run_path))
         self.assertIn("| 001-preflight | gpt-6.1-terra medium (capped from gpt-6.1-sol) | completed | 1 | 30 | 60 | 10 | 7 (2) |", table)
-        self.assertIn("| Total: 2 jobs |", table)
+        self.assertIn("| Total: 2 jobs | | | 2 |", table)
         self.assertIn("| main | | | | 100 | 400 | 0 | 9 (3) |", table)
 
     def test_dispatch_rejects_unlinked_writer_and_bad_override(self) -> None:
@@ -184,9 +193,17 @@ class DispatchTests(unittest.TestCase):
                           contract_revision=1, model="gpt-6-astra", effort="high")
         with self.assertRaisesRegex(run_manifest.ManifestError, "contract-revision"):
             self.dispatch(role="preflight-review", profile="fast", run_manifest=str(self.run_path))
+        with self.assertRaisesRegex(run_manifest.ManifestError, "ceiling"):
+            self.dispatch(role="preflight-review", profile="fast", run_manifest=str(self.run_path),
+                          contract_revision=1, ceiling="Luna")
+        with self.assertRaisesRegex(run_manifest.ManifestError, "executable agent-runner"):
+            run_dispatch.dispatch(prompt_file=str(self.prompt), runner="/nonexistent",
+                                  role="preflight-review", profile="fast",
+                                  run_manifest=str(self.run_path), contract_revision=1)
+        self.assertEqual(yaml.safe_load(self.run_path.read_text())["jobs"], [])
 
     def test_dispatch_without_manifest_applies_ceiling_and_vendor(self) -> None:
-        with patch.dict(os.environ, {"CLAUDECODE": "1"}):
+        with patch.dict(os.environ, {"CLAUDECODE": "1", "CODEX_THREAD_ID": ""}):
             code, summary = self.dispatch(
                 role="postflight-review", profile="deep", workspace=str(self.workspace),
                 ceiling="Terra",

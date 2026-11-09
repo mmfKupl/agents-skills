@@ -43,7 +43,7 @@ lifecycle rules stay exactly as the skill describes them.
   MCP go to Main validation.
 - In `subagents` mode, home-vendor jobs are Claude subagents and other-vendor
   jobs still go through `agent-runner` without a manifest, as
-  `references/agent-runner.md` describes under Other-Vendor Jobs.
+  `references/agent-runner.md` describes under Dispatch A Job (`--no-manifest`).
 - In runner mode, `agent-run-manifest usage` prints the usage table, with main's row read
   from this session's transcript. In `subagents` mode the Agent tool reports only a total:
   get per-column numbers for subagents from
@@ -83,16 +83,17 @@ the effort level unchanged (`low`, `medium`, `high`, `xhigh`, `max`):
 | `gpt-6-astra`, Astra | `fable` | `claude-fable-5-1` |
 
 Other-vendor jobs keep the GPT model and run through the runner. In `subagents` mode,
-`agent-run-manifest route` prints the route for a role and profile; pass its Claude model
-as the matching Agent alias.
+get every home-vendor route from `agent-run-manifest route --role <role> --profile
+<profile> [--ceiling <model>]` and pass its Claude model as the matching Agent alias.
 
 Model ceilings use one ladder for both vendors: `haiku` = Luna < `sonnet` =
 Terra < `gpt-6-sol` < `opus` = GPT-6.1 Sol < `fable` = Astra. Accept both
 names in a ceiling (`E Sol` = `E opus`, `E Terra` = `E sonnet`, `E Luna` =
 `E haiku`, `E Astra` = `E fable`). For `M`, the ceiling is the main session's
 model at invocation time. A capped job keeps its vendor: under `E Terra`, a
-GPT postflight runs on `gpt-6.1-terra`. Apply the ceiling before every Agent
-call and every runner task, as the skill requires for direct subagents.
+GPT postflight runs on `gpt-6.1-terra`. In `subagents` mode nothing enforces the
+ceiling for you: pass `--ceiling` to `route` before every Agent call and to `dispatch
+--no-manifest` for every other-vendor job.
 
 When reporting the resolved policy, name the Claude model and, the first
 time, the GPT name it maps from (for example `opus high (Sol high)`).

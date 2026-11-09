@@ -60,18 +60,20 @@ model, applies the run's ceiling, builds the task from the canonical role file
 `${CODEX_HOME:-$HOME/.codex}/agents/<role>.toml` with the runner output envelope, sets
 permissions and context budgets for the role and profile, registers the job, runs it,
 reconciles the manifest, and prints the job, route, model, status, summary, result path,
-and the full role report. Use `agent-run-manifest route` with the same flags to see a route
-without running anything.
+and the full role report. `agent-run-manifest route` takes the role, profile, and routing
+flags (and `--ceiling`) and prints the route without running anything.
 
 - `--role`: `preflight-review`, `implementation-worker`, `postflight-review`,
   `repo-practice-review`, `best-practice-review`, `test-review`, `code-simplicity-review`,
   or `diagnosis-review`. Composed discovery uses these roles too, with no approving
   preflight; a final review-task audit goes in a `postflight-review` packet.
-- `--profile`: the confirmed Execution Profile. Specialists use the requesting gate's.
+- `--profile`: the confirmed Execution Profile. Specialists use the requesting gate's. For
+  `diagnosis-review`, it is the profile of the unresolved cause, not of the task.
 - `--slice visual|prose|critical-combined|exceptional`: the slice type preflight named.
 - `--for postflight` or `--for diagnosis`: a specialist that gate requested, and the
   Reduction Pass (`code-simplicity-review --for postflight`). These go to the other vendor.
-- `--lookup`: a bounded factual lookup on Luna.
+- `--lookup [low|medium|high]`: a specialist's bounded factual lookup on Luna; high to
+  correlate several sources, low to pick a check or classify a log.
 - `--vendor home|other`: overrides the vendor, for the usage-limit fallback or when the
   user turned cross-vendor review off.
 - `--model` and `--effort` with `--reason`: a promotion or another route preflight required;
@@ -80,6 +82,7 @@ without running anything.
   `implementation-worker` and `postflight-review`, and names the approving preflight for
   every other job when one exists. Increment the revision before each fresh preflight for a
   `substantive` or `replan` fix; `mechanical` and `reduction` fixes stay on it.
+- `--runner <path>`: an exact runner path the user supplied.
 - `--unrestricted`: full access and network for a writer, only when the user explicitly
   allowed unrestricted execution. Never broaden a job because it needs network or an
   approval; ask the user instead.
@@ -89,7 +92,9 @@ and amendments apart from the hypothesis, the contract revision, and for the wri
 Implementation Contract. Final postflight gets the complete requirement set. Every retry,
 gate challenge, specialist interpretation, fix, and postflight cycle is a new dispatch; a
 runner process never resumes a conversation, so "the same gate" means the same role, route,
-and responsibility with the prior reports in the packet.
+and responsibility with the prior reports in the packet. Exceptional raises the reasoning
+tier, not the job size: keep an Astra job bounded. A changed profile or a materially larger
+packet needs a new preflight decision.
 
 Without the runner backend, use `dispatch --no-manifest --workspace /absolute/worktree
 [--ceiling <model>]` with the same role and routing flags. It writes a private task, runs it,
@@ -119,7 +124,9 @@ If the transport yields, stay on the same handle with the longest accepted wait:
 `write_stdin` with empty `chars` for a `session_id`, or `functions.wait` for a `cell_id`. Do
 not read partial results, repository state, or runner files during the wait.
 
-A nonzero `runner_exit` means no reliable result: stop and report stderr. Otherwise read
+A nonzero `runner_exit` means no reliable result: stop and report stderr. A
+`reconcile_error` or `result_error` is an orchestration error: keep the task and result, fix
+only main-owned metadata in a new safe action, and do not claim completion. Otherwise read
 `execution_status`:
 
 - `completed`: interpret the role report. It is never approval or success by itself;
@@ -159,7 +166,7 @@ excerpts and confirmed amendments, and say when the ticket still differs.
 `agent-run-manifest usage /absolute/run.yaml` prints the Agent Usage table: every job with
 model and effort, status, attempts, uncached, cached, cache-write, and output tokens, totals
 that say when they are partial, and a main row from this session. Put it in handoffs and the
-final report as printed.
+final report as printed, with the fix/review cycle count.
 
 Before any final response, reconcile with `agent-run-manifest reconcile`. Once the terminal
 state is clear and no job is `pending` or `running`, close the run with

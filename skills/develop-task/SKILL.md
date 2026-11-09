@@ -252,8 +252,8 @@ fails because the account is out of usage, credits, or quota or is rate-limited 
 example "usage limit", "hit your limit", "rate limit", "quota", "429", "insufficient
 credits"), do not wait or retry that vendor. Rerun the job as a fresh home-vendor job
 with the matrix model and effort, and keep later cross-vendor jobs there until the
-user says otherwise. Say so in the next update, mark each job `home-vendor fallback:
-usage limit` in the usage table, and report it. The reviewer still gets a fresh
+user says otherwise. Say so in the next update, list those jobs as `home-vendor
+fallback: usage limit` under the usage table, and report it. The reviewer still gets a fresh
 context, never the writer's conversation. Missing CLIs, authentication failures, and
 other errors are not this exception.
 
@@ -318,14 +318,14 @@ promotion or diagnosis job, and when preflight upgrades a task to slices, read
 
 ## Gates and roles
 
-Preflight confirms or upgrades the lane, critical flags, writer, implementation
-model/effort, postflight minimum, and replan triggers, naming one exact route. It
+Preflight confirms or upgrades the profile, critical flags, writer, slice types, any
+route override with its reason, and replan triggers; `dispatch` derives the exact
+models from them. It
 also gives the minimal design: the approach, the existing code it reuses, and a size
 budget of rough production and test lines with the test scenarios. When it flags a
 requirement whose cost is out of proportion to its outcome, ask the developer before
-implementation; never drop it silently. With a
-ceiling, it states the requested and the capped model and must not ask to remove the
-ceiling. Implementation starts only on `Decision: proceed` and `Routing status:
+implementation; never drop it silently. It must not ask to remove a ceiling.
+Implementation starts only on `Decision: proceed` and `Routing status:
 confirmed` with no unresolved Blocking specialist request. `upgrade required` means
 `revise first`: rerun preflight at the upgraded tier.
 

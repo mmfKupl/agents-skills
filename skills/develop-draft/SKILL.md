@@ -5,11 +5,9 @@ description: "Build a working repository prototype quickly: good code, independe
 
 # Develop draft
 
-Deliver a working prototype for the user to try. Keep implementation quality,
-requirements fidelity, and independent review. Save time by omitting new tests,
-broad validation and runner administration. Deliver a draft PR linked to the
-known ticket by default; keep changes local only when the user requests it.
-This is a separate workflow, not the Fast profile of `develop-task`.
+Deliver a working prototype with full code quality, requirements fidelity, and
+independent review, but no new tests, broad validation, or runner
+administration. This is a separate workflow, not `develop-task`'s Fast profile.
 
 ## Runtime and ownership
 
@@ -22,17 +20,13 @@ the adapter supplies runtime mechanics only. Do not load the full
 `develop-task` workflow or inherit its test or runner defaults.
 Read applicable `AGENTS.md` and, in Claude Code, `CLAUDE.md` instructions.
 
-Main owns framing, routing, validation, and integration. For Fast work, main
-checks the plan against repository evidence and may implement directly, without
-a preflight agent. Standard and higher profiles require `draft-review` plan
-approval and an `implementation-worker`. Every profile requires a fresh
-`draft-review` agent for final code review, independent of the writer and any
-preflight reviewer. There is exactly one writer
-at a time. Stop it before main runs commands that can change files.
-Workers cannot commit, push, publish, change tickets, or recursively delegate.
-Preserve unrelated user changes; never revert or include them in the result.
-If a required reviewer or delegation tool is unavailable, report the exact
-blocker. Do not substitute main's self-review for independent approval.
+Main owns framing, routing, validation, and integration. Every profile gets a
+fresh `draft-review` final reviewer that is neither the writer nor the
+preflight reviewer. One writer at a time; stop it before main runs commands
+that can change files. Workers cannot commit, push, publish, change tickets, or
+delegate. Never revert or include unrelated user changes. If a required
+reviewer or delegation tool is unavailable, report the exact blocker; main's
+self-review is no substitute.
 
 ## Task title
 
@@ -43,8 +37,8 @@ outer workflow that owns publication. It does not mean production-ready or merge
 
 ## Prototype contract
 
-Inspect repository status and only the code needed to locate the change and
-its existing patterns. Then prepare one compact packet for gates and writer:
+Inspect repository status and only the code needed to locate the change and its
+patterns, then prepare one packet for gates and writer:
 
 ```text
 Workflow: develop-draft
@@ -63,211 +57,161 @@ Delivery: repository/base branch, known ticket or none, existing task PR or none
 Replan triggers:
 ```
 
-Keep the source requirements distinct from the proposed implementation. Do
-not remove behavior to make a prototype easier. Later explicit user decisions
-amend the relevant requirements; reviewer preference cannot amend them.
-Reuse real project components and ordinary maintainable code. Avoid duplicate
-implementations, speculative abstractions, adjacent cleanup, suppressed errors,
-disabled checks, and fake success states. Use mocks or in-memory substitutes
-only when consistent with the requested demo, and make their limitations clear.
-Keep real authorization, data protection, and existing critical contracts intact.
-
-An unfinished secondary feature can be out of scope when the user requested
-that scope. An implementation defect in the agreed demo is a review finding.
-Do not mark runtime behavior verified merely because source review passed.
+Keep source requirements separate from the implementation and never drop
+behavior to ease the prototype; only explicit user decisions amend them. Reuse
+real components; no duplicates, speculative abstractions, adjacent cleanup,
+suppressed errors, disabled checks, or fake success. Use mocks or in-memory
+substitutes only if the demo allows, stating their limits. Keep real
+authorization, data protection, and critical contracts intact. A secondary
+feature the user scoped out may stay unfinished; a defect in the agreed demo is
+a finding. Source review does not verify runtime behavior.
 
 ## Routing matrix
 
-Use the same model tiers as `develop-task`, with direct delegation and a
-smaller validation contract. More agents are not a substitute for choosing a
-capable writer. Keep one implementation job for a coherent prototype.
+`develop-task`'s model tiers, delegated directly. `Sol` is `gpt-6.1-sol`,
+`Terra` is `gpt-6.1-terra`, `Astra` is `gpt-6-astra`.
 
 | Profile | Evidence | Preflight | Writer | Final review |
 | --- | --- | --- | --- | --- |
-| Fast | Local, clear behavior and established pattern | Main checks plan; no agent gate | Main or `gpt-6.1-terra` medium | `gpt-6.1-sol` low |
-| Standard | Non-trivial but bounded implementation | `gpt-6.1-sol` medium | `gpt-6.1-terra` high | `gpt-6.1-sol` medium |
-| Deep | Cross-layer, novel, ambiguous, or hard to validate | `gpt-6.1-sol` high | `gpt-6.1-sol` high | `gpt-6.1-sol` high |
-| Critical | Combined critical contracts, costly failure, or poor reversibility | `gpt-6.1-sol` xhigh | `gpt-6.1-sol` high; xhigh for the exact combined-risk responsibility | `gpt-6.1-sol` xhigh |
-| Exceptional | Coupled novel reasoning beyond Critical, or an evidenced Sol conceptual failure | `gpt-6-astra` high | `gpt-6.1-sol` high; Astra high for the exact exceptional responsibility | `gpt-6-astra` high |
+| Fast | Local, clear behavior and established pattern | Main checks plan; no agent gate | Main or Terra medium | Sol low |
+| Standard | Non-trivial but bounded implementation | Sol medium | Terra high | Sol medium |
+| Deep | Cross-layer, novel, ambiguous, or hard to validate | Sol high | Sol high | Sol high |
+| Critical | Combined critical contracts, costly failure, or poor reversibility | Sol xhigh | Sol high; xhigh for the exact combined-risk responsibility | Sol xhigh |
+| Exceptional | Coupled novel reasoning beyond Critical, or an evidenced Sol conceptual failure | Astra high | Sol high; Astra high for the exact exceptional responsibility | Astra high |
 
-In a Deep or higher prototype, a visual responsibility (UI on an established
-component pattern) or a prose responsibility (documentation or user-facing
-copy) may use `gpt-6.1-terra` high, as in `develop-task`. Final review stays on
-the home vendor; cross-vendor review belongs to `develop-task` only.
+In Deep or higher, a visual (UI on an established component pattern) or prose
+(documentation, user-facing copy) responsibility may use Terra high. Final
+review stays on the home vendor, never cross-vendor.
 
-Main resolves Fast routing; preflight resolves other profiles. Select one exact
-writer/model/effort and final-review model/effort before implementation.
-Fast requires a clear, local, reversible change with no changed critical
-contract or consequential uncertainty. Do not label work Fast merely to skip
-preflight. New ambiguity, wider scope, or a critical-contract change moves it
-to Standard or higher and requires preflight before the affected edits.
-Critical impact alone does not justify Exceptional. A deterministic lint or
-build failure does not justify promotion. If the demo crosses responsibilities
-that cannot safely share one packet, preflight defines ordered, bounded slices
-with explicit interfaces; writers remain sequential and final review covers
-the combined diff. Do not split small work just to add jobs.
+Main routes Fast after checking its plan against repository evidence;
+preflight routes the rest. Fix the exact writer and final-review model/effort
+before implementation. Fast is clear, local, reversible work with no changed
+critical contract or consequential uncertainty, never a way to skip preflight.
+New ambiguity, wider scope, or a critical-contract change promotes to Standard
+or higher, with preflight before the affected edits. Critical impact alone is
+not Exceptional; a deterministic lint or build failure does not promote. Prefer
+a capable writer to more agents: one job per coherent prototype, never split
+small work. If the demo spans responsibilities that cannot share one packet,
+preflight sets ordered, bounded slices with explicit interfaces; writers stay
+sequential and final review covers the combined diff.
 
-Honor user model ceilings on every job. Support `E <model>` for an explicit
-maximum and `M` for the invocation-turn main model. Default to adaptive routing.
-In Codex the order is Luna < Terra < previous `gpt-6-sol` < `gpt-6.1-sol` <
-Astra; `Sol` means `gpt-6.1-sol` and `Terra` means `gpt-6.1-terra`. In Claude
-use the adapter's order and aliases.
-Select the lower of the matrix model and the ceiling, preserving effort;
-report requested and selected models when capped. Recover an unknown `M`
-from runtime evidence or ask which ceiling applies before delegation. Never
-guess, silently drop a ceiling, or ask to raise it because a job is difficult.
-Spawn fresh agents with explicit selected model and effort and a self-contained
-packet, using `fork_turns: "none"` in Codex or a fresh Agent call in Claude.
-Main may write a Fast change only when its actual model satisfies the ceiling;
-otherwise select a capped worker. Do not change the user's main model setting.
+Ceilings cap every job: `E <model>` explicitly, `M` at the invocation-turn main
+model; default adaptive. Codex order: Luna < Terra < previous `gpt-6-sol` < Sol
+< Astra; Claude uses the adapter's. Take the lower of matrix model and ceiling
+at the same effort; report requested and selected models when capped. Resolve
+an unknown `M` from runtime evidence or ask before delegating. Never guess,
+drop, or ask to raise a ceiling. Spawn fresh agents with explicit model, effort,
+and a self-contained packet (`fork_turns: "none"` in Codex, a fresh Agent call
+in Claude). Main writes a Fast change only if its own model is within the
+ceiling, else a capped worker does. Never change the user's main model.
 
 ## Validation budget
 
-Default policy for main, writer, and reviewers:
+Default for main, writer, and reviewers:
 
-- Do not write or update automated tests, test fixtures, or stories solely as
-  coverage by default. UI assets requested as the deliverable remain in scope.
-  Read existing tests when useful to understand a contract.
-- Run `git diff --check` and inspect the complete task diff. Choose the smallest
-  useful validation: one short check of the actual changed flow is preferable
-  to redundant builds or more discussion of the plan. Add at most two targeted
-  automated checks, such as changed-file lint, affected-package typecheck, a
-  narrow build, or one existing quick test directly relevant to the change.
-- The optional test must run without new setup and provide better evidence
-  than the alternatives. Use a precise test selector and verify the command's
-  scope. It counts toward the same two-check and time budget; it is not an
-  extra phase. Do not run test suites, E2E, screenshot, coverage, or CI jobs.
-  If the user explicitly prohibits all tests, do not run even this quick test.
-  Inspect composite commands so they do not launch broad checks implicitly.
-- Aim for a combined validation budget of about two minutes per candidate,
-  including automated checks, any quick test, runtime startup, and manual demo.
-  Do not install a toolchain, start containers, or run a workspace build just
-  for validation. Stop a slow check at a safe boundary and report what remains
-  unchecked. This budget limits checks, not implementation or agent reasoning.
-- When an existing local runtime is easy to use, perform one short manual demo
-  of the changed flow. For UI changes, inspect the rendered result when feasible.
-  A short local start is fine within the budget. Do not replace omitted tests
-  with an extensive browser script or a temporary test harness.
-- Reuse successful evidence until relevant code changes. After fixes, rerun
-  only affected checks. A failing selected check must be fixed or explicitly
-  identified as an unrelated baseline issue; a timeout is not a pass.
+- Write or update no tests, fixtures, or stories just for coverage; requested
+  UI assets stay in scope. Reading existing tests is fine.
+- Run `git diff --check`, inspect the full diff, and add at most two targeted
+  checks, preferring one short check of the changed flow: changed-file lint,
+  affected-package typecheck, a narrow build, or one relevant existing quick
+  test (no new setup, better evidence than the alternatives, precise verified
+  selector; none if the user prohibits all tests). No suites, E2E, screenshot,
+  coverage, or CI jobs, directly or through composite commands.
+- About two minutes per candidate for all of it, including startup and demo. No toolchain
+  installs, containers, or workspace builds to validate; stop a slow check at a
+  safe boundary and report what is unchecked. This limits checks, not
+  implementation or reasoning.
+- One short manual demo when a local runtime is easy to use; inspect rendered UI
+  when feasible. No extensive browser script or temporary harness.
+- Reuse passing evidence until relevant code changes, then rerun only affected
+  checks. Fix a failing selected check or show it is an unrelated baseline
+  issue; a timeout is not a pass.
 
-User instructions can amend this policy. Reviewers may recommend replacing a
-less useful check with one existing quick test within the same budget; they
-cannot add new test work, broad checks, or CI waiting. If an applicable
-repository rule requires validation beyond this policy,
-or the changed critical contract needs evidence this budget cannot provide,
-explain the concrete conflict and pause only the affected work for a scope or
-validation decision. Offer a reversible local demo boundary when it meets the
-requirements; do not silently substitute it for required real behavior.
-Do not claim production readiness from this workflow.
+User instructions can amend this. Reviewers may recommend one existing quick
+test in place of a check, but not new test work, broad checks, or CI waits.
+If a repository rule or changed critical contract needs more evidence, explain
+the conflict and pause only the affected work for a scope or validation
+decision. Offer a reversible local demo boundary if it meets the requirements,
+never as a silent substitute for required real behavior. Never claim production
+readiness.
 
 ## Execution and review
 
-1. Report the prototype scope, profile, runtime/backend, ceiling, and short
-   validation plan. Resolve only missing product decisions that affect the demo.
-2. For Fast, check the compact plan yourself and implement without dispatching
-   preflight. For Standard or higher, send the packet to a read-only
-   `draft-review` agent with `Phase: preflight` and obtain approval before
-   implementation. Correct a rejected plan and return it to the gate. Give
-   gate findings to the writer with the approved packet.
-3. Implement within the agreed ownership and validation policy. A delegated
-   worker returns its normal requirements and interface report; main need not
-   produce a separate worker report for a Fast edit. Stop for a revised plan
-   before changing behavior, ownership, dependencies, or critical contracts
-   outside that packet. Report deviations with repository evidence.
-4. Inspect the resulting diff and run or reuse the bounded checks. Capture exact
-   failures and demo observations. Missing runtime evidence stays a named gap.
-5. Dispatch a fresh `draft-review` agent with `Phase: final`, the original
-   requirements, current packet, task diff, worker report if any, and check results.
-   The writer and preflight agent cannot serve as the final reviewer. Review
-   must cover correctness, requirements, local practice, simplicity, and the
-   agreed validation policy without adding a specialist parade. It also
-   returns a cut list for code and tests with no traceable justification.
-6. Relay blocking findings and validation gaps before another edit. Fix concrete
-   in-scope defects with the same writer. Revise the packet when a fix changes
-   the boundary, behavior, critical contract, or model profile. When the packet
-   needs revision, main checks it if the work remains Fast; otherwise obtain
-   fresh preflight before affected edits. Ordinary fixes within the current
-   plan do not require another preflight for any profile.
-   After every code mutation, rerun affected checks and obtain final review of
-   the new diff. Never reuse approval for an older candidate.
-   Apply a non-empty cut list with the same writer before approval: exactly the
-   listed cuts, no new code, then rerun affected checks. Revert a cut that
-   breaks a check or changes required behavior and tell the reviewer why. Cuts
-   need no preflight, and a round whose only finding is cuts does not count
-   as unsuccessful.
-7. Allow at most two unsuccessful final review rounds. If the second still
-   requires correction, preserve the diff and report the remaining decision.
-   If a fix leaves the same observable failure unresolved, stop speculative
-   edits and obtain a fresh read-only diagnosis with the reproduction, failed
-   hypothesis, diff, and logs before another fix. A diagnosis may use the
-   `diagnosis-review` role at the final-review tier within the same ceiling.
-   An unknown cause requires more evidence, not another guess. Neither a
-   diagnosis nor a replan resets the review budget.
-8. After final approval of the current diff, complete Delivery below. The
-   requested demo, draft PR, and applicable ticket link must be ready before
-   claiming completion, unless local-only delivery was requested or an outer
-   workflow owns publication. No job or required check may remain running.
+1. Report scope, profile, runtime/backend, ceiling, and validation plan. Ask only
+   for missing product decisions that affect the demo.
+2. Standard or higher: a read-only `draft-review` agent (`Phase: preflight`)
+   must approve the packet (correct and resubmit a rejected one) before an
+   `implementation-worker` gets it with the findings.
+3. Implement within the packet; a worker returns its requirements and interface
+   report. Stop for a revised plan before changing behavior, ownership,
+   dependencies, or critical contracts outside it; report deviations with
+   evidence.
+4. Inspect the diff, run or reuse the bounded checks, and record exact failures
+   and demo observations; missing runtime evidence is a named gap.
+5. Give the final reviewer (`Phase: final`) the original requirements, packet,
+   diff, any worker report, and check results. It covers correctness,
+   requirements, local practice, simplicity, and validation policy without a
+   specialist parade, and returns a cut list of unjustified code and tests.
+6. Relay blocking findings and gaps before editing; the same writer fixes
+   in-scope defects. A fix that changes boundary, behavior, critical contract,
+   or profile needs a revised packet, checked by main for Fast and by fresh
+   preflight before affected edits otherwise; fixes within the plan need no
+   new preflight. After every code change, rerun affected checks and review the
+   new diff; approval never carries over. Before approval the same writer
+   applies a non-empty cut list exactly, with no new code; revert and explain
+   any cut that breaks a check or required behavior. Cuts need no preflight,
+   and a cuts-only round is not unsuccessful.
+7. At most two unsuccessful final review rounds; then keep the diff and report
+   the remaining decision. If a fix leaves the same observable failure, stop
+   guessing: get a fresh read-only diagnosis (reproduction, failed hypothesis,
+   diff, logs), optionally `diagnosis-review` at the final-review tier within
+   the ceiling. An unknown cause needs more evidence. Diagnoses and replans do
+   not reset the round budget.
+8. After final approval of the current diff, complete Delivery. Claim completion
+   only when the demo, draft PR, and applicable ticket link are ready (unless
+   local-only or outer-owned) and no job or required check is running.
 
-Use extra specialists only for a specific unresolved blocking question that
-the gate cannot settle from the available evidence. Main dispatches them
-read-only, supplies the draft validation policy, and returns their findings
-to the gate. Advisory style preferences do not start a correction cycle.
+Add a specialist only for a specific blocking question the gate cannot settle;
+main dispatches it read-only with this validation policy and returns its
+findings to the gate. Advisory style preferences start no correction cycle.
 
 ## Delivery
 
-Main owns delivery after current final approval. Invoking this workflow
-authorizes committing the task changes, pushing a task branch, creating a
-draft PR, and linking it to an already identified ticket. Do not ask for the
-same authorization again. An explicit local-only request overrides this
-default. If an explicitly invoked outer workflow owns delivery, hand it the
-approved result and follow its instructions instead of publishing twice.
+After current final approval, main commits the task changes, pushes a task
+branch, opens a draft PR, and links an already identified ticket without asking
+again; invoking this workflow authorizes that. An explicit local-only request
+overrides it. If an explicitly invoked outer workflow owns delivery, hand it
+the approved result and follow it instead of publishing twice.
 
-- Isolate only the reviewed task changes. Preserve unrelated dirty files.
-  Use the repository's branch and commit conventions, defaulting to a `codex/`
-  task branch when none are established. Do not push task implementation
-  directly to the default branch. Determine the actual repository and PR base.
-- Inspect an existing task PR before creating another. Reuse an appropriate
-  existing draft PR; do not replace or downgrade a ready PR without user
-  direction. Commit and push, then create or update the draft PR. Describe
-  observable behavior, how to try it, prototype limitations, actual checks,
-  and skipped validation. Do not present skipped checks as passing.
-- When a ticket is established by the request or verified task context, include
-  its exact ID in the PR title and link its actual URL in the body. Use the
-  tracker integration or repository's linking convention to associate the PR
-  with that ticket, preferably a native PR attachment/relationship. Check for
-  an existing link before adding one. A ticket found merely as a similar issue
-  is not the target. If no unambiguous target exists, publish the PR without
-  inventing a ticket or blocking on optional association.
-- Do not change ticket assignee/status, close it, assign PR reviewers, or send
-  comments/messages unless separately requested. Creating the native ticket
-  relationship is within delivery scope; generic tracker updates are not.
-- In Codex, attach every created or continued task PR using `attach_artifact`
-  when available. In Claude Code use the configured GitHub and tracker tools
-  or CLIs; Codex-only chat attachments are not a Claude completion gate.
-- Do not merge, deploy, or wait for CI. If push triggers checks automatically,
-  report that they were not awaited. Do not bypass hooks or required policy
-  just to meet the validation budget; report a concrete conflict if delivery
-  requires work beyond the authorized validation policy.
+- Commit only the reviewed changes, by repository conventions (default: a
+  `codex/` branch), never to the default branch, against the actual repository
+  and base.
+- Check for an existing task PR and reuse a suitable draft; never replace or
+  downgrade a ready PR without user direction. Commit, push, then create or
+  update the draft PR with behavior, how to try it, limitations, actual checks, and
+  skipped validation, never shown as passed.
+- For a ticket established by the request or verified context, put its exact ID
+  in the PR title and URL in the body, and link the PR through the tracker
+  integration or repository convention, preferably natively, unless already
+  linked. A merely similar issue is not the target; with no unambiguous target,
+  publish without inventing one or blocking.
+- Do not change ticket assignee/status, close it, assign reviewers, or send
+  comments/messages unless asked; only the native ticket link is in scope.
+- In Codex, attach every created or continued task PR with `attach_artifact`
+  when available. In Claude Code use the configured GitHub and tracker tools or
+  CLIs; Codex-only chat attachments are not a Claude completion gate.
+- Do not merge, deploy, or wait for CI; say triggered checks were not awaited.
+  Never bypass hooks or required policy to fit the budget; report the conflict.
 
-Any implementation mutation after approval invalidates it; rerun affected
-bounded checks and final review before delivery continues. Missing GitHub or
-tracker access does not erase finished work: complete unaffected delivery,
-report the exact remaining blocker, and provide the PR or local commit state.
-A missing required ticket relationship is a delivery gap, not a fully linked
-success. Do not silently call a local patch the completed default workflow.
+Missing GitHub or tracker access does not erase finished work: complete
+unaffected delivery, report the exact blocker, and give the PR or commit state.
+A missing required ticket link is a delivery gap. Never call a local patch the
+completed default workflow.
 
-The final response should say:
-
-- what works and how to run or try the demo;
-- which checks and demo steps passed, failed, or were unavailable, whether one
-  existing quick test ran, and that no tests were added unless requested;
-- concrete demo limitations and remaining unverified behavior;
-- preflight approval or its Fast exemption, final-review decision, correction
-  rounds, roles and actual models/efforts;
-- draft PR URL/state, ticket association or why none applies, branch and
-  committed/pushed state, plus any delivery blocker or decision still needed.
-
-Keep reporting compact. Use token usage only when the runtime supplies it;
-never invent telemetry or create accounting infrastructure for a prototype.
+The compact final response states: what works and how to try it; checks and
+demo steps passed, failed, or unavailable, whether the quick test ran, and that
+no tests were added unless requested; limitations and unverified behavior;
+preflight approval or Fast exemption, final-review decision, correction rounds,
+roles, and actual models/efforts; draft PR URL/state, ticket link or why none,
+branch and commit/push state, and any blocker or pending decision. Report token
+usage only if the runtime supplies it; never invent telemetry or build accounting.

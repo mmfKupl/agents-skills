@@ -23,236 +23,161 @@ not approved.
 
 ## Outcome and boundary
 
-Turn an incomplete idea or feasibility question into a proportionate,
-repository-grounded result. A Spike ends with evidence and a recommendation. A
-Bounded or Architectural path establishes the product intent, compares local
-practice with general engineering practice when that comparison can change the
-decision, considers viable approaches, and makes the boundary clear enough for
-a later implementation workflow.
-
-This is a read-only discovery workflow. Do not edit product code, tests,
-configuration, tickets, or external systems. Do not start implementation,
-write an implementation plan, or invoke an implementation workflow. Create a
-scope document only when the user separately asks for one after scoping.
-
+Read-only: do not edit product code, tests, configuration, tickets, or
+external systems, implement, write an implementation plan, or invoke an
+implementation workflow. Write a scope document only if asked after scoping.
 Invocation authorizes read-only delegation to `repo-practice-review`,
-`best-practice-review`, and `test-review`. Do not delegate to a writer.
+`best-practice-review`, `test-review`, and the `code-simplicity-review` cost check. Never
+delegate to a writer.
 
 ## Embedded discovery
 
-When the user explicitly combines this skill with `$develop-task` to perform
-one task, read [`../develop-task/references/composed-workflows.md`](../develop-task/references/composed-workflows.md).
-Main performs discovery inside that engineering run; it does not delegate a
-second orchestrator. Inherit its backend, routing matrix, model ceiling,
-requirement sources, and usage accounting before dispatching any specialist.
-The standalone specialist model defaults below do not apply in that mode.
-
-Keep discovery read-only. After its scope is ready, return it to the coordinator
-for persistence and implementation only under the user's explicit combined
-request. Interactive checkpoints still apply; autopilot is not inferred from
-the presence of develop-task. A Spike does not authorize implementation.
-Do not mark the outer task done when discovery finishes.
+When the user explicitly combines this skill with `$develop-task` for one task,
+read [`../develop-task/references/composed-workflows.md`](../develop-task/references/composed-workflows.md).
+Main runs read-only discovery inside that run, without a second orchestrator,
+inheriting its backend, routing matrix, model ceiling, requirement sources, and
+usage accounting before any specialist dispatch, not the standalone model
+defaults below. Hand the scope to the coordinator for persistence and
+implementation only under the explicit combined request. Interactive
+checkpoints still apply; develop-task does not imply autopilot. A Spike does
+not authorize implementation. Do not mark the outer task done when discovery
+finishes.
 
 ## Modes
 
 Use `brainstorm` unless the user explicitly requests `autopilot` through
 `$brainstorm-task autopilot` or an unambiguous phrase such as "без вопросов",
-"сам реши", or "пройди самостоятельно". Do not infer autopilot from a long or
-detailed input.
-
-- `brainstorm` collaborates through small checkpoints and exactly one question
-  per interview turn.
-- `autopilot` performs the same research, decomposition, interview, and option
-  analysis internally. It asks no questions and waits for no approvals.
+"сам реши", or "пройди самостоятельно". A long or detailed input does not imply
+autopilot. Autopilot does the same work internally, with no questions or
+approvals.
 
 ## Scope depth
 
-After the initial understanding is confirmed in brainstorm mode, or internally
-in autopilot mode, classify the work before choosing research and review depth:
+Once the initial understanding is confirmed (internally in autopilot), classify the work:
 
-- `Spike`: a feasibility or investigation question whose requested result is
-  evidence and a recommendation, not implementation scope. Use the narrowest
-  probe that can answer it. Do not manufacture a canonical implementation task.
-- `Bounded`: one coherent change to an existing repository flow with a clear
-  owner, limited blast radius, and no new subsystem or consequential interface
-  redesign. Produce a concise scope in chat.
-- `Architectural`: a new subsystem, a material restructuring, or a coherent
-  task that changes multiple consequential interfaces or requires design
-  choices whose tradeoffs affect later implementation. Use the full workflow.
+- `Spike`: a feasibility or investigation question answered with evidence and a
+  recommendation from the narrowest probe, with no canonical scope.
+- `Bounded`: one coherent change to an existing flow with a clear owner,
+  limited blast radius, and no new subsystem or consequential interface
+  redesign. A concise scope in chat.
+- `Architectural`: a new subsystem, a material restructuring, or changes to
+  multiple consequential interfaces or design choices whose tradeoffs affect
+  later implementation. The full workflow.
 
-In brainstorm mode, name the selected path and one concrete reason after the
-user confirms the initial understanding. This is not a separate approval gate;
-continue with the matching research, and let the user correct the classification
-at the next checkpoint. When evidence exposes hidden complexity, upgrade the
-path before continuing and explain why. Do not use a heavier path merely because
-more ceremony is possible.
+Upgrade the path, saying why, when evidence exposes hidden complexity; never
+pick a heavier one for ceremony.
 
 ## Shared rules
 
-- Treat unstructured notes and voice transcripts as valid input. Separate
-  confirmed intent from tentative ideas, contradictions, and transcription
-  noise. Do not turn every thought into a requirement.
-- Exhaust read-only repository discovery before asking for information. Never
-  ask where code lives, which module owns behavior, how the current logic
-  works, or another question the repository can answer.
-- Ask the user only about intent or a choice: desired behavior, user outcome,
-  boundary, constraint, priority, risk tolerance, or completion evidence.
-- Do not optimize brainstorm messages for a word count. Give enough context to
-  understand the current point without decoding compressed phrasing. Keep each
-  message focused on one mechanism, design concept, or decision. Do not surface
-  speculative technical subproblems unless resolving them can change the task
-  boundary, user-visible behavior, or chosen approach.
-- Use the user's vocabulary and established repository or domain names. Do not
-  coin umbrella terms, abbreviations, or architecture labels merely to shorten
-  an explanation. When an exact repository identifier matters, first describe
-  its concrete behavior and then give its name.
-- Do not replace a prose explanation with formulas, arrow chains, pseudocode,
-  or dense shorthand. A diagram may support an explanation after the behavior
-  has been stated plainly, but it must not be the only explanation.
-- Do not paste raw repository notes or specialist reports. Surface only facts
-  that affect the decision.
+- Accept unstructured notes and voice transcripts; separate confirmed intent
+  from tentative ideas, contradictions, and transcription noise.
+- Exhaust read-only discovery first; never ask what the repository can answer
+  (where code lives, who owns behavior, how logic works). Ask only about
+  intent or a choice: behavior, user outcome, boundary, constraint, priority,
+  risk tolerance, or completion evidence.
+- Give enough context to understand the point, one mechanism, concept, or
+  decision per message, never compressed for a word count. Raise a speculative
+  technical subproblem only when it can change the boundary, user-visible
+  behavior, or approach.
+- Use the user's vocabulary and established names; coin no terms,
+  abbreviations, or labels. Describe an identifier's behavior before naming it.
+- Explain in prose, not formulas, arrow chains, pseudocode, or shorthand; a
+  diagram may follow, never replace, a plain explanation.
+- Surface only facts that affect the decision, never raw notes or reports.
 - When the user corrects a premise, discard unapproved conclusions that depend
   on it and resume from the earliest affected stage.
-- If the user asks for context or says they do not understand, do not advance
-  or introduce another fork. Explain the missing concept in plain language
-  with a concrete example, then restate the same question more simply.
+- If the user asks for context or does not understand, do not advance or open
+  another fork: explain the concept plainly with a concrete example, then
+  restate the same question more simply.
 
-Maintain a compact decision ledger with confirmed, assumed, open, rejected,
-and later-work items. Show it only at checkpoints or when the user asks.
+Keep a decision ledger of confirmed, assumed, open, rejected, and later-work
+items; show it only at checkpoints or on request.
 
 ## Revising an existing scope
 
-When the user asks to update an existing specification, scope, or prior
-brainstorm result, treat the latest complete version they supplied, referenced,
-or previously approved in the conversation as the baseline. Recover the exact
-baseline from the source artifact or conversation history when available. Do
-not reconstruct it from a loose summary. If no complete baseline is accessible,
-ask the user for it before claiming an exact comparison.
+The baseline is the latest complete version of the spec, scope, or prior
+result that the user supplied, referenced, or approved, recovered exactly from
+the source or conversation history, not a summary; if none is accessible, ask
+for it before claiming an exact comparison. Focus on the changes and what they
+invalidate. Keep unchanged confirmed decisions unless a new detail contradicts
+one, changes its consequences, or makes its evidence stale.
 
-Run the normal workflow, but focus research and questions on the proposed
-changes and anything they invalidate. Preserve unchanged confirmed decisions.
-Do not reopen them merely to repeat the original interview. Revisit an older
-decision only when a new detail contradicts it, changes its consequences, or
-makes its supporting repository evidence stale.
-
-Maintain a baseline-to-current change ledger alongside the decision ledger.
-Track meaningful requirement and contract changes as Added, Changed, or
-Removed. For Changed items, retain both the old and new value. Ignore wording,
-ordering, formatting, and section moves that do not change meaning. Never infer
-that an omitted baseline item was removed unless the user explicitly removes it
-or an approved new decision makes it impossible.
+Keep a baseline-to-current change ledger of meaningful requirement and
+contract changes: Added, Changed (old and new value), Removed, ignoring
+wording, order, formatting, and section moves. An omitted baseline item is
+removed only when the user removes it or an approved decision makes it
+impossible.
 
 ## Repository and practice research
 
-After the initial understanding is confirmed in brainstorm mode, or internally
-in autopilot mode:
-
 1. Read applicable `AGENTS.md` and repository documentation.
-2. Inspect `git status --short --untracked-files=all`. Treat existing changes
-   as user-owned and do not assume they belong to the proposed task.
-3. Find the likely owner, entry boundary, related modules, nearby production
-   examples, reusable helpers, contracts, tests, and focused validation tools.
-   Inspect recent history when it helps establish the current pattern.
+2. Inspect `git status --short --untracked-files=all`; existing changes are
+   user-owned, not part of the task.
+3. Find the owner, entry boundary, related modules, nearby production
+   examples, helpers, contracts, tests, and focused validation tools; use
+   recent history when it shows the pattern.
 4. Distinguish strong local practice from weak, copied, inconsistent,
    outdated, or absent precedent.
 
-Choose specialist depth from the classified path:
-
-- For a Spike, do not dispatch a specialist by default. Request one only for a
-  concrete repository-practice or general-practice question whose answer can
-  change feasibility or the recommendation.
-- For Bounded repository work, dispatch `repo-practice-review` with the user
-  intent and a focused repository question. Add `best-practice-review` only
-  when local precedent is absent, weak, inconsistent, disputed, or creates a
-  meaningful tradeoff that can change the scope or solution.
-- For Architectural repository work, dispatch both roles. Give
-  `best-practice-review` the user intent, repository evidence, and
-  repo-practice result, and require it to identify where local practice should
+- Spike: none, unless a concrete practice question can change the answer.
+- Bounded: `repo-practice-review` with the intent and a focused question;
+  `best-practice-review` only when local precedent is absent, weak,
+  inconsistent, disputed, or creates a tradeoff that can change the scope or
+  solution.
+- Architectural: both; `best-practice-review` gets the intent, repository
+  evidence, and repo-practice result and must say where local practice should
   be followed or challenged.
 
 For standalone discovery, use `gpt-6.1-terra` high by default and `gpt-6.1-sol` high for novel,
-cross-layer, high-risk, or difficult-to-validate questions. Keep specialists
-read-only and prohibit recursive delegation. If a role required by the selected
-path is technically unavailable, stop and name it. Do not imitate a missing
-required independent review. An optional specialist being unavailable does not
-block the path.
+cross-layer, high-risk, or difficult-to-validate questions, read-only, with no
+recursive delegation. If a required role is unavailable, stop and name it;
+never imitate it. A missing optional one does not block.
 
-Synthesize one focused comparison with enough context to understand the
-consequences before generating solution options:
-
-- how the repository currently handles the problem;
-- what strong general practice would normally do;
-- where the two agree, conflict, or leave no precedent;
-- which constraints and decisions this creates for the task.
-
-Label repository facts, general guidance, and the main agent's reconciliation
-as different kinds of evidence.
+Then compare, as separately labeled evidence, what the repository does, what
+strong general practice would do, where they agree, conflict, or leave no
+precedent, and your reconciliation: the constraints and decisions that follow.
 
 ## Plan validation from the affected behavior
 
-For Bounded and Architectural work, inspect the existing coverage of the
-feature before finishing scope. Trace each affected behavior and supported
-variant to relevant tests, fixtures, Storybook stories, integration or e2e
-flows, and other repository-required artifacts. Follow the user-visible path
-even when the likely production edit is one backend flag or one line.
-
-Keep a compact internal coverage plan: expected scenario, existing evidence,
-reuse/update/add decision, and the focused check that will prove completion.
-Distinguish an existing passing suite from a scenario actually present in that
-suite. A green Storybook build does not cover a newly supported variant missing
-from its story matrix. Extend an established feature matrix when the requested
-behavior adds a supported variant; do not wait for the user to enumerate its
-stories or fixtures.
+For Bounded and Architectural work, trace each affected behavior and supported
+variant along the user-visible path, even for a one-line edit, to existing
+tests, fixtures, Storybook stories, integration or e2e flows, and other
+required artifacts. Keep an internal plan per scenario: existing evidence,
+reuse/update/add, and the focused check that proves completion. A green suite
+does not cover a scenario it lacks, such as a new variant missing from the
+story matrix; extend the established feature matrix for it unasked.
 
 Require `test-review` before scope completion when changed behavior involves
 permissions or billing rules, a UI flow has multiple affected supported
-variants, or coverage adequacy remains uncertain after inspection. Give it
-the source intent, affected behavior, existing coverage, and proposed checks.
-Ask it to identify omissions and the smallest sufficient validation, not to
-invent additional product behavior. Reuse an applicable prior test-review
-when its behavior, variants, and evidence are unchanged. For a clear local
-change without those conditions, main may plan validation without another
-specialist. A Spike needs test-review only when validation can change its
-feasibility conclusion.
+variants, or coverage adequacy remains uncertain after inspection. Give it the
+intent, affected behavior, coverage, and proposed checks, and ask for
+omissions and the smallest sufficient validation, not new behavior. Reuse a
+prior test-review when behavior, variants, and evidence are unchanged; main
+may plan a clear local change alone. A Spike needs test-review only when
+validation can change its conclusion.
 
-Do not require every test level for every task or generate a Cartesian product
-of unsupported combinations. Include new tests and artifacts only when they
-prove requested behavior, a reachable regression, or an established repository
-contract. Record why existing evidence is sufficient when nothing new is
-needed. Missing tooling is a validation gap, not proof that a check is needless.
-
-Put the required scenarios and artifacts in canonical Validation. Keep commands,
-coverage notes, and rejected checks in the handoff or research evidence unless
-their exact form is required. Revisit this plan after a behavior or scope change
-and verify its completeness again during the final synthesis audit.
+No mandatory test levels or Cartesian products of unsupported combinations.
+Add tests and artifacts only to prove requested behavior, a reachable
+regression, or an established contract; otherwise record why existing evidence
+suffices. Missing tooling is a gap, not proof a check is needless. Keep
+commands, coverage notes, and rejected checks out of the scope unless their
+exact form is required. Revisit the plan after a behavior or scope change and
+in the final synthesis audit.
 
 ## Decompose oversized ideas
 
-Before the detailed requirements interview, decide whether the idea contains
-multiple independently valuable tasks. Indicators include separate user
-outcomes, independently deployable subsystems, unrelated owners, or a boundary
-too large to validate as one change.
-
-Do not refine an oversized idea as one task. Identify the independent pieces,
-their dependency order, and the smallest useful first task. Preserve the
-remaining pieces as later work rather than silently dropping them.
-
-- In brainstorm mode, explain the decomposition with enough context to
-  distinguish the pieces, then ask the user to choose one current task. This is
-  one interview question. Repeat affected repository and specialist research
-  after the choice when the boundary changes.
-- In autopilot mode, choose the smallest independently valuable first task,
-  explain the choice, and list the other slices as later work.
+Before the interview, look for multiple independently valuable tasks
+(separate user outcomes, independently deployable subsystems, unrelated
+owners, a boundary too large to validate as one change). Identify the pieces,
+their order, and the smallest useful first task; keep the rest as later work. In brainstorm mode, ask the user to choose the current
+task (one interview question) and repeat affected research when the boundary
+changes; in autopilot, choose it and say why.
 
 ## Define delivery slices
 
-Do not confuse independently valuable tasks with implementation slices. Keep
-separate user outcomes as separate current or later tasks under the
-decomposition rule above. Within one coherent Bounded or Architectural task,
-define delivery slices only when implementation still spans multiple separable
-responsibilities that must be completed in dependency order.
-
-Each delivery slice states:
+Separate user outcomes are separate tasks. Within one coherent task, define
+slices only when implementation spans separable responsibilities that must
+land in dependency order. Each states:
 
 - `Outcome`: the independently understandable result it establishes;
 - `Consumes`: exact behavior or contracts required from earlier slices;
@@ -260,218 +185,146 @@ Each delivery slice states:
 - `Depends on`: earlier slices, or `none`;
 - `Validation`: observable evidence that the slice delivered its contract.
 
-Describe behavioral and interface contracts, not 2-5 minute coding steps. Do
-not prescribe files, helpers, or code shape unless the user approved them as a
-real constraint. Omit Delivery slices for one small coherent implementation.
+Describe contracts with exact approved names, values, formats, and
+relationships, not 2-5 minute coding steps, files, helpers, or code shape
+unless the user approved them as a real constraint. Omit slices for one small
+coherent implementation.
 
 ## Brainstorm mode
 
 ### 1. Confirm understanding
 
-The first response contains only a short readback of the user's idea in their
-terms and a request to confirm or correct it. Do not inspect the repository,
-ask a substantive question, identify a design fork, or propose a solution in
-that response.
-
-Wait for confirmation. A correction replaces the provisional understanding.
+The first response is only a short readback in the user's terms asking to
+confirm or correct it: no repository inspection, substantive question, design
+fork, or solution. Wait; a correction replaces the understanding.
 
 ### 2. Classify, research, and compare
 
-Name the path and reason, then run the matching repository and practice research
-above.
-
-For a Spike, establish the exact question and evidence needed to answer it,
-asking one intent question only when necessary. Complete the targeted read-only
-investigation, return the findings and recommendation, and stop. Do not continue
-into implementation requirements, scope approval, or delivery slices unless the
-user turns the result into a build request.
-
-For Bounded or Architectural work, show the focused comparison with enough
-explanation to understand its consequences, then wait for the user's reaction
-before the requirements interview. Do not show solution options yet.
+Name the path and one concrete reason, then research; this is not an approval
+gate, and the user may correct it at the next checkpoint. A Spike asks one
+intent question only if necessary, returns findings and a recommendation, and
+stops unless the user turns it into a build request. For Bounded or
+Architectural work, show the comparison and wait for the user's reaction
+before the interview, without solution options.
 
 ### 3. Interview one decision at a time
 
-For Bounded and Architectural work, run a requirements interview even when the
-initial description seems detailed.
-Ask exactly one focused question per message. Do not repeat facts already
-settled by the user or repository. The one-question rule limits how many
-decisions are discussed at once; it does not limit the explanation needed
-before the question. Use the interview to establish every relevant high-impact
-decision among:
+Interview even when the description seems detailed: one focused question per
+message (this limits decisions, not explanation), no repeated settled facts.
+Establish every relevant high-impact decision among:
 
 - desired outcome and affected users;
 - observable behavior and important current behavior to preserve;
 - required scope, optional scope, and explicit exclusions;
 - compatibility, data, permissions, rollout, failure, and operational
-  constraints, only where the task actually touches them;
+  constraints, only where the task touches them;
 - observable evidence that would prove the task complete.
 
-Ask only questions the user can answer meaningfully from the current message.
-Before asking about a new mechanism, label, or abstract tradeoff:
-
-- explain it in plain language before relying on its name;
-- state why this decision matters and what changes with the answer;
-- give at least one concrete example from the current task, or compare the
-  options through concrete consequences;
-- recommend a default when repository evidence or general practice supports
-  one, and explain the reason briefly.
+Ask only what the user can answer from the current message. Before asking
+about a new mechanism, label, or tradeoff, explain it plainly, say what the
+answer changes, give a concrete example or consequence, and recommend a
+default when evidence or practice supports one. Never ask approval of an unexplained
+term (a policy, marker, lifecycle, or opt-in), or "does that make sense?" in
+place of the decision. Explain every linked premise in full; split across
+turns only when a premise itself needs a user decision.
 
 When several decisions are open at once, number each question, give it a short
 title, and put the recommendation on its own line, phrased so a plain "yes"
 accepts it. A reply such as "all good except 2" accepts the rest.
 
-Do not ask the user to approve an unexplained term such as a policy, marker,
-lifecycle, or opt-in. Do not use "does that make sense?" as a substitute for
-the actual decision question. Do not compress prerequisites merely to reach the
-question. Explain every linked premise needed for the current decision in full.
-Split the explanation across turns only when a premise itself requires a user
-decision; never split it only to satisfy a length target.
-
-Questions have no numeric quota. Ask another only when its answer can change
-the goal, boundary, approach, risk, or acceptance criteria. Even when all fields
-appear answered, use at least one question to confirm the highest-impact
-assumption.
-
-If an answer changes the repository boundary or the basis of the practice
-comparison, repeat the affected repository inspection and any specialist
-reviews required by the current path. Show the corrected comparison before
-continuing toward options.
+Ask another question only when its answer can change the goal, boundary,
+approach, risk, or acceptance criteria, but always at least one to confirm the
+highest-impact assumption. If an answer changes the boundary or the
+comparison's basis, redo the affected research and show the corrected
+comparison before options.
 
 ### 4. Compare approaches
 
-After the interview is complete, generate possible approaches and filter them
-before showing any to the user. Bounded work needs only materially different
-directions that can change the outcome; Architectural work warrants a broader
-comparison when real alternatives exist. An approach is viable only when it satisfies
-the confirmed goal, every hard constraint, required behavior preservation, and
-the approved task boundary. Discard anything already rejected by the user or
-the research. A technically possible workaround is not viable when it widens
-the task, changes behavior that must stay unchanged, or adds risk without a
-benefit relevant to the confirmed goal.
+Generate approaches and filter them before showing any; Bounded work needs
+only materially different directions, Architectural a broader
+comparison when real alternatives exist. Viable means meeting the confirmed
+goal, hard constraints, required preserved behavior, and the approved
+boundary; drop rejected ideas and workarounds that widen the task, change
+behavior that must stay, or add risk without benefit. Never manufacture
+alternatives:
 
-Never manufacture alternatives to reach a quota:
+- Two or more viable: present those whose tradeoffs could change the decision
+  (normally two or three), lead with a recommendation, and ask the user to
+  choose, combine, or revise.
+- One: say the constraints leave one direction and present only it; record
+  discarded ideas under Rejected only when needed, never as choices.
+- None: return to the affected research or interview decision; never silently
+  weaken a confirmed constraint.
 
-- If two or more materially different viable approaches remain, present only
-  those whose tradeoffs could realistically change the decision. Normally this
-  will be two or three. Explain each without shorthand, lead with a
-  recommendation, and ask the user to choose, combine, or revise them.
-- If exactly one viable approach remains, say that the confirmed constraints
-  leave one direction and present only that direction. Mention discarded ideas
-  under Rejected only when their exclusion needs to be recorded. Do not format
-  them as choices.
-- If no viable approach remains, return to the affected research or interview
-  decision instead of weakening a confirmed constraint silently.
-
-When the user already confirmed the same technical direction after seeing the
-evidence and consequences, record it as chosen and proceed to scope approval.
-Do not reopen a settled choice merely because this workflow has reached the
-approach stage. Ask for confirmation only when it can still change the
-direction.
+A direction the user already confirmed after seeing its evidence is chosen;
+ask again only when that can still change it.
 
 ### 5. Approve the scope
 
-Before presenting the first approval, perform a final synthesis audit. Re-read
-all user messages and annotations since invocation and rebuild the decision
-ledger from those source messages, not from earlier summaries. The latest
-explicit correction wins. Preserve exact contract decisions such as numeric
-limits, literal UI copy, filenames, permissions, error behavior, and complete
-field or item lists. If a context reset or compaction occurred, use available
-history tools to recover the earlier user messages and annotations before the
-audit; do not treat a compacted summary as the source of truth.
+Before the first approval, run a final synthesis audit: rebuild the ledger
+from all user messages and annotations since invocation (after compaction,
+recover them with history tools), not from summaries. The latest explicit
+correction wins. Keep exact contract decisions such as numeric limits, literal
+UI copy, filenames, permissions, error behavior, and complete field or item
+lists.
 
-For Bounded and Architectural work, check the cost of the draft before the first
-approval. Dispatch a read-only `code-simplicity-review` on the draft Goal,
-Requirements, and Validation with the research evidence, and ask which
-requirements describe a mechanism instead of an outcome, which have no reachable
-failure without them, and which add most of the size, each with a simpler
-alternative. Show the user a short minimal design with its rough production and
-test size, and put each expensive requirement to them as a numbered question with
-what dropping it would change. Never drop a requirement yourself.
+For Bounded and Architectural work, then dispatch a read-only
+`code-simplicity-review` on the draft Goal, Requirements, and Validation with
+the research evidence. Ask which requirements describe a mechanism instead of
+an outcome, which have no reachable failure without them, and which add most of
+the size, each with a simpler alternative. Show the user a short minimal design
+with its rough production and test size, and put each expensive requirement to
+them as a numbered question with what dropping it would change. Never drop a
+requirement yourself.
 
-Map every confirmed decision to Goal, Requirements, Validation, Output
-contract, Implementation constraints, Out of scope, Later work, Open questions,
-Assumptions, or Rejected. Resolve contradictions and do not present the approval
-while a confirmed decision remains unmapped. Keep this coverage mapping
-internal unless the user asks to see it. Repository facts, practice findings,
-possible risks, and rejected ideas are not confirmed requirements merely
-because they appeared during research.
+Before approval, map every confirmed decision to a canonical section or
+Rejected (internally unless asked) and resolve contradictions. Research facts,
+risks, and rejected ideas are not requirements merely because they surfaced.
 
-Present no more approval checkpoints than the task needs:
+- Bounded: one compact checkpoint with Goal, Requirements, Validation, and any
+  necessary Output contract or open technical direction. No second checkpoint.
+- Architectural: that checkpoint, then a technical direction checkpoint only
+  when an unresolved implementation choice or hard technical constraint could
+  materially change the result, with only the evidence it needs.
 
-- For Bounded work, present one compact scope checkpoint containing Goal,
-  Requirements, Validation, and any necessary Output contract or still-open
-  technical direction. Do not create a second approval checkpoint.
-- For Architectural work, first present that requirements checkpoint. Add a
-  separate technical direction checkpoint only when an unresolved
-  implementation choice or hard technical constraint could materially change
-  the result. Include only the repository evidence needed to understand that
-  decision, and skip it when the direction is already confirmed.
-
-Keep the requirements checkpoint concise, but never compress or omit an exact
-decision to meet a word target. Let a real Output contract grow to the detail
-required for implementation. A requirements change invalidates dependent
-technical decisions.
-
-After the required approvals, repeat the synthesis audit for decisions
-introduced or corrected during approval. Generate the canonical scope from the
-audited decision ledger rather than by summarizing the approval messages.
-
-Then return the revision summary defined below when a baseline exists, followed
-by the canonical scope. For a new scope, return only the canonical scope. Do
-not append a handoff prompt or start implementation.
+Never drop an exact decision for length; an Output contract may grow to the
+detail implementation needs. A requirements change invalidates
+dependent technical decisions. After approval, re-audit decisions changed
+during it, build the canonical scope from the audited ledger, and return it,
+after the revision summary when a baseline exists. No handoff prompt, no
+implementation.
 
 ## Autopilot mode
 
-Do not send intermediate questions or approval checkpoints. Internally:
+Run every stage internally, including the viability filter, coverage plan,
+required test-review, and final synthesis audit against the original user
+messages. Answer interview questions from, in order, the user's words,
+repository evidence, and explicit assumptions; re-run research when an answer
+changes the boundary.
 
-1. Form the same provisional understanding.
-2. Classify the path and complete its matching repository and practice research.
-3. For a Spike, complete the targeted investigation and return evidence plus a
-   recommendation without generating a canonical implementation scope.
-4. For Bounded or Architectural work, decompose an oversized idea and select
-   the smallest useful first task.
-5. Generate the same requirements questions and answer each from, in order,
-   the user's words, repository evidence, and explicit assumptions.
-6. Re-run affected research when an internal answer changes the boundary.
-7. Apply the same viability filter as interactive mode. Compare materially
-   different approaches when more than one survives; when only one survives,
-   choose it without inventing alternatives.
-8. Complete the behavior-based coverage plan and any required test-review.
-9. Perform the same final synthesis audit against original user messages and
-   annotations before generating the canonical scope.
+Between equally plausible interpretations, choose the smaller independently
+useful scope. Best-practice guidance never invents product requirements. Mark
+every answer the user or repository does not support as an assumption.
 
-When two interpretations remain equally plausible, choose the smaller
-independently useful scope. Never let best-practice guidance invent product
-requirements. Mark every answer not supported by the user or repository as an
-assumption.
-
-Return a structured report whose length follows task complexity without
-repetition. A Spike ends with its evidence and recommendation. For Bounded or
-Architectural work, keep repository/practice findings and approach reasoning
-separate from the canonical scope; include only the findings needed to justify
-the recommendation, followed by that scope. When a baseline exists, include the
-same revision summary as interactive mode. The recommendation is the agent's
-working conclusion, not user approval.
+Return a report sized to the task: for Bounded or Architectural work, only
+the findings and approach reasoning that justify the recommendation, then the
+revision summary if a baseline exists, then the canonical scope; for a new scope, only the
+canonical scope. The
+recommendation is a working conclusion, not user approval.
 
 ## Revision summary
 
-Before the complete canonical scope, show `Changes from previous version` with
-only meaningful Added, Changed, and Removed items. Omit empty categories. Keep
-it compact, but preserve exact names, values, limits, and contract details. For
-each Changed item, use `old -> new` so the user does not need to compare two
-full documents. If nothing material changed, say so explicitly.
-
-Derive this summary from the audited baseline-to-current ledger, not by diffing
-the final prose. The complete canonical scope remains authoritative. The change
-summary is a review aid and must not contain requirements missing from the full
-scope.
+Show `Changes from previous version` from the audited change ledger, not a
+prose diff: meaningful Added, Changed (`old -> new`), and Removed items with
+exact names, values, limits, and contract details, omitting empty categories,
+or say nothing material changed. The scope stays authoritative; the summary
+holds no requirement missing from it.
 
 ## Canonical scope
 
-The canonical scope is an implementation task specification, not a record of
-the research process. Always include Goal, Requirements, and Validation. Add
-the other sections only when their stated condition applies:
+The canonical scope is an implementation task specification, not a research
+record. Always include Goal, Requirements, and Validation; add the others only
+when their condition applies:
 
 ```text
 Goal:
@@ -486,45 +339,29 @@ Open questions:             [only when unresolved]
 Assumptions:                [only in autopilot or when a decision could not be obtained]
 ```
 
-A requirement states an observable outcome, not a mechanism. How data is matched,
-stored, locked, cached, batched, or kept consistent is a requirement only when the
-user chose it, and then it goes in Implementation constraints. Every requirement
-names what would break without it: a reachable scenario, not a theoretical one.
-Protection against a hypothetical race, an optimization, and a fix for an existing
-bug next to the task are not requirements: put them in Later work or a separate
-ticket unless the user explicitly asks for them now.
+A requirement states an observable outcome, not a mechanism. How data is
+matched, stored, locked, cached, batched, or kept consistent is a requirement
+only when the user chose it, and then it goes in Implementation constraints.
+Every requirement names the reachable scenario that would break without it.
+Protection against a hypothetical race, an optimization, and a fix for an
+existing bug next to the task go in Later work or a separate ticket unless the
+user explicitly asks for them now.
 
-Write Goal as one outcome sentence. Put user-visible behavior, permissions,
-compatibility rules, boundaries, and other accepted behavior in Requirements.
-Put observable completion evidence, required test levels, permission matrices,
-and edge cases in Validation. Do not reduce Validation to generic activities
-such as "add tests" when exact scenarios were agreed.
-Include relevant stories or fixtures when the established feature coverage
-needs a new supported variant. Do not append the internal coverage table or
-justify every excluded test level in the canonical scope.
+- Goal: one outcome sentence.
+- Requirements: user-visible behavior, permissions, compatibility rules,
+  boundaries, and other accepted behavior.
+- Validation: the agreed exact scenarios and artifacts, required test levels,
+  permission matrices, and edge cases, not "add tests"; include stories or
+  fixtures for a new supported variant, but no coverage table or
+  justification of excluded test levels.
+- Implementation constraints: only approved technical rules whose omission
+  could cause a materially wrong solution. An owner, file, class, helper, or
+  test location only when the user required it or it is part of the approved
+  boundary.
+- Out of scope: only explicit user decisions or credible ambiguities raised
+  during the brainstorm.
 
-Implementation constraints contain only approved technical rules whose
-omission could lead to a materially wrong solution. A repository owner, file,
-class, helper, or test location is not a constraint by default. Include an exact
-location only when the user required it or the location itself is part of the
-approved boundary.
-
-When Delivery slices are present, give every slice an Outcome, Consumes,
-Produces, Depends on, and Validation entry. Keep exact approved names, values,
-formats, and relationships. This section defines implementation handoffs, not a
-file-by-file coding plan; leave local code shape to the later implementation
-workflow.
-
-Do not include repository evidence, general-practice commentary, rejected
-approaches, generic risks, or lists of files and unrelated subsystems that need
-no change. Keep those in the research discussion and internal ledger. Put an
-item in Out of scope only when it records an explicit user decision or resolves
-a credible ambiguity considered during the brainstorm. Do not manufacture
-negative requirements by listing everything the implementation should leave
-untouched.
-
-State each decision once in the most specific section. Do not repeat the same
-rule as a user problem, behavior, acceptance criterion, scope item, contract,
-and risk. Keep confirmed decisions separate from assumptions. The result must
-be short enough to review without rereading the discovery conversation, while
-preserving every exact requirement and required validation case.
+Leave out repository evidence, practice commentary, rejected approaches,
+generic risks, and untouched files or subsystems. State each decision once, in
+the most specific section, apart from assumptions. The scope must be
+reviewable without the discovery conversation.

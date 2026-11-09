@@ -52,6 +52,14 @@ Runner constraints (these override any conflicting task-specific instruction):
   progress precisely so a fresh worker can continue without dialogue history.
 """
 
+# Claude's sandbox auto-allows plain commands but asks for approval, which a
+# headless job cannot give, for shell expansions such as `$?`.
+CLAUDE_BASH_NOTE = """\
+Bash runs in a sandbox with no approval prompts. Run each check as a plain command,
+without `$?`, `$VAR`, `$(...)`, or `;` chaining: the exit status is reported to you.
+If a command is denied, rerun it once in its plainest form before reporting it as not run.
+"""
+
 CHECKPOINT_STEER = """\
 Stop new work now. Finish any operation that cannot safely be left half-applied, then
 return the required structured output with status "checkpoint". Put durable progress,
@@ -1051,7 +1059,7 @@ def _claude_command(claude_bin: str, task: dict[str, Any], configuration: dict[s
         "--json-schema", json.dumps(WORKER_OUTPUT_SCHEMA),
         "--model", task["agent"]["model"],
         "--effort", task["agent"]["reasoning_effort"],
-        "--append-system-prompt", _developer_instructions(task),
+        "--append-system-prompt", f"{_developer_instructions(task)}\n{CLAUDE_BASH_NOTE}",
         "--tools", configuration["tools"],
         "--permission-mode", configuration["permission_mode"],
         "--permission-prompts", configuration["permission_prompts"],

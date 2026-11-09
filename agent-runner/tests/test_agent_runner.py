@@ -910,6 +910,7 @@ class ClaudeEngineTests(RunnerTestCase):
         self.assertEqual(self.option(argv, "--permission-prompts"), "none")
         self.assertEqual(json.loads(self.option(argv, "--json-schema")), runner.WORKER_OUTPUT_SCHEMA)
         self.assertIn("Do not create subagents", self.option(argv, "--append-system-prompt"))
+        self.assertIn("without `$?`", self.option(argv, "--append-system-prompt"))
         self.assertIn("--strict-mcp-config", argv)
         self.assertIn("--no-session-persistence", argv)
         sandbox = json.loads(self.option(argv, "--settings"))["sandbox"]

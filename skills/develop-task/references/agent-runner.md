@@ -106,8 +106,8 @@ A `claude-*` model runs through the runner's Claude Code engine, every other mod
 Codex, with the same schemas, permissions, worktree lock, and results. The Claude engine
 needs a signed-in `claude` on `PATH` or `AGENT_RUNNER_CLAUDE_BIN`. Its Bash runs in Claude's
 sandbox, which blocks writes and network for read-only jobs and fails the job when it cannot
-start (for example on Linux without bubblewrap); a compound command may be denied, so keep
-commands simple. A Claude job has one attempt and no context rotation. Run `agent-runner`
+start (for example on Linux without bubblewrap). It denies commands with shell expansions
+such as `$?`, so the runner tells Claude jobs to run plain commands. A Claude job has one attempt and no context rotation. Run `agent-runner`
 outside the Codex sandbox: both engines need network access.
 
 ## Wait And Interpret

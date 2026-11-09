@@ -64,6 +64,9 @@ Prioritize:
 - KISS regressions where the implementation is bigger or more abstract than the bug needs;
 - new guards, fallbacks, compatibility branches, abstractions, options,
   cleanup, or tests justified only by hypothetical failures or future use;
+- a diff about 1.5 times the preflight size budget or more, with no approved
+  reason; this is Blocking, with Next Change Class `replan`;
+- a fix that patched a mechanism no requirement needs instead of removing it;
 - diff size that cannot be traced to an acceptance criterion, observed
   regression, existing supported contract, or concrete reachable
   security/correctness failure at the changed boundary;

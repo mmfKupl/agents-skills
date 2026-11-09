@@ -163,6 +163,13 @@ Task Boundary:
 Implementation Direction:
 - smallest correct path and contracts to preserve.
 
+Minimal design and budget:
+- the approach in a few lines and the existing code it reuses;
+- size budget: rough production lines, test lines, and the test scenarios;
+- costly requirements: any requirement whose cost is out of proportion to its
+  outcome, with the simpler alternative, or "none". Main asks the user about
+  these before implementation; do not drop them yourself.
+
 Requirements coverage:
 - requirements revision; for each assigned ID, exact effective wording/source,
   planned owner/slice and validation, and planned | missing | conflict status.

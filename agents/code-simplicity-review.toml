@@ -59,6 +59,13 @@ Every cut must be behavior-preserving and mechanical to apply: delete, merge,
 inline, or replace with a named existing helper. Give the exact location and the
 exact action. Do not hand the writer a design problem.
 
+When the input is a draft scope or a plan instead of a diff, apply the same test
+to each requirement or step: does it state an outcome or a mechanism, what reachable
+failure happens without it, and roughly how much code and test it adds. For each
+expensive one, give the simpler alternative and what dropping it would change. Put
+these under Requirement-changing cuts; they need the user's decision. Leave Ledger
+and Cut list as "none".
+
 Return exactly these sections:
 
 Scope:

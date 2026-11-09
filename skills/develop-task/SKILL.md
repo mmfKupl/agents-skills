@@ -126,6 +126,9 @@ Generic best practice, reviewer preference, future use, and "defense in depth"
 without a demonstrated path are not evidence. Ask the user only when resolving a
 concern would change required behavior or scope.
 
+A fix must not add a mechanism. When a finding comes from code no requirement needs,
+remove that code instead of patching it.
+
 Prefer an existing code path, a local edit, and deleting superseded code. Do not mix
 in adjacent cleanup. Keep defensive behavior that protects a proven contract unless
 the task changes it. Tests prove requested behavior or an observed regression.
@@ -322,7 +325,11 @@ promotion or diagnosis job, and when preflight upgrades a task to slices, read
 ## Gates and roles
 
 Preflight confirms or upgrades the lane, critical flags, writer, implementation
-model/effort, postflight minimum, and replan triggers, naming one exact route. With a
+model/effort, postflight minimum, and replan triggers, naming one exact route. It
+also gives the minimal design: the approach, the existing code it reuses, and a size
+budget of rough production and test lines with the test scenarios. When it flags a
+requirement whose cost is out of proportion to its outcome, ask the developer before
+implementation; never drop it silently. With a
 ceiling, it states the requested and the capped model and must not ask to remove the
 ceiling. Implementation starts only on `Decision: proceed` and `Routing status:
 confirmed` with no unresolved Blocking specialist request. `upgrade required` means
@@ -386,7 +393,10 @@ Pass, so a gate requests it there only for a new question).
     snapshots, generated files, lockfiles, or other artifacts, then inspect the diff.
     Send long output to a file in a private temporary directory and read only its summary
     and failures.
-12. Run the Reduction Pass and rerun affected validation.
+12. Run the Reduction Pass and rerun affected validation. If the reduced diff is
+    still about 1.5 times the size budget or more, return to preflight with the
+    overrun before postflight: it approves a larger budget with a reason, or sends
+    the work back to simplify.
 13. Recalculate the postflight floor from the request, profile, actual diff, deviations,
     and validation gaps. Prepare any selected review-task audit under
     `references/composed-workflows.md`.
@@ -428,6 +438,7 @@ Relevant repository evidence:
 Evidence for non-obvious behavior:
 Contracts to preserve:
 Implementation hypothesis:
+Size budget: rough production and test lines, and the test scenarios.
 Dirty-tree constraints:
 Writer validation:
 Main validation:

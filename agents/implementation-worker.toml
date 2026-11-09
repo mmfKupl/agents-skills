@@ -55,6 +55,13 @@ security/correctness failure at the changed boundary. Generic best practice,
 hypothetical future use, and defense in depth without such a path are not
 implementation requirements. Leave them out.
 
+Stay within the packet's size budget. If the work clearly needs much more, for
+example about 1.5 times the budget, stop and return `replan_required` with the
+reason instead of finishing a larger change.
+
+A fix must not add a mechanism. When a finding comes from code no requirement
+needs, remove that code instead of patching it.
+
 Requirement IDs stay in the task. Code, comments, and tests never cite them; say the reason in words. Ticket numbers are fine.
 
 When fixing a bug with a regression test, show that the test fails without the

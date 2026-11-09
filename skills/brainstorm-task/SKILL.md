@@ -304,7 +304,7 @@ decision among:
 - observable behavior and important current behavior to preserve;
 - required scope, optional scope, and explicit exclusions;
 - compatibility, data, permissions, rollout, failure, and operational
-  constraints;
+  constraints, only where the task actually touches them;
 - observable evidence that would prove the task complete.
 
 Ask only questions the user can answer meaningfully from the current message.
@@ -379,6 +379,15 @@ limits, literal UI copy, filenames, permissions, error behavior, and complete
 field or item lists. If a context reset or compaction occurred, use available
 history tools to recover the earlier user messages and annotations before the
 audit; do not treat a compacted summary as the source of truth.
+
+For Bounded and Architectural work, check the cost of the draft before the first
+approval. Dispatch a read-only `code-simplicity-review` on the draft Goal,
+Requirements, and Validation with the research evidence, and ask which
+requirements describe a mechanism instead of an outcome, which have no reachable
+failure without them, and which add most of the size, each with a simpler
+alternative. Show the user a short minimal design with its rough production and
+test size, and put each expensive requirement to them as a numbered question with
+what dropping it would change. Never drop a requirement yourself.
 
 Map every confirmed decision to Goal, Requirements, Validation, Output
 contract, Implementation constraints, Out of scope, Later work, Open questions,
@@ -476,6 +485,14 @@ Later work:                 [only for explicitly deferred work]
 Open questions:             [only when unresolved]
 Assumptions:                [only in autopilot or when a decision could not be obtained]
 ```
+
+A requirement states an observable outcome, not a mechanism. How data is matched,
+stored, locked, cached, batched, or kept consistent is a requirement only when the
+user chose it, and then it goes in Implementation constraints. Every requirement
+names what would break without it: a reachable scenario, not a theoretical one.
+Protection against a hypothetical race, an optimization, and a fix for an existing
+bug next to the task are not requirements: put them in Later work or a separate
+ticket unless the user explicitly asks for them now.
 
 Write Goal as one outcome sentence. Put user-visible behavior, permissions,
 compatibility rules, boundaries, and other accepted behavior in Requirements.

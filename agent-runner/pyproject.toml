@@ -18,4 +18,4 @@ agent-runner = "agent_runner:main"
 agent-run-manifest = "run_manifest:main"
 
 [tool.setuptools]
-py-modules = ["agent_runner", "run_manifest"]
+py-modules = ["agent_runner", "run_manifest", "run_dispatch"]

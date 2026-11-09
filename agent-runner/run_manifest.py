@@ -1139,6 +1139,41 @@ def _argument_parser() -> argparse.ArgumentParser:
     finish.add_argument("status", choices=sorted(FINAL_RUN_STATUSES))
     resume = commands.add_parser("resume", help="reconcile and reopen a terminal run")
     resume.add_argument("run_manifest", help="absolute path to run.yaml")
+    dispatch = commands.add_parser(
+        "dispatch", help="route, build, register, run, and reconcile one job"
+    )
+    dispatch.add_argument("run_manifest", nargs="?", help="run.yaml; omit with --no-manifest")
+    dispatch.add_argument("--role", required=True)
+    dispatch.add_argument("--profile", required=True)
+    dispatch.add_argument("--prompt-file", required=True, help="the job packet")
+    dispatch.add_argument("--contract-revision", type=int)
+    dispatch.add_argument("--approved-by-preflight")
+    dispatch.add_argument("--slice", dest="slice_kind",
+                          help="visual | prose | critical-combined | exceptional")
+    dispatch.add_argument("--for", dest="gate", default="preflight",
+                          choices=("preflight", "postflight", "diagnosis"),
+                          help="the gate a specialist serves")
+    dispatch.add_argument("--lookup", action="store_true", help="bounded factual lookup")
+    dispatch.add_argument("--vendor", default="auto", choices=("auto", "home", "other"))
+    dispatch.add_argument("--model", help="override the routed model; needs --reason")
+    dispatch.add_argument("--effort", help="override the routed effort; needs --reason")
+    dispatch.add_argument("--reason")
+    dispatch.add_argument("--job-id")
+    dispatch.add_argument("--unrestricted", action="store_true",
+                          help="full access for a writer, only when the user allowed it")
+    dispatch.add_argument("--no-manifest", action="store_true")
+    dispatch.add_argument("--workspace", help="worktree, with --no-manifest")
+    dispatch.add_argument("--ceiling", help="model ceiling, with --no-manifest")
+    routing = commands.add_parser("route", help="print the model and effort for one job")
+    routing.add_argument("--role", required=True)
+    routing.add_argument("--profile", required=True)
+    routing.add_argument("--slice", dest="slice_kind")
+    routing.add_argument("--for", dest="gate", default="preflight",
+                         choices=("preflight", "postflight", "diagnosis"))
+    routing.add_argument("--lookup", action="store_true")
+    routing.add_argument("--vendor", default="auto", choices=("auto", "home", "other"))
+    usage = commands.add_parser("usage", help="print the agent usage table")
+    usage.add_argument("run_manifest", help="absolute path to run.yaml")
     return parser
 
 
@@ -1171,6 +1206,35 @@ def main(argv: list[str] | None = None) -> int:
                 args.reason,
             )
             output = str(path.resolve())
+        elif args.command == "dispatch":
+            import run_dispatch
+
+            if bool(args.run_manifest) == args.no_manifest:
+                raise ManifestError("pass run.yaml, or --no-manifest, not both")
+            code, output = run_dispatch.dispatch(
+                role=args.role, profile=args.profile, prompt_file=args.prompt_file,
+                run_manifest=args.run_manifest, workspace=args.workspace,
+                ceiling=args.ceiling, contract_revision=args.contract_revision,
+                approved_by_preflight=args.approved_by_preflight,
+                slice_kind=args.slice_kind, gate=args.gate, lookup=args.lookup,
+                vendor=args.vendor, model=args.model, effort=args.effort,
+                reason=args.reason, job_id=args.job_id, unrestricted=args.unrestricted,
+            )
+            print(output, end="")
+            return code
+        elif args.command == "route":
+            import run_dispatch
+
+            model, effort, rule = run_dispatch.route(
+                args.role, args.profile, slice_kind=args.slice_kind, gate=args.gate,
+                lookup=args.lookup,
+            )
+            vendor = run_dispatch.target_vendor(args.role, args.gate, args.vendor)
+            output = f"{run_dispatch.vendor_model(model, vendor)} {effort} ({rule}; {vendor} vendor)"
+        elif args.command == "usage":
+            import run_dispatch
+
+            output = run_dispatch.usage_table(args.run_manifest)
         elif args.command == "finish":
             path = finish_manifest(args.run_manifest, args.status)
             output = str(path.resolve())

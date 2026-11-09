@@ -1,0 +1,429 @@
+"""Route, build, register, run, and reconcile one develop-task job, and report usage."""
+
+from __future__ import annotations
+
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+from typing import Any
+
+import yaml
+
+import run_manifest as manifest
+
+try:
+    import tomllib
+except ImportError:  # Python 3.10
+    tomllib = None
+
+PROFILES = ("fast", "standard", "deep", "critical", "exceptional")
+ROLES = (
+    "preflight-review",
+    "implementation-worker",
+    "postflight-review",
+    "repo-practice-review",
+    "best-practice-review",
+    "test-review",
+    "code-simplicity-review",
+    "diagnosis-review",
+)
+SLUGS = {
+    "preflight-review": "preflight",
+    "implementation-worker": "implementation",
+    "postflight-review": "postflight",
+    "repo-practice-review": "repo-practice",
+    "best-practice-review": "best-practice",
+    "test-review": "test-review",
+    "code-simplicity-review": "simplicity",
+    "diagnosis-review": "diagnosis",
+}
+# The default matrix in GPT names; the other vendor maps through its peer.
+PREFLIGHT = {
+    "fast": ("gpt-6.1-sol", "medium"),
+    "standard": ("gpt-6.1-sol", "medium"),
+    "deep": ("gpt-6.1-sol", "high"),
+    "critical": ("gpt-6.1-sol", "xhigh"),
+    "exceptional": ("gpt-6-astra", "high"),
+}
+POSTFLIGHT = {
+    "fast": ("gpt-6.1-sol", "low"),
+    "standard": ("gpt-6.1-sol", "medium"),
+    "deep": ("gpt-6.1-sol", "high"),
+    "critical": ("gpt-6.1-sol", "xhigh"),
+    "exceptional": ("gpt-6-astra", "high"),
+}
+WRITER = {
+    "fast": ("gpt-6.1-terra", "medium"),
+    "standard": ("gpt-6.1-terra", "high"),
+    "deep": ("gpt-6.1-sol", "high"),
+    "critical": ("gpt-6.1-sol", "high"),
+    "exceptional": ("gpt-6.1-sol", "high"),
+}
+SLICES = {
+    "visual": ("gpt-6.1-terra", "high", ("deep", "critical", "exceptional")),
+    "prose": ("gpt-6.1-terra", "high", ("deep", "critical", "exceptional")),
+    "critical-combined": ("gpt-6.1-sol", "xhigh", ("critical",)),
+    "exceptional": ("gpt-6-astra", "high", ("exceptional",)),
+}
+BUDGETS = {
+    "fast": (155000, 180000, 20, 2),
+    "standard": (155000, 180000, 30, 3),
+    "deep": (210000, 240000, 45, 4),
+    "critical": (350000, 400000, 60, 5),
+    "exceptional": (220000, 250000, 60, 5),
+}
+GPT_PEER = {gpt: claude for claude, gpt in manifest.CLAUDE_MODEL_PEERS.items()}
+GPT_PEER["gpt-6-sol"] = "claude-opus-5-5"
+ADAPTER = """\
+The runner requires one universal structured output object. Perform the role
+contract exactly, but place its complete required role response inside the
+universal `report` string. Use `summary` for a short semantic summary and the
+remaining universal fields for evidence, validation, warnings, and questions.
+The universal status describes job execution, not the role decision:
+- use `completed` when the role produced its decision/report, including
+  preflight revise/blocked decisions and postflight Approval: no;
+- use `blocked` only when the role itself could not execute;
+- use `checkpoint` only when instructed by the runner for context rotation.
+Do not create subagents or delegate.
+"""
+WORKER_ADAPTER = """\
+Encode role status `implemented` as universal `completed`. Encode role status
+`replan_required` or `blocked` as universal `blocked`, and keep the exact role
+status and explanation in `report`.
+"""
+
+
+def route(
+    role: str, profile: str, *, slice_kind: str | None = None, gate: str = "preflight",
+    lookup: bool = False,
+) -> tuple[str, str, str]:
+    """Return the GPT-named model, effort, and the rule that chose them."""
+    if role not in ROLES:
+        raise manifest.ManifestError(f"unsupported role: {role!r}")
+    if profile not in PROFILES:
+        raise manifest.ManifestError(f"unsupported profile: {profile!r}")
+    if lookup:
+        return "gpt-6-luna", "medium", "bounded factual lookup"
+    if slice_kind is not None:
+        if slice_kind not in SLICES:
+            raise manifest.ManifestError(f"unsupported slice: {slice_kind!r}")
+        if role not in ("implementation-worker", "diagnosis-review") or (
+            role == "diagnosis-review" and slice_kind != "exceptional"
+        ):
+            raise manifest.ManifestError(f"--slice {slice_kind} does not apply to {role}")
+        model, effort, profiles = SLICES[slice_kind]
+        if profile not in profiles:
+            raise manifest.ManifestError(
+                f"--slice {slice_kind} applies only to profiles: {', '.join(profiles)}"
+            )
+        return model, effort, f"{slice_kind} slice in a {profile} task"
+    if role == "preflight-review":
+        return (*PREFLIGHT[profile], f"{profile} preflight")
+    if role == "postflight-review":
+        return (*POSTFLIGHT[profile], f"{profile} postflight")
+    if role == "implementation-worker":
+        return (*WRITER[profile], f"{profile} writer")
+    if role == "diagnosis-review":
+        if profile in ("critical", "exceptional"):
+            return "gpt-6.1-sol", "xhigh", f"diagnosis of a {profile} cause"
+        return "gpt-6.1-sol", "high", "diagnosis"
+    table = POSTFLIGHT if gate == "postflight" else PREFLIGHT
+    return (*table[profile], f"specialist for the {profile} {gate} gate")
+
+
+def home_vendor() -> str:
+    return "claude" if os.environ.get("CLAUDECODE") == "1" else "codex"
+
+
+def target_vendor(role: str, gate: str, vendor: str) -> str:
+    home = home_vendor()
+    other = "codex" if home == "claude" else "claude"
+    if vendor == "home":
+        return home
+    if vendor == "other":
+        return other
+    cross = role in ("postflight-review", "diagnosis-review") or gate in (
+        "postflight", "diagnosis"
+    )
+    return other if cross else home
+
+
+def vendor_model(model: str, vendor: str) -> str:
+    if vendor == "claude":
+        return GPT_PEER.get(model, model)
+    return manifest.CLAUDE_MODEL_PEERS.get(model, model)
+
+
+def role_instructions(role: str) -> str:
+    if tomllib is None:
+        raise manifest.ManifestError("reading role files needs Python 3.11 or newer")
+    home = Path(os.environ.get("CODEX_HOME") or Path.home() / ".codex")
+    path = home / "agents" / f"{role}.toml"
+    try:
+        contract = tomllib.loads(path.read_text(encoding="utf-8"))["developer_instructions"]
+    except (OSError, KeyError, ValueError) as exc:
+        raise manifest.ManifestError(f"cannot read role contract {path}: {exc}") from exc
+    extra = WORKER_ADAPTER if role == "implementation-worker" else ""
+    return f"{contract.rstrip()}\n\n{ADAPTER}{extra}"
+
+
+def build_task(
+    *, job_id: str, role: str, profile: str, model: str, effort: str, prompt: str,
+    workspace: str, unrestricted: bool,
+) -> dict[str, Any]:
+    if role == "implementation-worker":
+        sandbox = "danger_full_access" if unrestricted else "workspace_write"
+    elif unrestricted:
+        raise manifest.ManifestError("--unrestricted applies only to implementation-worker")
+    else:
+        sandbox = "read_only"
+    soft, hard, grace, attempts = BUDGETS[profile]
+    return {
+        "kind": "agent-task",
+        "schema_version": 2,
+        "job": {"id": job_id, "prompt": prompt},
+        "workspace": {"cwd": workspace},
+        "agent": {
+            "model": model,
+            "reasoning_effort": effort,
+            "developer_instructions": role_instructions(role),
+        },
+        "permissions": {
+            "sandbox_mode": sandbox,
+            "approval_policy": "never",
+            "network_access": sandbox == "danger_full_access",
+        },
+        "supervision": {
+            "context": {
+                "soft_limit_tokens": soft,
+                "hard_limit_tokens": hard,
+                "checkpoint_grace_seconds": grace,
+            },
+            "max_attempts": attempts,
+        },
+    }
+
+
+def _next_job_id(jobs: list[dict[str, Any]], role: str) -> str:
+    taken = {job["id"] for job in jobs}
+    number = len(jobs) + 1
+    while True:
+        job_id = f"{number:03d}-{SLUGS[role]}"
+        if job_id not in taken:
+            return job_id
+        number += 1
+
+
+def _runner_path(explicit: str | None) -> str:
+    if explicit:
+        return explicit
+    beside = Path(sys.argv[0]).resolve().parent / "agent-runner"
+    if beside.exists():
+        return str(beside)
+    found = os.environ.get("CODEX_AGENT_RUNNER") or shutil.which("agent-runner")
+    if not found:
+        raise manifest.ManifestError("cannot find agent-runner")
+    return found
+
+
+def dispatch(
+    *, role: str, profile: str, prompt_file: str, run_manifest: str | None = None,
+    workspace: str | None = None, ceiling: str | None = None,
+    contract_revision: int | None = None, approved_by_preflight: str | None = None,
+    slice_kind: str | None = None, gate: str = "preflight", lookup: bool = False,
+    vendor: str = "auto", model: str | None = None, effort: str | None = None,
+    reason: str | None = None, job_id: str | None = None, unrestricted: bool = False,
+    runner: str | None = None,
+) -> tuple[int, str]:
+    prompt = Path(prompt_file).read_text(encoding="utf-8")
+    if (model or effort) and not (model and effort and reason):
+        raise manifest.ManifestError("--model and --effort need each other and a --reason")
+    if model:
+        chosen_model, chosen_effort, rule = model, effort, f"override: {reason}"
+    else:
+        chosen_model, chosen_effort, rule = route(
+            role, profile, slice_kind=slice_kind, gate=gate, lookup=lookup
+        )
+    target = target_vendor(role, gate, vendor)
+    requested = vendor_model(chosen_model, target)
+    header = (
+        f"Routing: {profile} profile, {role}, {requested} {chosen_effort} "
+        f"({rule}; {target} vendor).\n\n"
+    )
+
+    if run_manifest is not None:
+        if contract_revision is None:
+            raise manifest.ManifestError("--contract-revision is required with a run manifest")
+        if role in ("implementation-worker", "postflight-review") and not approved_by_preflight:
+            raise manifest.ManifestError(f"{role} needs --approved-by-preflight")
+        run_path = Path(os.path.abspath(run_manifest))
+        document = manifest._load_yaml(run_path, "run manifest")
+        job_id = job_id or _next_job_id(document.get("jobs") or [], role)
+        workspace = document["run"]["workspace"]
+        with tempfile.TemporaryDirectory() as draft_dir:
+            draft = Path(draft_dir) / "task.yaml"
+            task = build_task(
+                job_id=job_id, role=role, profile=profile, model=requested,
+                effort=chosen_effort, prompt=header + prompt, workspace=workspace,
+                unrestricted=unrestricted,
+            )
+            draft.write_text(yaml.safe_dump(task, sort_keys=False, allow_unicode=True), "utf-8")
+            task_path = manifest.new_job_manifest(
+                str(run_path), str(draft), role, contract_revision, approved_by_preflight
+            )
+    else:
+        if not workspace:
+            raise manifest.ManifestError("--workspace is required without a run manifest")
+        job_id = job_id or SLUGS[role]
+        selected, _ = manifest._select_model(
+            requested,
+            {"mode": "explicit_ceiling", "maximum_model": manifest._model_id(ceiling)}
+            if ceiling else {"mode": "adaptive", "maximum_model": None},
+        )
+        job_dir = Path(tempfile.mkdtemp(prefix="agent-job-")) / job_id
+        job_dir.mkdir(mode=0o700)
+        task = build_task(
+            job_id=job_id, role=role, profile=profile, model=selected,
+            effort=chosen_effort, prompt=header + prompt,
+            workspace=str(Path(workspace).resolve()), unrestricted=unrestricted,
+        )
+        task_path = job_dir / "task.yaml"
+        task_path.write_text(yaml.safe_dump(task, sort_keys=False, allow_unicode=True), "utf-8")
+
+    process = subprocess.run(
+        [_runner_path(runner), str(task_path)], stdout=subprocess.PIPE, text=True
+    )
+    if run_manifest is not None:
+        manifest.reconcile_manifest(str(run_path))
+    lines = process.stdout.strip().splitlines()
+    summary: dict[str, Any] = {
+        "job": job_id, "role": role, "route": rule, "vendor": target,
+        "requested_model": requested, "effort": chosen_effort, "task": str(task_path),
+        "runner_exit": process.returncode,
+    }
+    if process.returncode == 0 and lines:
+        result_path = Path(lines[-1])
+        result = manifest._load_yaml(result_path, "result")
+        outcome = result.get("outcome") or {}
+        summary.update(
+            model=(result.get("effective_configuration") or {}).get("agent", {}).get("model"),
+            execution_status=result["execution"]["status"],
+            outcome_status=outcome.get("status"),
+            summary=outcome.get("summary"),
+            result=str(result_path),
+            events=str(result_path.with_suffix(".events.jsonl")),
+            error=result.get("error"),
+            report=outcome.get("report"),
+        )
+    return process.returncode, yaml.safe_dump(summary, sort_keys=False, allow_unicode=True)
+
+
+def _claude_main_usage(session_id: str) -> dict[str, int] | None:
+    transcript = manifest._claude_transcript(session_id)
+    if transcript is None:
+        return None
+    last: dict[str, tuple[dict[str, Any], Any]] = {}
+    for entry in manifest._claude_entries(transcript):
+        message = entry.get("message") or {}
+        if entry.get("type") == "assistant" and message.get("usage"):
+            last[message.get("id") or entry.get("uuid")] = (message["usage"], message.get("stop_reason"))
+    usage = dict.fromkeys(("uncached", "cached", "write", "output", "reasoning"), 0)
+    usage["output_known"] = True
+    for value, stop_reason in last.values():
+        usage["uncached"] += value.get("input_tokens", 0)
+        usage["cached"] += value.get("cache_read_input_tokens", 0)
+        usage["write"] += value.get("cache_creation_input_tokens", 0)
+        if stop_reason is None:
+            usage["output_known"] = False
+            continue
+        usage["output"] += value.get("output_tokens", 0)
+        usage["reasoning"] += (value.get("output_tokens_details") or {}).get("thinking_tokens", 0)
+    return usage
+
+
+def _codex_main_usage(thread_id: str) -> dict[str, int] | None:
+    try:
+        paths = manifest._rollout_paths(thread_id)
+    except manifest.ManifestError:
+        return None
+    latest: tuple[str, dict[str, Any]] | None = None
+    for path in paths:
+        for item in manifest._rollout_items(path):
+            payload = item.get("payload") or {}
+            total = (payload.get("info") or {}).get("total_token_usage")
+            if payload.get("type") == "token_count" and total:
+                stamp = item.get("timestamp") or ""
+                if latest is None or stamp >= latest[0]:
+                    latest = (stamp, total)
+    if latest is None:
+        return None
+    total = latest[1]
+    return {
+        "uncached": total.get("input_tokens", 0) - total.get("cached_input_tokens", 0),
+        "cached": total.get("cached_input_tokens", 0),
+        "write": total.get("cache_write_input_tokens", 0),
+        "output": total.get("output_tokens", 0),
+        "reasoning": total.get("reasoning_output_tokens", 0),
+        "output_known": True,
+    }
+
+
+def usage_table(run_manifest: str) -> str:
+    path = Path(os.path.abspath(run_manifest))
+    manifest.reconcile_manifest(str(path))
+    document = manifest._load_yaml(path, "run manifest")
+    rows = [
+        "| Job | Model / effort | Status | Attempts | Uncached in | Cached in | Cache write | Out (reasoning) |",
+        "| --- | --- | --- | ---: | ---: | ---: | ---: | ---: |",
+    ]
+    totals = dict.fromkeys(("uncached", "cached", "write", "output", "reasoning"), 0)
+    missing = 0
+    for job in document.get("jobs") or []:
+        usage = job.get("usage")
+        attempts = "n/a"
+        if job.get("result_path"):
+            with_attempts = manifest._load_yaml(Path(job["result_path"]), "result")
+            attempts = str(len(with_attempts.get("attempts") or []))
+        label = f"{job['model']} {job['reasoning_effort']}"
+        if job.get("limited_by"):
+            label += f" (capped from {job.get('requested_model')})"
+        if not usage or not usage.get("input_tokens"):
+            missing += 1
+            rows.append(f"| {job['id']} | {label} | {job['status']} | {attempts} | n/a | n/a | n/a | n/a |")
+            continue
+        cached = usage.get("cached_input_tokens", 0)
+        write = usage.get("cache_write_input_tokens", 0)
+        values = {
+            "uncached": usage.get("input_tokens", 0) - cached - write, "cached": cached,
+            "write": write, "output": usage.get("output_tokens", 0),
+            "reasoning": usage.get("reasoning_output_tokens", 0),
+        }
+        for key, value in values.items():
+            totals[key] += value
+        rows.append(
+            f"| {job['id']} | {label} | {job['status']} | {attempts} | {values['uncached']:,} | "
+            f"{values['cached']:,} | {values['write']:,} | {values['output']:,} ({values['reasoning']:,}) |"
+        )
+    jobs = len(document.get("jobs") or [])
+    partial = f", partial: {missing} of {jobs} jobs without usage" if missing else ""
+    rows.append(
+        f"| Total: {jobs} jobs{partial} | | | | {totals['uncached']:,} | {totals['cached']:,} | "
+        f"{totals['write']:,} | {totals['output']:,} ({totals['reasoning']:,}) |"
+    )
+    main = None
+    if os.environ.get("CODEX_THREAD_ID"):
+        main = _codex_main_usage(os.environ["CODEX_THREAD_ID"])
+    elif os.environ.get("CLAUDE_CODE_SESSION_ID"):
+        main = _claude_main_usage(os.environ["CLAUDE_CODE_SESSION_ID"])
+    if main is None:
+        rows.append("| main | | | | n/a | n/a | n/a | n/a |")
+    else:
+        out = f"{main['output']:,} ({main['reasoning']:,})" if main["output_known"] else "n/a"
+        rows.append(
+            f"| main | | | | {main['uncached']:,} | {main['cached']:,} | {main['write']:,} | {out} |"
+        )
+    return "\n".join(rows)

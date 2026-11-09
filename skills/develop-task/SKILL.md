@@ -193,19 +193,19 @@ Every job gets a compact self-contained packet.
 ## Routing Matrix
 
 Use one matrix for every run, including retries and resumes. `$develop-task D` is a
-compatibility alias. Reject the removed `$develop-task A` before delegation. Include
-the relevant routing rules in every job packet. Choose the requested model/effort
-from the matrix, then apply any ceiling to the model only.
+compatibility alias. Reject the removed `$develop-task A` before delegation. The
+`agent-run-manifest dispatch` and `route` commands apply the matrix, the other vendor, and
+the ceiling from the role, profile, and slice type; pass a different model only as a
+promotion or preflight override, with its reason.
 
 For the main chat, recommend `gpt-6.1-sol` low when coordinating a clear approved
 plan and medium when main must resolve substantive technical choices; keep the
 user's selection. Delegate difficult judgments to the gate tier.
 
-Use `gpt-6-luna` medium for bounded exploration and factual lookup, such as locating
-files, tracing an established flow, or extracting facts from documentation, and Luna
-high to correlate several sources on a clear question. Architecture, security, difficult
-root-cause, and other decision-determining questions use the requesting gate's tier or
-higher for their own risk.
+Use Luna (`--lookup`) for bounded exploration and factual lookup, such as locating files,
+tracing an established flow, or extracting facts from documentation. Architecture,
+security, difficult root-cause, and other decision-determining questions use the
+requesting gate's tier or higher for their own risk.
 
 Do not create an agent job solely to run a known deterministic command. After the
 writer stops and mutation ownership is clear, main runs it. If an agent is needed
@@ -233,19 +233,13 @@ The home vendor hosts main: GPT in Codex, Claude in Claude Code. Preflight, work
 discovery specialists, and specialists that preflight requests run on it. Every
 `postflight-review`, `diagnosis-review`, and Reduction Pass job, and every specialist
 that postflight or diagnosis requests, runs on the other vendor at the peer of the
-matrix model, with the same effort. A reviewer from another family does not share the
-writer's blind spots; this never raises the review tier.
+matrix model (Luna and Haiku, Terra and Sonnet, Sol and Opus, Astra and Fable), with the
+same effort. A reviewer from another family does not share the writer's blind spots; this
+never raises the review tier.
 
-| GPT model | Claude peer |
-| --- | --- |
-| `gpt-6-luna` | `claude-haiku-5-5` |
-| `gpt-6.1-terra` | `claude-sonnet-5-5` |
-| `gpt-6.1-sol` (or a pinned `gpt-6-sol`) | `claude-opus-5-5` |
-| `gpt-6-astra` | `claude-fable-5-1` |
-
-Other-vendor jobs always run through `agent-runner`, are always one-shot, and follow
-`references/agent-runner.md`: registered in the manifest in runner mode, one private
-task file without a manifest in subagent mode, with the ceiling applied first. Return
+Other-vendor jobs always run through `agent-runner` via `agent-run-manifest dispatch`, are
+always one-shot, and follow `references/agent-runner.md`, in subagent mode with
+`--no-manifest`. Return
 a specialist report or a challenge to a fresh job for the same gate with the complete
 prior gate report.
 
@@ -335,22 +329,10 @@ ceiling. Implementation starts only on `Decision: proceed` and `Routing status:
 confirmed` with no unresolved Blocking specialist request. `upgrade required` means
 `revise first`: rerun preflight at the upgraded tier.
 
-Postflight classifies the next mutation:
-
-- `none`: nothing to change; required for `Approval: yes`;
-- `mechanical`: one obvious local correction with no new decision, coordinated edit,
-  or behavior, contract, validation, or profile change; same revision;
-- `reduction`: only deletions, merges of duplicate tests, inlining, replacement with a
-  named helper, or restoring a wrong cut, in any number of files, with no behavior,
-  contract, or validation-obligation change; same revision and writer;
-- `substantive`: a non-trivial fix inside the task boundary; new revision and fresh
-  preflight;
-- `replan`: owner, scope, behavior, contracts, critical risks, validation obligations,
-  or profile changed; new revision and fresh preflight.
-
-Except for `reduction`, anything beyond one deterministic correction is `substantive`,
-also when uncertain. `Preflight Required` is `yes` exactly for `substantive` and
-`replan`; main may add a preflight but never waive one. Return a missing or inconsistent
+Postflight classifies the next mutation, and its role file defines each class: `none`
+(required for `Approval: yes`), `mechanical` and `reduction` go back to the same writer on
+the same revision, and `substantive` and `replan` need a new revision and fresh preflight.
+Main may add a preflight but never waive one. Return a missing or inconsistent
 classification to postflight for correction.
 
 Revision 1 covers the initial implementation. Return a first `mechanical` fix to the
@@ -599,21 +581,14 @@ After every postflight response, report in the main chat:
 
 ## Agent Usage At Handoff And Completion
 
-Give a concise cumulative usage summary at each handoff and in the final report, with the
-matrix, profile, and any ceiling. Use one table: job ID/role, actual model/effort, status,
-attempts, uncached input, cached input, output. Account for every launched job, including
-failed and retried ones. Show reasoning as a breakdown of output, and keep cache writes
-separate when supplied. If the source's input includes cached input, subtract it for the
-uncached column.
-
-Add totals for jobs, attempts, tokens, and fix/review cycles, counting each job once and
-never summing earlier summaries; the runner's aggregate already sums attempts. Report main
-separately when available. Show unavailable values as `n/a`, not zero, and disclose
-partial totals; zero-initialized runner counters do not prove zero use. Use runner results
-and the reconciled manifest, or available subagent telemetry, with no separate telemetry
-system. Keep job IDs and paths in internal handoffs, but put no `run.yaml` path in the
-user-facing report. Estimate cost only with a known tariff, label it, and never infer
-subscription percentages from tokens.
+At each handoff and in the final report, give the cumulative usage table with the matrix,
+profile, and any ceiling. In runner mode, print it with `agent-run-manifest usage` and use it
+as printed. In subagent mode, build the same table: job, model and effort, status, attempts,
+uncached input, cached input, cache write, and output with reasoning, plus totals and a main
+row. Account for every job, including failed and retried ones. Show unavailable values as
+`n/a`, not zero, and say when totals are partial. Put no `run.yaml` path in the report.
+Estimate cost only with a known tariff, label it, and never infer subscription percentages
+from tokens.
 
 ## Report Format
 

@@ -85,71 +85,16 @@ Challenge loop:
 - Reply with the updated decision and whether findings remain blocking, recommended, or dropped.
 
 Execution routing:
-- Confirm or upgrade the preliminary profile; do not let implementation start on an underpowered profile.
-- Use Fast only for clear local behavior with an established pattern, low blast radius, and narrow validation.
-- Use Standard for clear requirements with non-trivial but bounded implementation.
-- Use Deep for cross-layer, novel, ambiguous, high-risk, or difficult-to-validate work.
-- Mark Deep as Critical when failure is costly, difficult to reverse, or combines critical risks.
-- Use Exceptional only when evidence shows reasoning difficulty beyond Critical:
-  several coupled critical contracts without a reliable local pattern and with
-  difficult validation or rollback; novel architecture across tightly coupled
-  subsystems; or a prior conceptual failure by Sol high or xhigh despite enough
-  context. A familiar critical domain alone is not Exceptional.
-- Use the single default matrix (D remains a compatibility alias). Reject
-  removed A-mode invocations before delegation. Apply the independent M/E
-  ceiling after selecting the requested model/effort.
-- Fast preflight uses `gpt-6.1-sol` medium, the writer `gpt-6.1-terra` medium,
-  and postflight Sol low. Standard gates use Sol medium and the writer Terra
-  high. Deep gates and writer use Sol high. Critical gates use Sol xhigh and
-  known-pattern writers Sol high. Exceptional gates use Astra high and ordinary bounded writers Sol
-  high; only the exceptional slice uses Astra high.
-- In Deep, Critical, and Exceptional plans, a visual slice (UI on an
-  established component pattern, accepted by rendered output) or a prose
-  slice (documentation or user-facing copy) uses Terra high. Use Terra xhigh
-  only for a Critical visual slice with several combined factors. A slice that
-  changes a critical contract, and agent instructions or prompts, are not
-  visual or prose slices. Gates and diagnosis use Terra only when a model
-  ceiling caps them there.
-- Postflight and diagnosis run on the other vendor's peer model under
-  cross-vendor review. Name the GPT tier; main maps it to the vendor.
-- Raise a Critical writer slice to Sol xhigh only for several concrete
-  coupled factors: security/auth reasoning, concurrency, complex migration,
-  costly public contracts, difficult validation or rollback, or a prior Sol
-  high conceptual failure. Ordinary test, lint, build, or type failures alone
-  are not promotion reasons. Reserve Sol max for a conceptual failure at a
-  lower Sol tier. Astra xhigh requires an Astra high conceptual failure or
-  several inseparable Exceptional factors. Never select Astra max automatically.
-- Confirm Terra high for bounded Standard implementation. A conceptual failure
-  despite enough context, ambiguous requirements, or novel coupled behavior
-  requires fresh preflight to reassess the scope/profile. If the profile stays
-  Standard, the next writer may use Terra xhigh; move it to Sol only after
-  Terra xhigh also fails conceptually or the profile changes.
-  Ordinary lint, type, build, formatting, or test failures alone do not justify
-  changing models. Standard postflight stays at Sol medium.
-- Bounded file discovery, established-flow tracing, and documentation lookup
-  use `gpt-6-luna` medium; correlating several sources within a clear factual
-  question may use Luna high. Main or the requesting gate owns interpretation.
-  Architecture, security judgment, difficult root-cause analysis, and other
-  decision-determining questions use the gate's exact tier or a higher tier
-  warranted by their own risk. Sol means `gpt-6.1-sol` for normal routing.
-  Existing ceilings on `gpt-6-sol` stay on that exact model.
-- A separate fresh-context reviewer on the other vendor provides independent
-  review at the normal postflight tier. Do not select Astra solely for
-  independence or disagreement; the unresolved question must meet the
-  Exceptional criteria.
-- When the task packet includes a model ceiling, determine the requested route from the normal matrix first, then cap the effective preflight, implementation, specialist, diagnosis, and postflight models at that ceiling. Treat the ceiling as an explicit user constraint. Do not ask to raise or remove it, and do not return `upgrade required` solely because the requested route is above it. Record both models when the ceiling changes the route.
-- When the task packet selects the runner backend, require `implementation-worker` for every lane, including Fast.
-- Confirm one implementation job for ordinary Fast and Standard work. For a
-  multi-area Deep, Critical, or Exceptional task, confirm an exact ordered
-  slice plan with one responsibility, owned paths, dependencies, consumed and
-  produced interfaces, focused validation, and replan triggers per slice.
-  Preserve approved source Delivery slices unless repository evidence proves a
-  handoff impossible or unsafe. Reject arbitrary file-count splitting and a
-  single broad worker packet that combines separable critical layers.
-- When the task packet selects direct subagents, allow the main agent to write
-  only a confirmed Fast change and require `implementation-worker` for every
-  other profile.
-- Return `upgrade required` when the current preflight model/tier is too weak; it always implies `Decision: revise first` and implementation must wait for upgraded preflight.
+- Confirm or upgrade the preliminary profile; never let implementation start on an underpowered one.
+- Fast: clear local behavior, established pattern, low blast radius, narrow validation. Standard: clear requirements, non-trivial but bounded. Deep: cross-layer, novel, ambiguous, high-risk, or hard to validate. Critical: Deep whose failure is costly, hard to reverse, or combines critical risks. Exceptional: only with evidence of reasoning beyond Critical (several coupled critical contracts without a local pattern and hard to validate or roll back; novel architecture across tightly coupled subsystems; or a prior Sol high or xhigh conceptual failure with enough context). A familiar critical domain alone is not Exceptional.
+- The dispatch helper turns the profile into exact models, the other vendor's peer, and the run's ceiling. Name the profile and slice types, not models, unless a route must differ.
+- Slice types for Deep and higher plans: `visual` (UI on an established component pattern, accepted by rendered output) and `prose` (documentation or user-facing copy) run on Terra; a slice that changes a critical contract, and agent instructions or prompts, are neither. `critical-combined` is a Critical slice with several concrete coupled factors (security/auth reasoning, concurrency, complex migration, costly public contract, hard validation or rollback, or a prior Sol high conceptual failure). `exceptional` is the slice carrying the Exceptional evidence.
+- Route overrides, each with a reason: Terra xhigh for a Standard writer after a conceptual failure when the profile stays Standard, and Sol only after Terra xhigh also fails conceptually or the profile changes; Terra xhigh for a Critical visual slice with several combined factors; Sol max only after a lower Sol tier fails conceptually; Astra xhigh only after an Astra high conceptual failure or for several inseparable Exceptional factors. Never Astra max. Ordinary lint, type, build, formatting, or test failures are not promotion reasons. Independence or disagreement alone never justifies Astra.
+- Bounded factual lookups use Luna; decision-determining questions keep the gate's tier or higher for their own risk.
+- With a model ceiling, the helper caps every job. Do not ask to raise or remove it, and do not return `upgrade required` only because the normal route is above it.
+- In runner mode, require `implementation-worker` for every lane, including Fast. With direct subagents, main may write only a confirmed Fast change.
+- Confirm one implementation job for ordinary Fast and Standard work. For a multi-area Deep, Critical, or Exceptional task, confirm an exact ordered slice plan with one responsibility, owned paths, dependencies, consumed and produced interfaces, focused validation, and replan triggers per slice. Preserve approved source Delivery slices unless repository evidence proves a handoff impossible or unsafe. Reject arbitrary file-count splitting and a single broad packet combining separable critical layers.
+- Return `upgrade required` when your own tier is too weak; it implies `Decision: revise first`.
 - Return `Decision: proceed` only with `Routing status: confirmed` and no unresolved Blocking Delegation Request. A pending Blocking specialist request requires `revise first`, or `blocked` when the specialist is required but unavailable.
 
 Return exactly these sections:
@@ -182,17 +127,13 @@ Execution Profile:
 - Critical flags: concrete flags, or "none".
 - Exceptional evidence: concrete qualifying evidence, or "none".
 - Writer: main | implementation-worker.
-- Routing matrix: D (single default).
 - Model ceiling: adaptive | E <model> | M <model>.
-- Requested implementation model/effort: the normal adaptive route.
-- Implementation model/effort: one concrete callable model ID and one effort, never a range.
-- Requested postflight minimum model/effort: the normal adaptive route.
-- Postflight minimum model/effort: one concrete callable model ID and one effort, never a range.
+- Route overrides: role or slice -> model/effort and reason, or "none". Without one, the profile sets every route.
 - Routing status: confirmed | upgrade required.
 - Replan triggers: concrete evidence that must stop implementation.
 - Implementation slices: `single job`, or an ordered list of exact slice
-  responsibilities, dependencies, consumed interfaces, produced interfaces,
-  validation, and replan triggers.
+  responsibilities and types, dependencies, consumed interfaces, produced
+  interfaces, validation, and replan triggers.
 
 Specialist Input:
 - used/not used specialists, key takeaways, or Delegation Requests with Agent, Blocking/Advisory, and prompt.

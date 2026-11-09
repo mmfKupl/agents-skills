@@ -44,20 +44,12 @@ lifecycle rules stay exactly as the skill describes them.
 - In `subagents` mode, home-vendor jobs are Claude subagents and other-vendor
   jobs still go through `agent-runner` without a manifest, as
   `references/agent-runner.md` describes under Other-Vendor Jobs.
-- For routing evaluation and the final usage table, runner jobs report usage
-  through their result files and the reconciled manifest. Main's own usage, and
-  Claude subagents in `subagents` mode, where the Agent tool reports only a
-  total, come from their transcripts:
-  `python3 <this skill>/scripts/claude_usage.py` (it reads
-  `$CLAUDE_CODE_SESSION_ID`; pass `--session <id>` otherwise, `--json` for
-  machine-readable output). It prints uncached input, cache write, cached
-  input, and output with thinking for each subagent ID and for main. Output is
-  `n/a` or a lower bound when a Claude Code version did not record final usage;
-  keep it that way in the table and mark the totals partial. Match
-  rows to jobs by the agent ID the Agent tool returns. Show cache write as its
-  own column.
-  Fall back to the Agent tool total, marked partial, only when the script
-  cannot find the session.
+- In runner mode, `agent-run-manifest usage` prints the usage table, with main's row read
+  from this session's transcript. In `subagents` mode the Agent tool reports only a total:
+  get per-column numbers for subagents from
+  `python3 <this skill>/scripts/claude_usage.py` (it reads `$CLAUDE_CODE_SESSION_ID`;
+  `--session <id>`, `--json`), matched by the agent ID the Agent tool returns. Its output
+  is `n/a` or a lower bound when a Claude Code version did not record final usage.
 
 ## Spawning roles
 
@@ -90,7 +82,9 @@ the effort level unchanged (`low`, `medium`, `high`, `xhigh`, `max`):
 | `gpt-6.1-sol`, `gpt-6-sol`, Sol | `opus` | `claude-opus-5-5` |
 | `gpt-6-astra`, Astra | `fable` | `claude-fable-5-1` |
 
-Other-vendor jobs keep the GPT model and run through the runner.
+Other-vendor jobs keep the GPT model and run through the runner. In `subagents` mode,
+`agent-run-manifest route` prints the route for a role and profile; pass its Claude model
+as the matching Agent alias.
 
 Model ceilings use one ladder for both vendors: `haiku` = Luna < `sonnet` =
 Terra < `gpt-6-sol` < `opus` = GPT-6.1 Sol < `fable` = Astra. Accept both

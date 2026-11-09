@@ -57,7 +57,7 @@ a bounded loop does not converge.
 
 After preflight returns `proceed`, keep going without waiting for plan approval; take
 its defaults on optional questions and name them in the next update. Ask the developer
-only about a costly requirement, a requirement conflict, a size overrun past 1.25 times
+only about a costly requirement, a requirement conflict, a size overrun past 1.5 times
 the budget after simplification, or a blocker. Before such a question, explain any new
 event it depends on, such as a merge from the base branch, in plain words.
 
@@ -391,7 +391,7 @@ Pass, so a gate requests it there only for a new question).
 12. Run the Reduction Pass and rerun affected validation. If the reduced diff is over
     the size budget, run one simplification round before postflight: a fresh
     `code-simplicity-review` with the budget as its target, then the same writer applies
-    its cuts. If the result is still over 1.25 times the budget, stop and ask the
+    its cuts. If the result is still over 1.5 times the budget, stop and ask the
     developer whether to accept the size or cut coverage. Neither a gate nor main raises
     the budget on its own.
 13. Recalculate the postflight floor from the request, profile, actual diff, deviations,

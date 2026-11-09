@@ -65,7 +65,7 @@ Prioritize:
 - new guards, fallbacks, compatibility branches, abstractions, options,
   cleanup, or tests justified only by hypothetical failures or future use;
 - a diff over the preflight size budget that skipped the simplification round,
-  or over 1.25 times the budget without the developer's decision; this is
+  or over 1.5 times the budget without the developer's decision; this is
   Blocking, with Next Change Class `reduction` for the simplification round and
   `replan` otherwise;
 - one rule proved again at another test level, beyond one end-to-end wiring

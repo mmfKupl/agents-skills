@@ -110,7 +110,14 @@ Implementation Direction:
 
 Minimal design and budget:
 - the approach in a few lines and the existing code it reuses;
-- size budget: rough production lines, test lines, and the test scenarios;
+- size budget: the test scenarios, rough production lines, and rough test lines.
+  Give each scenario the one level that proves it (unit, database, integration,
+  or e2e); prove each rule once, plus one end-to-end wiring test for the flow
+  when the flow is new. A small production change may still need a larger test;
+  size tests by the scenarios, not by a ratio to production lines;
+- validation split: which checks the writer runs and which main runs. The writer
+  has no network: a service on the machine's own ports, such as a local Postgres,
+  Docker, Testcontainers, and anything remote go to main;
 - costly requirements: any requirement whose cost is out of proportion to its
   outcome, with the simpler alternative, or "none". Main asks the user about
   these before implementation; do not drop them yourself.

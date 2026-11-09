@@ -55,6 +55,12 @@ Limits: three unsuccessful final review rounds (Bounded Review Loop) and five
 evidence-based challenges per disputed gate decision. Stop for a user decision when
 a bounded loop does not converge.
 
+After preflight returns `proceed`, keep going without waiting for plan approval; take
+its defaults on optional questions and name them in the next update. Ask the developer
+only about a costly requirement, a requirement conflict, a size overrun past 1.25 times
+the budget after simplification, or a blocker. Before such a question, explain any new
+event it depends on, such as a merge from the base branch, in plain words.
+
 ## Explicit workflow composition
 
 When the user explicitly invokes `$brainstorm-task` and/or `$review-task` alongside
@@ -322,9 +328,15 @@ Preflight confirms or upgrades the profile, critical flags, writer, slice types,
 route override with its reason, and replan triggers; `dispatch` derives the exact
 models from them. It
 also gives the minimal design: the approach, the existing code it reuses, and a size
-budget of rough production and test lines with the test scenarios. When it flags a
+budget: the test scenarios, each at the one level that proves it, with rough production
+and test lines. When it flags a
 requirement whose cost is out of proportion to its outcome, ask the developer before
 implementation; never drop it silently. It must not ask to remove a ceiling.
+
+Main may widen a preflight decision only with a concrete reason: the named scenario or
+requirement that breaks without it. Say it in one line in the next update ("widened X
+because Y") and pass it to postflight, which may cut it. A new requirement, a new
+mechanism, or a larger budget is not a widening: it goes to preflight or the developer.
 Implementation starts only on `Decision: proceed` and `Routing status:
 confirmed` with no unresolved Blocking specialist request. `upgrade required` means
 `revise first`: rerun preflight at the upgraded tier.
@@ -375,10 +387,12 @@ Pass, so a gate requests it there only for a new question).
     snapshots, generated files, lockfiles, or other artifacts, then inspect the diff.
     Send long output to a file in a private temporary directory and read only its summary
     and failures.
-12. Run the Reduction Pass and rerun affected validation. If the reduced diff is
-    still about 1.5 times the size budget or more, return to preflight with the
-    overrun before postflight: it approves a larger budget with a reason, or sends
-    the work back to simplify.
+12. Run the Reduction Pass and rerun affected validation. If the reduced diff is over
+    the size budget, run one simplification round before postflight: a fresh
+    `code-simplicity-review` with the budget as its target, then the same writer applies
+    its cuts. If the result is still over 1.25 times the budget, stop and ask the
+    developer whether to accept the size or cut coverage. Neither a gate nor main raises
+    the budget on its own.
 13. Recalculate the postflight floor from the request, profile, actual diff, deviations,
     and validation gaps. Prepare any selected review-task audit under
     `references/composed-workflows.md`.
@@ -420,7 +434,7 @@ Relevant repository evidence:
 Evidence for non-obvious behavior:
 Contracts to preserve:
 Implementation hypothesis:
-Size budget: rough production and test lines, and the test scenarios.
+Size budget: the test scenarios with their one level each, and rough production and test lines.
 Dirty-tree constraints:
 Writer validation:
 Main validation:
@@ -429,8 +443,10 @@ Expected return:
 ```
 
 Split validation before dispatch. Writer validation holds only checks that can run in
-the writer's sandbox. A runner writer has no network, and its sandbox may also block
-local sockets and Docker; checks that need them go to Main validation.
+the writer's sandbox; preflight names the rest, and they go to Main validation. A runner
+writer can run unit tests, browser tests such as Karma, and JVM tests, but has no network:
+nothing on another host, no service on the machine's own ports such as a local Postgres,
+and no Docker or Testcontainers.
 
 Everything is strict except the hypothesis: the writer may adjust local code shape,
 naming, helpers, and test structure within the contract. Assign exact paths and remind
@@ -573,6 +589,7 @@ After every postflight response, report in the main chat:
 - Recommended findings accepted or declined with a reason, or `none`;
 - notable Optional findings, or `none`;
 - Validation gaps, or `none`;
+- Accepted risks, or `none`;
 - Failure class and routing recommendation;
 - Next Change Class, whether fresh preflight is required, and why;
 - current contract revision and approving preflight job;
@@ -601,6 +618,9 @@ When done, report:
 - Validation and skipped checks;
 - Preflight and postflight results and cycle count;
 - Reduction Pass: cuts applied and declined, and lines removed;
+- size against the budget, and any widening main made with its reason;
+- accepted risks: every finding or edge case left unfixed, with how likely it is and why,
+  or `none`;
 - implementation-contract revisions and their approving preflight jobs;
 - Replans or promotions, or `none`;
 - delegation backend, routing matrix, cross-vendor review state, and the Agent Usage

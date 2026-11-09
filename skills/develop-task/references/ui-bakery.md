@@ -31,6 +31,11 @@ outer workflow delegates that exact action. The one exception is renaming the
 Linear issue under the `ticket-title` skill, in English as
 `$develop-please` requires for all Linear text.
 
+The `$develop-please` 3 hour invocation timebox does not stop a `$develop-task` run.
+The run stops on this skill's conditions instead: an exhausted Bounded Review Loop, a
+blocker, or a decision only the developer can make. Keep `$develop-please`'s Linear and
+PR closeout for whichever stop comes first.
+
 Treat an explicit combined prompt as user intent to use `$develop-task` review
 delegation. It does not override higher-priority instructions, runtime
 concurrency limits, safety constraints, or an outer workflow rule that cannot

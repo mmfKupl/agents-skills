@@ -53,12 +53,20 @@ Runner constraints (these override any conflicting task-specific instruction):
 """
 
 # Claude's sandbox auto-allows plain commands but asks for approval, which a
-# headless job cannot give, for shell expansions such as `$?`.
+# headless job cannot give, for shell expansions such as `$?` and for
+# `VAR=value` prefixes. A script in the job's scratch directory needs neither.
 CLAUDE_BASH_NOTE = """\
 Bash runs in a sandbox with no approval prompts. Run each check as a plain command,
-without `$?`, `$VAR`, `$(...)`, or `;` chaining: the exit status is reported to you.
+without `$?`, `$VAR`, `$(...)`, `;` chaining, or `VAR=value` prefixes: the exit status
+is reported to you.
 If a command is denied, rerun it once in its plainest form before reporting it as not run.
 """
+CLAUDE_SCRATCH_NOTE = """\
+For a check that needs environment variables, pipes, or several steps, write a script in
+{scratch} with the Write tool and run `bash {scratch}/<name>.sh`. Put temporary files
+there too, never in the worktree. The directory is deleted when the job ends.
+"""
+DOCKER_SOCKETS = ("/var/run/docker.sock", "/run/docker.sock", "~/.docker/run/docker.sock")
 
 CHECKPOINT_STEER = """\
 Stop new work now. Finish any operation that cannot safely be left half-applied, then
@@ -1032,13 +1040,39 @@ def _is_claude_model(model: str) -> bool:
     return model.startswith("claude-")
 
 
-def _claude_configuration(task: dict[str, Any]) -> dict[str, Any]:
+def _writer_sandbox_filesystem(task_path: Path) -> dict[str, list[str]]:
+    """Let writers run browser and JVM tests without reaching Docker or the run's files.
+
+    Chrome and JVM self-attach (Mockito) need Unix sockets, and the JVM attach
+    socket lives in /tmp. Docker's socket is root-equivalent, and the job's run
+    directory holds the manifest and results the writer must not edit.
+    """
+    temp_roots = {str(Path(path).resolve()) for path in ("/tmp", tempfile.gettempdir()) if Path(path).is_dir()}
+    sockets: set[str] = set()
+    for candidate in DOCKER_SOCKETS:
+        path = Path(candidate).expanduser()
+        if path.exists():
+            sockets.update({str(path), str(path.resolve())})
+    run_root = task_path.parent
+    if len(task_path.parents) > 2 and (task_path.parents[2] / "run.yaml").exists():
+        run_root = task_path.parents[2]
+    return {
+        "allowWrite": sorted(temp_roots),
+        "denyRead": sorted(sockets),
+        "denyWrite": sorted(sockets | {str(run_root.resolve())}),
+    }
+
+
+def _claude_configuration(task: dict[str, Any], task_path: Path) -> dict[str, Any]:
     sandbox_mode = task["permissions"]["sandbox_mode"]
     permissions = CLAUDE_PERMISSIONS[sandbox_mode]
     sandbox = dict(permissions["sandbox"]) if permissions["sandbox"] else None
     if sandbox_mode == "read_only":
         root = _canonical_worktree_root(task["workspace"]["cwd"])
         sandbox["filesystem"] = {"denyWrite": [str(root)]}
+    elif sandbox_mode == "workspace_write":
+        sandbox["network"] = {"allowAllUnixSockets": True}
+        sandbox["filesystem"] = _writer_sandbox_filesystem(task_path)
     return {
         "tools": permissions["tools"],
         "permission_mode": permissions["permission_mode"],
@@ -1050,7 +1084,10 @@ def _claude_configuration(task: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _claude_command(claude_bin: str, task: dict[str, Any], configuration: dict[str, Any]) -> list[str]:
+def _claude_command(
+    claude_bin: str, task: dict[str, Any], configuration: dict[str, Any], scratch: str | None = None
+) -> list[str]:
+    note = CLAUDE_BASH_NOTE + (CLAUDE_SCRATCH_NOTE.format(scratch=scratch) if scratch else "")
     command = [
         claude_bin,
         "-p",
@@ -1059,7 +1096,7 @@ def _claude_command(claude_bin: str, task: dict[str, Any], configuration: dict[s
         "--json-schema", json.dumps(WORKER_OUTPUT_SCHEMA),
         "--model", task["agent"]["model"],
         "--effort", task["agent"]["reasoning_effort"],
-        "--append-system-prompt", f"{_developer_instructions(task)}\n{CLAUDE_BASH_NOTE}",
+        "--append-system-prompt", f"{_developer_instructions(task)}\n{note}",
         "--tools", configuration["tools"],
         "--permission-mode", configuration["permission_mode"],
         "--permission-prompts", configuration["permission_prompts"],
@@ -1068,6 +1105,8 @@ def _claude_command(claude_bin: str, task: dict[str, Any], configuration: dict[s
     ]
     if configuration["settings"] is not None:
         command += ["--settings", json.dumps(configuration["settings"])]
+    if scratch:
+        command += ["--add-dir", scratch]
     return command
 
 
@@ -1173,13 +1212,18 @@ def _execute_claude(
 
     # A file, not a pipe: communicate() with a timeout stops writing a large
     # prompt after its first timeout and would leave the CLI waiting for EOF.
-    with tempfile.TemporaryFile("w+", encoding="utf-8") as prompt_file:
+    with contextlib.ExitStack() as stack:
+        scratch = None
+        if task["permissions"]["sandbox_mode"] == "workspace_write":
+            scratch = stack.enter_context(tempfile.TemporaryDirectory(prefix="agent-job-scratch-"))
+            scratch = str(Path(scratch).resolve())
+        prompt_file = stack.enter_context(tempfile.TemporaryFile("w+", encoding="utf-8"))
         prompt_file.write(_worker_prompt(task, 1, None))
         prompt_file.flush()
         prompt_file.seek(0)
         try:
             process = subprocess.Popen(
-                _claude_command(claude_bin, task, configuration),
+                _claude_command(claude_bin, task, configuration, scratch),
                 cwd=task["workspace"]["cwd"],
                 stdin=prompt_file,
                 stdout=subprocess.PIPE,
@@ -1332,7 +1376,9 @@ def _continue_invocation(
         return InvocationResult(result_path, "invalid_task")
 
     result["task"]["job_id"] = task["job"]["id"]
-    claude_configuration = _claude_configuration(task) if _is_claude_model(task["agent"]["model"]) else None
+    claude_configuration = (
+        _claude_configuration(task, task_path) if _is_claude_model(task["agent"]["model"]) else None
+    )
     result["effective_configuration"] = {
         "workspace": {"cwd": task["workspace"]["cwd"]},
         "agent": {

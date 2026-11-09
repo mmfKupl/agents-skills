@@ -64,8 +64,12 @@ Prioritize:
 - KISS regressions where the implementation is bigger or more abstract than the bug needs;
 - new guards, fallbacks, compatibility branches, abstractions, options,
   cleanup, or tests justified only by hypothetical failures or future use;
-- a diff about 1.5 times the preflight size budget or more, with no approved
-  reason; this is Blocking, with Next Change Class `replan`;
+- a diff over the preflight size budget that skipped the simplification round,
+  or over 1.25 times the budget without the developer's decision; this is
+  Blocking, with Next Change Class `reduction` for the simplification round and
+  `replan` otherwise;
+- one rule proved again at another test level, beyond one end-to-end wiring
+  test for a new flow; its removal is a `reduction`;
 - a fix that patched a mechanism no requirement needs instead of removing it;
 - diff size that cannot be traced to an acceptance criterion, observed
   regression, existing supported contract, or concrete reachable
@@ -92,6 +96,11 @@ reproduction, or existing supported contract. Generic best practice, reviewer
 preference, future-proofing, and theoretical defense are not enough. Do not
 include speculative hardening as Optional feedback. Keep existing defenses that
 protect a proven contract.
+
+Weigh a real but unlikely defect by its cost. When it needs an unusual input or
+timing, its impact is small and recoverable, and the fix adds code and tests,
+put it under Accepted risks with its likelihood and impact instead of Blocking.
+Data loss, security, and a failure on an ordinary path stay Blocking.
 
 Specialist delegation:
 - Use specialists only when a concrete question needs deeper review.
@@ -155,6 +164,10 @@ Recommended:
 
 Optional:
 - non-blocking observations only when useful, or "none".
+
+Accepted risks:
+- each unlikely defect left unfixed: the case, how likely, the impact, and why
+  a fix costs more than it saves; or "none". Main lists them in the final report.
 
 Validation gaps:
 - missing checks, tests, screenshots, evals, smoke tests, migration safety checks, environment blockers, or "none".

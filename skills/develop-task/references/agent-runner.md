@@ -106,8 +106,12 @@ A `claude-*` model runs through the runner's Claude Code engine, every other mod
 Codex, with the same schemas, permissions, worktree lock, and results. The Claude engine
 needs a signed-in `claude` on `PATH` or `AGENT_RUNNER_CLAUDE_BIN`. Its Bash runs in Claude's
 sandbox, which blocks writes and network for read-only jobs and fails the job when it cannot
-start (for example on Linux without bubblewrap). It denies commands with shell expansions
-such as `$?`, so the runner tells Claude jobs to run plain commands. A Claude job has one attempt and no context rotation. Run `agent-runner`
+start (for example on Linux without bubblewrap). A Claude writer may use Unix sockets and
+`/tmp`, so Karma and JVM tests with Mockito run, but it cannot reach Docker, its own run
+directory, or the network, including services on the machine's own ports. The sandbox denies
+shell expansions such as `$?` and `VAR=value` prefixes, so the runner tells Claude jobs to run
+plain commands and gives a writer a scratch directory for scripts. A Claude job has one attempt
+and no context rotation. Run `agent-runner`
 outside the Codex sandbox: both engines need network access.
 
 ## Wait And Interpret

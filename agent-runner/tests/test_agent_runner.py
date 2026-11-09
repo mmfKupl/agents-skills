@@ -941,13 +941,30 @@ class ClaudeEngineTests(RunnerTestCase):
         self.assertIn("Edit", self.option(argv, "--tools").split(","))
         self.assertNotIn("WebFetch", self.option(argv, "--tools").split(","))
         sandbox = json.loads(self.option(argv, "--settings"))["sandbox"]
-        self.assertNotIn("filesystem", sandbox)
+        self.assertEqual(sandbox["network"], {"allowAllUnixSockets": True})
+        filesystem = sandbox["filesystem"]
+        self.assertIn(str(Path(tempfile.gettempdir()).resolve()), filesystem["allowWrite"])
+        self.assertIn(str(self.root.resolve()), filesystem["denyWrite"])
+        self.assertTrue(set(filesystem["denyRead"]) <= set(filesystem["denyWrite"]))
+        scratch = self.option(argv, "--add-dir")
+        self.assertIn(f"write a script in\n{scratch}", self.option(argv, "--append-system-prompt"))
+        self.assertFalse(Path(scratch).exists())
+
+        _, _, call = self.run_claude(claude_response(), self.claude_task("read_only"))
+        self.assertNotIn("--add-dir", call["argv"])
 
         _, _, call = self.run_claude(claude_response(), self.claude_task("danger_full_access"))
         argv = call["argv"]
         self.assertEqual(self.option(argv, "--permission-mode"), "bypassPermissions")
         self.assertIn("WebFetch", self.option(argv, "--tools").split(","))
         self.assertNotIn("--settings", argv)
+
+    def test_writer_cannot_write_its_run_directory(self) -> None:
+        job = self.root / "run" / "jobs" / "002-implementation"
+        job.mkdir(parents=True)
+        (self.root / "run" / "run.yaml").write_text("kind: develop-task-run\n")
+        filesystem = runner._writer_sandbox_filesystem(job / "task.yaml")
+        self.assertIn(str((self.root / "run").resolve()), filesystem["denyWrite"])
 
     def test_large_prompt_reaches_a_slow_reader(self) -> None:
         task = self.claude_task()

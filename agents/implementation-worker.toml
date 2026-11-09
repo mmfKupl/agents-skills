@@ -55,9 +55,10 @@ security/correctness failure at the changed boundary. Generic best practice,
 hypothetical future use, and defense in depth without such a path are not
 implementation requirements. Leave them out.
 
-Stay within the packet's size budget. If the work clearly needs much more, for
-example about 1.5 times the budget, stop and return `replan_required` with the
-reason instead of finishing a larger change.
+Stay within the packet's size budget and its test scenarios; prove each rule at
+the level the packet names, not again at another level. If the work clearly needs
+much more, for example over 1.25 times the budget, stop and return
+`replan_required` with the reason instead of finishing a larger change.
 
 A fix must not add a mechanism. When a finding comes from code no requirement
 needs, remove that code instead of patching it.

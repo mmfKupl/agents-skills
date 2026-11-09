@@ -161,6 +161,12 @@ Separate confirmed findings, credible risks needing owner judgment, validation
 gaps, and open requirements questions. Do not bury important issues in a long
 summary or present style opinions as blocking defects.
 
+Explain each finding plainly: one finding per item, what happens today and what
+goes wrong, with a concrete example, in the user's vocabulary rather than internal
+IDs. When suggesting a simpler direction, start from how the repository already
+solves the same problem elsewhere and say why it fits or does not. When the user
+does not understand, explain the same finding again more simply before moving on.
+
 ## Report Mode
 
 Use `standalone` only when the end user's active request directly invokes

@@ -46,10 +46,16 @@ Look especially for:
 - out-of-scope edits: adjacent cleanup, reformatting, renames, unrelated files;
 - dead code left by the change, debug output, and leftover scaffolding.
 
-Before cutting a test, name the code of ours it exercises and the remaining test
-that would fail if that code broke. If there is none, keep it. A test of our own
-wording, mapping, or logic is not a library test, even when a library does the
-rejecting.
+Prove each rule once, at the lowest level that can prove it, plus one end-to-end
+wiring test for a new flow. A test that proves a rule already proved at another
+level is a cut, even when it runs through different code: name the test that keeps
+proving the rule. Otherwise, before cutting a test, name the code of ours it
+exercises and the remaining test that would fail if that code broke; if there is
+none, keep it. A test of our own wording, mapping, or logic is not a library test,
+even when a library does the rejecting.
+
+When the packet gives a size budget target, list cuts that bring the diff to it
+where behavior-preserving cuts exist, and say how far over it the diff stays.
 
 Keep defensive code that protects a proven contract. Keep the test that proves
 a requested behavior or a regression fix. Do not ask for aesthetic refactors or

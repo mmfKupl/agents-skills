@@ -86,6 +86,8 @@ pick a heavier one for ceremony.
 - Surface only facts that affect the decision, never raw notes or reports.
 - When the user corrects a premise, discard unapproved conclusions that depend
   on it and resume from the earliest affected stage.
+- Show a change as a short "today / after" example with real values, not as
+  internal IDs or requirement codes.
 - If the user asks for context or does not understand, do not advance or open
   another fork: explain the concept plainly with a concrete example, then
   restate the same question more simply.
@@ -239,6 +241,12 @@ comparison's basis, redo the affected research and show the corrected
 comparison before options.
 
 ### 4. Compare approaches
+
+Start from the closest existing analog in the repository: how the same problem
+is already solved for a neighboring feature (for example the SQL version of an
+HTTP change). Lead with repeating it, and describe the analog in one or two
+plain sentences. Propose a new mechanism only when you can name why the analog
+does not fit.
 
 Generate approaches and filter them before showing any; Bounded work needs
 only materially different directions, Architectural a broader

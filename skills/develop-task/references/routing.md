@@ -17,7 +17,8 @@ Exceptional requires concrete evidence for at least one of these conditions:
 - the key decision requires novel architecture across several tightly coupled
   subsystems;
 - `gpt-6.1-sol` high or xhigh already made a conceptual error or could not
-  produce an approvable contract from sufficient context.
+  produce an approvable contract from sufficient context. On Claude, a Sol xhigh
+  route already runs on Fable high, so the next step there is Fable xhigh.
 
 Do not select Exceptional for a single familiar authentication, permission,
 billing, migration, concurrency, or public-contract change with an established
@@ -115,3 +116,19 @@ unresolved cause itself meets the Exceptional criteria. Diagnosis runs on the
 other vendor under Cross-Vendor Review.
 Always apply the selected ceiling to diagnosis and specialists.
 
+## Fable on Claude
+
+On Claude, every route at `gpt-6.1-sol` xhigh runs as `claude-fable-5-2` high instead of
+`claude-opus-5-5` xhigh. That covers Critical preflight, postflight, and diagnosis, the
+specialists of a Critical gate, and the `critical-combined` slice. Fable 5.2 scores higher
+at about the same cost per task. `dispatch` and `route` apply this; GPT jobs keep Sol xhigh.
+Under a ceiling below Astra (`E Sol`, `E Opus`, or `M` on Opus) the job stays on Opus xhigh.
+
+Fable's safeguards refuse much security work. A refusal is not a result: use a simpler
+model. When a safety refusal stops a routed Fable job, Exceptional Astra jobs included,
+`dispatch` reruns it at once on Opus xhigh. The rerun's packet warns the job about any
+partial edits, and the summary names the refused job under `refused`. The runner cannot
+see a soft refusal: a Fable report that declines or cuts short part of an auth,
+permission, or security question. Discard such a report and dispatch the same job with
+`--model gpt-6.1-sol --effort xhigh --reason "Fable refused"`. In subagent mode, do the
+same with an `opus` Agent job at xhigh.

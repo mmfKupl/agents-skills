@@ -60,7 +60,8 @@ model, applies the run's ceiling, builds the task from the canonical role file
 `${CODEX_HOME:-$HOME/.codex}/agents/<role>.toml` with the runner output envelope, sets
 permissions and context budgets for the role and profile, registers the job, runs it,
 reconciles the manifest, and prints the job, route, model, status, summary, result path,
-and the full role report. `agent-run-manifest route` takes the role, profile, and routing
+and the full role report. When a safety refusal stops a routed Fable job, it reruns the
+job on Opus xhigh and prints the rerun, with the refused job under `refused`. `agent-run-manifest route` takes the role, profile, and routing
 flags (and `--ceiling`) and prints the route without running anything.
 
 - `--role`: `preflight-review`, `implementation-worker`, `postflight-review`,

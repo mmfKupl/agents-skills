@@ -240,8 +240,9 @@ discovery specialists, and specialists that preflight requests run on it. Every
 `postflight-review`, `diagnosis-review`, and Reduction Pass job, and every specialist
 that postflight or diagnosis requests, runs on the other vendor at the peer of the
 matrix model (Luna and Haiku, Terra and Sonnet, Sol and Opus, Astra and Fable), with the
-same effort. A reviewer from another family does not share the writer's blind spots; this
-never raises the review tier.
+same effort; on Claude, a Sol xhigh route runs as Fable high
+([`references/routing.md`](references/routing.md), Fable on Claude). A reviewer from
+another family does not share the writer's blind spots; this never raises the review tier.
 
 Other-vendor jobs always run through `agent-runner` via `agent-run-manifest dispatch`, are
 always one-shot, and follow `references/agent-runner.md`, in subagent mode with

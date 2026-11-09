@@ -187,7 +187,8 @@ Parameters immediately after the skill name are authoritative:
 Supported ceilings follow this order: `gpt-6-luna`, `gpt-6.1-terra`,
 `gpt-6-sol`, `gpt-6.1-sol`, `gpt-6-astra`. Claude models share their GPT
 peer's rank: `claude-haiku-5-5` = Luna, `claude-sonnet-5-5` = Terra,
-`claude-opus-5-5` = GPT-6.1 Sol, `claude-fable-5-1` = Astra. Short names
+`claude-opus-5-5` = GPT-6.1 Sol, `claude-fable-5-2` = Astra (`claude-fable-5-1`
+keeps that rank for `M` and older runs). Short names
 (`Luna`, `Terra`, `Sol`, `Astra`, `Haiku`, `Sonnet`, `Opus`, `Fable`) resolve
 to these IDs. A capped job keeps its vendor: it gets that vendor's strongest
 model at or below the ceiling's rank, so `E Terra` caps `claude-opus-5-5` to

@@ -49,10 +49,14 @@ CLAUDE_MODEL_PEERS = {
     "claude-haiku-5-5": "gpt-6-luna",
     "claude-sonnet-5-5": "gpt-6.1-terra",
     "claude-opus-5-5": "gpt-6.1-sol",
-    "claude-fable-5-1": "gpt-6-astra",
+    "claude-fable-5-2": "gpt-6-astra",
 }
+# Earlier Claude models keep their rank so `M` and older runs still resolve; new jobs use the peers.
+PREVIOUS_CLAUDE_MODELS = {"claude-fable-5-1": "gpt-6-astra"}
 MODEL_RANK = {model: rank for rank, model in enumerate(MODEL_ORDER)}
-MODEL_RANK.update({model: MODEL_RANK[peer] for model, peer in CLAUDE_MODEL_PEERS.items()})
+MODEL_RANK.update(
+    {model: MODEL_RANK[peer] for model, peer in {**PREVIOUS_CLAUDE_MODELS, **CLAUDE_MODEL_PEERS}.items()}
+)
 LEGACY_MODELS = {"gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"}
 MODEL_POLICY_MODES = {"adaptive", "explicit_ceiling", "main_ceiling"}
 DEVELOP_TASK_INVOCATION = re.compile(
@@ -1234,7 +1238,10 @@ def main(argv: list[str] | None = None) -> int:
                 lookup=args.lookup,
             )
             vendor = run_dispatch.target_vendor(args.role, args.gate, args.vendor)
-            selected = run_dispatch.capped(run_dispatch.vendor_model(model, vendor), args.ceiling)
+            model, effort, rule = run_dispatch.resolve(
+                model, effort, rule, vendor, run_dispatch.ceiling_policy(args.ceiling)
+            )
+            selected = run_dispatch.capped(model, args.ceiling)
             output = f"{selected} {effort} ({rule}; {vendor} vendor)"
         elif args.command == "usage":
             import run_dispatch

@@ -18,14 +18,14 @@ import run_dispatch
 import run_manifest
 
 FAKE_RUNNER = """#!{python}
-import hashlib, sys, yaml
+import hashlib, os, sys, yaml
 from pathlib import Path
 task_path = Path(sys.argv[1])
 task = yaml.safe_load(task_path.read_text())
 results = task_path.parent / "results"
 results.mkdir()
 result = results / "exec-1.yaml"
-result.write_text(yaml.safe_dump({{
+value = {{
     "kind": "agent-result", "schema_version": 1,
     "execution": {{"id": "exec-1", "status": "completed"}},
     "task": {{"path": str(task_path), "sha256": hashlib.sha256(task_path.read_bytes()).hexdigest(),
@@ -36,7 +36,13 @@ result.write_text(yaml.safe_dump({{
                "output_tokens": 7, "reasoning_output_tokens": 2, "total_tokens": 107}},
     "outcome": {{"status": "completed", "summary": "done", "report": "Decision: proceed"}},
     "approval": {{}}, "error": None,
-}}))
+}}
+if os.environ.get("FAKE_REFUSE") and task["agent"]["model"].startswith("claude-fable-"):
+    value.update(
+        execution={{"id": "exec-1", "status": "failed"}}, outcome=None,
+        error={{"type": "refusal", "message": "a safety refusal stopped the Claude run"}},
+    )
+result.write_text(yaml.safe_dump(value))
 print(result)
 """
 
@@ -87,6 +93,26 @@ class RouteTests(unittest.TestCase):
             self.assertEqual(printed.call_args[0][0], "gpt-6.1-sol medium (standard postflight; codex vendor)")
             run_manifest.main(["route", "--role", "preflight-review", "--profile", "deep", "--ceiling", "Sonnet"])
             self.assertEqual(printed.call_args[0][0], "claude-sonnet-5-5 high (deep preflight; claude vendor)")
+
+    def test_claude_takes_fable_for_opus_xhigh_within_the_ceiling(self) -> None:
+        adaptive = run_dispatch.ceiling_policy(None)
+        critical = run_dispatch.route("preflight-review", "critical")
+        self.assertEqual(run_dispatch.resolve(*critical, "claude", adaptive)[:2], ("claude-fable-5-2", "high"))
+        self.assertEqual(run_dispatch.resolve(*critical, "codex", adaptive)[:2], ("gpt-6.1-sol", "xhigh"))
+        for ceiling in ("Opus", "Sol", "Terra"):
+            model, effort, _ = run_dispatch.resolve(*critical, "claude", run_dispatch.ceiling_policy(ceiling))
+            self.assertEqual((run_dispatch.capped(model, ceiling), effort),
+                             (run_dispatch.capped("claude-opus-5-5", ceiling), "xhigh"))
+        deep = run_dispatch.route("preflight-review", "deep")
+        self.assertEqual(run_dispatch.resolve(*deep, "claude", adaptive)[:2], ("claude-opus-5-5", "high"))
+        exceptional = run_dispatch.route("preflight-review", "exceptional")
+        self.assertEqual(run_dispatch.resolve(*exceptional, "claude", adaptive)[:2], ("claude-fable-5-2", "high"))
+        with patch.dict(os.environ, {"CLAUDECODE": "1", "CODEX_THREAD_ID": ""}), patch("builtins.print") as printed:
+            run_manifest.main(["route", "--role", "preflight-review", "--profile", "critical"])
+            self.assertEqual(printed.call_args[0][0], "claude-fable-5-2 high "
+                             "(critical preflight; Fable in place of Opus xhigh; claude vendor)")
+            run_manifest.main(["route", "--role", "preflight-review", "--profile", "critical", "--ceiling", "Opus"])
+            self.assertEqual(printed.call_args[0][0], "claude-opus-5-5 xhigh (critical preflight; claude vendor)")
 
     def test_vendor(self) -> None:
         with patch.dict(os.environ, {"CLAUDECODE": "1", "CODEX_THREAD_ID": ""}):
@@ -212,6 +238,19 @@ class DispatchTests(unittest.TestCase):
         self.assertEqual(summary["vendor"], "codex")
         self.assertEqual(summary["model"], "gpt-6.1-terra")
         self.assertEqual(Path(summary["task"]).parent.stat().st_mode & 0o777, 0o700)
+
+    def test_refused_fable_job_reruns_on_opus_xhigh(self) -> None:
+        with patch.dict(os.environ, {"CLAUDECODE": "1", "CODEX_THREAD_ID": "", "FAKE_REFUSE": "1"}):
+            code, summary = self.dispatch(
+                role="preflight-review", profile="critical", workspace=str(self.workspace),
+            )
+        self.assertEqual(code, 0)
+        self.assertEqual((summary["model"], summary["effort"]), ("claude-opus-5-5", "xhigh"))
+        self.assertEqual(summary["outcome_status"], "completed")
+        self.assertEqual(summary["refused"]["model"], "claude-fable-5-2")
+        task = yaml.safe_load(Path(summary["task"]).read_text())
+        self.assertIn("stopped on a safety refusal", task["job"]["prompt"])
+        self.assertIn("Goal: fix it.", task["job"]["prompt"])
 
 
 if __name__ == "__main__":

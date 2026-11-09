@@ -78,6 +78,17 @@ BUDGETS = {
 }
 GPT_PEER = {gpt: claude for claude, gpt in manifest.CLAUDE_MODEL_PEERS.items()}
 GPT_PEER["gpt-6-sol"] = "claude-opus-5-5"
+# On Claude, Fable high replaces Opus xhigh: it scores higher at about the same cost per
+# task. Its safeguards refuse much security work, so a routed Fable job that a safety
+# refusal stops reruns on the strongest Opus route.
+CLAUDE_UPGRADES = {("gpt-6.1-sol", "xhigh"): ("claude-fable-5-2", "high")}
+REFUSAL_ROUTE = ("gpt-6.1-sol", "xhigh")
+REFUSAL_RETRY = """\
+A previous job for this packet ran on Claude Fable and stopped on a safety refusal.
+This is the rerun on Claude Opus. The worktree may hold that job's partial edits:
+check `git status` before you start.
+
+"""
 ADAPTER = """\
 The runner requires one universal structured output object. Perform the role
 contract exactly, but place its complete required role response inside the
@@ -175,6 +186,30 @@ def vendor_model(model: str, vendor: str) -> str:
     return manifest.CLAUDE_MODEL_PEERS.get(model, model)
 
 
+def ceiling_policy(ceiling: str | None) -> dict[str, Any]:
+    if not ceiling:
+        return {"mode": "adaptive", "maximum_model": None}
+    return {"mode": "explicit_ceiling", "maximum_model": manifest._model_id(ceiling)}
+
+
+def claude_upgrade(model: str, effort: str, vendor: str, policy: dict[str, Any]) -> tuple[str, str] | None:
+    """Return the Claude route that replaces a matrix route, unless the ceiling is below it."""
+    upgrade = CLAUDE_UPGRADES.get((model, effort)) if vendor == "claude" else None
+    if upgrade is None or manifest._select_model(upgrade[0], policy)[1] is not None:
+        return None
+    return upgrade
+
+
+def resolve(
+    model: str, effort: str, rule: str, vendor: str, policy: dict[str, Any]
+) -> tuple[str, str, str]:
+    """Return the vendor's model, effort, and rule for a matrix route."""
+    upgrade = claude_upgrade(model, effort, vendor, policy)
+    if upgrade:
+        return *upgrade, f"{rule}; Fable in place of Opus {effort}"
+    return vendor_model(model, vendor), effort, rule
+
+
 def role_instructions(role: str) -> str:
     if tomllib is None:
         raise manifest.ManifestError("reading role files needs Python 3.11 or newer")
@@ -252,8 +287,7 @@ def _runner_path(explicit: str | None) -> str:
 def capped(model: str, ceiling: str | None) -> str:
     if not ceiling:
         return model
-    policy = {"mode": "explicit_ceiling", "maximum_model": manifest._model_id(ceiling)}
-    return manifest._select_model(model, policy)[0]
+    return manifest._select_model(model, ceiling_policy(ceiling))[0]
 
 
 def dispatch(
@@ -275,13 +309,17 @@ def dispatch(
             role, profile, slice_kind=slice_kind, gate=gate, lookup=lookup
         )
     target = target_vendor(role, gate, vendor)
-    requested = vendor_model(chosen_model, target)
     runner_path = _runner_path(runner)
+
+    def plan(policy: dict[str, Any]) -> tuple[str, str, str]:
+        if model:
+            return vendor_model(chosen_model, target), chosen_effort, rule
+        return resolve(chosen_model, chosen_effort, rule, target, policy)
 
     def header(selected: str) -> str:
         return (
-            f"Routing: {profile} profile, {role}, {selected} {chosen_effort} "
-            f"({rule}; {target} vendor).\n\n"
+            f"Routing: {profile} profile, {role}, {selected} {job_effort} "
+            f"({job_rule}; {target} vendor).\n\n"
         )
 
     if run_manifest is not None:
@@ -296,12 +334,14 @@ def dispatch(
         for _ in range(5):
             document = manifest._load_yaml(run_path, "run manifest")
             job_id = fixed_id or _next_job_id(document.get("jobs") or [], role)
-            selected = manifest._select_model(requested, manifest._model_policy(document["run"]))[0]
+            policy = manifest._model_policy(document["run"])
+            requested, job_effort, job_rule = plan(policy)
+            selected = manifest._select_model(requested, policy)[0]
             with tempfile.TemporaryDirectory() as draft_dir:
                 draft = Path(draft_dir) / "task.yaml"
                 task = build_task(
                     job_id=job_id, role=role, profile=profile, model=requested,
-                    effort=chosen_effort, prompt=header(selected) + prompt,
+                    effort=job_effort, prompt=header(selected) + prompt,
                     workspace=document["run"]["workspace"], unrestricted=unrestricted,
                 )
                 draft.write_text(yaml.safe_dump(task, sort_keys=False, allow_unicode=True), "utf-8")
@@ -320,12 +360,13 @@ def dispatch(
         if not workspace:
             raise manifest.ManifestError("--workspace is required without a run manifest")
         job_id = job_id or SLUGS[role]
+        requested, job_effort, job_rule = plan(ceiling_policy(ceiling))
         selected = capped(requested, ceiling)
         job_dir = Path(tempfile.mkdtemp(prefix="agent-job-")) / job_id
         job_dir.mkdir(mode=0o700)
         task = build_task(
             job_id=job_id, role=role, profile=profile, model=selected,
-            effort=chosen_effort, prompt=header(selected) + prompt,
+            effort=job_effort, prompt=header(selected) + prompt,
             workspace=str(Path(workspace).resolve()), unrestricted=unrestricted,
         )
         task_path = job_dir / "task.yaml"
@@ -333,8 +374,8 @@ def dispatch(
 
     process = subprocess.run([runner_path, str(task_path)], stdout=subprocess.PIPE, text=True)
     summary: dict[str, Any] = {
-        "job": job_id, "role": role, "route": rule, "vendor": target,
-        "requested_model": requested, "effort": chosen_effort, "task": str(task_path),
+        "job": job_id, "role": role, "route": job_rule, "vendor": target,
+        "requested_model": requested, "effort": job_effort, "task": str(task_path),
         "runner_exit": process.returncode,
     }
     code = process.returncode
@@ -367,6 +408,23 @@ def dispatch(
             error=result.get("error"),
             report=outcome.get("report"),
         )
+    refused = (summary.get("error") or {}).get("type") == "refusal"
+    if refused and not model and str(summary.get("model")).startswith("claude-fable-"):
+        with tempfile.TemporaryDirectory() as retry_dir:
+            retry_prompt = Path(retry_dir) / "packet.md"
+            retry_prompt.write_text(REFUSAL_RETRY + prompt, encoding="utf-8")
+            code, output = dispatch(
+                role=role, profile=profile, prompt_file=str(retry_prompt),
+                run_manifest=run_manifest, workspace=workspace, ceiling=ceiling,
+                contract_revision=contract_revision, approved_by_preflight=approved_by_preflight,
+                slice_kind=slice_kind, gate=gate, lookup=lookup, vendor=vendor,
+                model=REFUSAL_ROUTE[0], effort=REFUSAL_ROUTE[1],
+                reason=f"{job_id} on {requested} was refused", unrestricted=unrestricted,
+                runner=runner,
+            )
+        retry = yaml.safe_load(output)
+        retry["refused"] = {"job": job_id, "model": requested, "error": summary["error"]["message"]}
+        return code, yaml.safe_dump(retry, sort_keys=False, allow_unicode=True)
     return code, yaml.safe_dump(summary, sort_keys=False, allow_unicode=True)
 
 

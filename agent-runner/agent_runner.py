@@ -67,6 +67,8 @@ For a check that needs environment variables, pipes, or several steps, write a s
 there too, never in the worktree. The directory is deleted when the job ends.
 """
 DOCKER_SOCKETS = ("/var/run/docker.sock", "/run/docker.sock", "~/.docker/run/docker.sock")
+# Claude Code system events for a refusal, with and without its own model fallback.
+CLAUDE_REFUSAL_EVENTS = {"model_refusal_fallback", "model_refusal_no_fallback"}
 
 CHECKPOINT_STEER = """\
 Stop new work now. Finish any operation that cannot safely be left half-applied, then
@@ -1143,6 +1145,20 @@ def _claude_final_event(stdout: str) -> dict[str, Any] | None:
     return None
 
 
+def _claude_refused(stdout: str) -> bool:
+    """Tell whether a safety refusal stopped the run, in any message or Claude Code event."""
+    for line in stdout.splitlines():
+        with contextlib.suppress(ValueError):
+            event = json.loads(line)
+            if not isinstance(event, dict):
+                continue
+            message = event.get("message")
+            reasons = {event.get("stop_reason"), message.get("stop_reason") if isinstance(message, dict) else None}
+            if "refusal" in reasons or event.get("subtype") in CLAUDE_REFUSAL_EVENTS:
+                return True
+    return False
+
+
 def _communicate_claude(
     process: subprocess.Popen[str],
     signals: SignalState,
@@ -1202,6 +1218,7 @@ def _execute_claude(
         )
     claude_bin = str(Path(claude_bin).resolve())
     result["runner"]["claude_bin"] = claude_bin
+    fable = task["agent"]["model"].startswith("claude-fable-")
     last_heartbeat = time.monotonic()
 
     def heartbeat() -> None:
@@ -1221,10 +1238,16 @@ def _execute_claude(
         prompt_file.write(_worker_prompt(task, 1, None))
         prompt_file.flush()
         prompt_file.seek(0)
+        environment = None
+        if fable:
+            # Dispatch reruns a refused Fable job on its Opus route; Claude Code's own
+            # fallback would quietly finish it on a model and effort no route chose.
+            environment = {**os.environ, "CLAUDE_CODE_DISABLE_REFUSAL_FALLBACK": "1"}
         try:
             process = subprocess.Popen(
                 _claude_command(claude_bin, task, configuration, scratch),
                 cwd=task["workspace"]["cwd"],
+                env=environment,
                 stdin=prompt_file,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -1266,6 +1289,8 @@ def _execute_claude(
             "interrupted",
             error=_error("signal", f"received {signals.triggered or 'termination signal'}"),
         )
+    if fable and _claude_refused(stdout):
+        return fail("refusal", "a safety refusal stopped the Claude run")
     if not isinstance(response, dict):
         detail = (stderr or stdout).strip()[-2000:] or f"exit code {process.returncode}"
         return fail("claude_cli", f"Claude Code did not return a JSON result: {detail}")

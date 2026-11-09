@@ -821,7 +821,8 @@ from pathlib import Path
 
 time.sleep(float(os.environ.get("FAKE_CLAUDE_DELAY", "0")))
 Path(os.environ["FAKE_CLAUDE_LOG"]).write_text(json.dumps(
-    {{"argv": sys.argv[1:], "stdin": sys.stdin.read(), "cwd": os.getcwd()}}
+    {{"argv": sys.argv[1:], "stdin": sys.stdin.read(), "cwd": os.getcwd(),
+      "no_refusal_fallback": os.environ.get("CLAUDE_CODE_DISABLE_REFUSAL_FALLBACK")}}
 ))
 if os.environ.get("FAKE_CLAUDE_WAIT"):
     ready = Path(os.environ["FAKE_CLAUDE_WAIT"])
@@ -1011,6 +1012,26 @@ class ClaudeEngineTests(RunnerTestCase):
         invocation, result, _ = self.run_claude(json.dumps({"type": "assistant"}))
         self.assertEqual(invocation.status, "failed")
         self.assertIn("did not return a JSON result", result["error"]["message"])
+
+    def test_refused_fable_run_fails_as_a_refusal(self) -> None:
+        fable = self.claude_task()
+        fable["agent"] = {"model": "claude-fable-5-2", "reasoning_effort": "high"}
+        refusals = (
+            {"type": "assistant", "message": {"content": [], "stop_reason": "refusal"}},
+            {"type": "system", "subtype": "model_refusal_no_fallback"},
+        )
+        for event in refusals:
+            with self.subTest(event=event):
+                stream = "\n".join(json.dumps(item) for item in (event, claude_response()))
+                invocation, result, call = self.run_claude(stream, fable)
+                self.assertEqual(invocation.status, "failed")
+                self.assertEqual(result["error"]["type"], "refusal")
+                self.assertEqual(call["no_refusal_fallback"], "1")
+        # Other models keep Claude Code's own refusal fallback.
+        stream = "\n".join(json.dumps(item) for item in (refusals[1], claude_response()))
+        invocation, _, call = self.run_claude(stream)
+        self.assertEqual(invocation.status, "completed")
+        self.assertIsNone(call["no_refusal_fallback"])
 
     def test_missing_claude_cli_fails(self) -> None:
         self.claude_bin.unlink()

@@ -913,9 +913,11 @@ class RunManifestTests(unittest.TestCase):
             ("E Terra", "gpt-6.1-sol", "gpt-6.1-terra"),
             ("E Terra", "claude-haiku-5-5", "claude-haiku-5-5"),
             ("E gpt-6-sol", "claude-opus-5-5", "claude-sonnet-5-5"),
-            ("E Luna", "claude-fable-5-1", "claude-haiku-5-5"),
+            ("E Luna", "claude-fable-5-2", "claude-haiku-5-5"),
             ("E Opus", "gpt-6-astra", "gpt-6.1-sol"),
-            ("E Opus", "claude-fable-5-1", "claude-opus-5-5"),
+            ("E Opus", "claude-fable-5-2", "claude-opus-5-5"),
+            ("E Fable", "claude-fable-5-2", "claude-fable-5-2"),
+            ("E claude-fable-5-1", "claude-fable-5-2", "claude-fable-5-2"),
             ("E Sol", "claude-opus-5-5", "claude-opus-5-5"),
         ):
             with self.subTest(parameter=parameter, requested=requested):

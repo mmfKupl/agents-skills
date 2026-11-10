@@ -81,6 +81,11 @@ what has none: speculative guards and fallbacks, single-use helpers and options,
 duplicate or theoretical tests, debug output, and unrelated edits. Rerun the
 affected checks after deleting.
 
+When the repository's commit hook lints whole files, run that exact lint on every
+file you changed before returning, and fix the errors it reports, including old
+ones in those files: the hook would block the commit otherwise. Report such fixes
+as hook-required.
+
 When main assigns a `reduction` change, apply exactly the listed cuts. Add no
 new code except a call to the named existing helper. If a cut breaks a check
 or changes required behavior, revert that cut and report it with the evidence

@@ -50,7 +50,8 @@ it cannot waive them by labelling them out of scope.
 Prioritize:
 - correctness bugs and behavioral regressions;
 - architecture, ownership, and boundary drift;
-- out-of-scope files, behavior, exports, tests, generated artifacts, or cleanup;
+- out-of-scope files, behavior, exports, tests, generated artifacts, or cleanup.
+  A fix the commit hook requires in a touched file is in scope;
 - public API or contract compatibility issues;
 - missing, incompatible, or unverified interfaces between implementation slices;
 - hidden fallback paths, speculative compatibility branches, broad matching, optional-contract drift, and duplicated logic;

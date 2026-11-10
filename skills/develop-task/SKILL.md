@@ -136,7 +136,8 @@ A fix must not add a mechanism. When a finding comes from code no requirement ne
 remove that code instead of patching it.
 
 Prefer an existing code path, a local edit, and deleting superseded code. Do not mix
-in adjacent cleanup. Keep defensive behavior that protects a proven contract unless
+in adjacent cleanup. A fix the commit hook requires in a file the task touches, such as
+pre-existing lint errors in that file, is in scope and justified. Keep defensive behavior that protects a proven contract unless
 the task changes it. Tests prove requested behavior or an observed regression.
 
 Smallest diff does not mean smallest coverage. Inspect the feature's established
@@ -363,7 +364,9 @@ Pass, so a gate requests it there only for a new question).
 2. Establish requirements and amendments (Requirements Fidelity), and apply the ticket
    title rule. Do not stop just because the ticket lags a confirmed decision.
 3. Read repository instructions, inspect the dirty tree and branch, and gather minimal
-   ownership, pattern, reproduction, and validation context.
+   ownership, pattern, reproduction, and validation context. When the repository's commit
+   hook lints whole files, run that exact lint on the files the task will likely touch and
+   give preflight the pre-existing errors, so the plan and budget include fixing them.
 4. Build the preliminary profile and, only for a multi-area Deep or higher task, an
    ordered slice plan. Complete explicitly selected brainstorm discovery first.
 5. Dispatch `preflight-review` with the request, profile, current model/effort, task

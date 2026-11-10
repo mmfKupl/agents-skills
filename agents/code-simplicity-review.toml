@@ -43,7 +43,9 @@ Look especially for:
   does;
 - comments, logging, docs, or changelog entries the repository does not expect
   for a change like this;
-- out-of-scope edits: adjacent cleanup, reformatting, renames, unrelated files;
+- out-of-scope edits: adjacent cleanup, reformatting, renames, unrelated files.
+  A fix the commit hook requires in a touched file, such as old lint errors the
+  hook reports for that whole file, is justified; do not cut it;
 - dead code left by the change, debug output, and leftover scaffolding.
 
 Prove each rule once, at the lowest level that can prove it, plus one end-to-end

@@ -62,6 +62,11 @@ Use this map only as a starting point:
 
 ## Validation Hints
 
+The pre-commit hook runs `lint-staged`, which lints every staged `.ts` and `.html` file
+whole with `cd front && npm run lint:ts -- <files>`, so old errors anywhere in a touched
+file block the commit. Run exactly that command on the likely files before preflight, and
+have the writer run it on every file it changed before returning.
+
 Choose the narrowest check that proves the changed behavior:
 
 - Angular project changes: run the affected `front` test target and focused

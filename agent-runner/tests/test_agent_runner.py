@@ -822,7 +822,8 @@ from pathlib import Path
 time.sleep(float(os.environ.get("FAKE_CLAUDE_DELAY", "0")))
 Path(os.environ["FAKE_CLAUDE_LOG"]).write_text(json.dumps(
     {{"argv": sys.argv[1:], "stdin": sys.stdin.read(), "cwd": os.getcwd(),
-      "no_refusal_fallback": os.environ.get("CLAUDE_CODE_DISABLE_REFUSAL_FALLBACK")}}
+      "no_refusal_fallback": os.environ.get("CLAUDE_CODE_DISABLE_REFUSAL_FALLBACK"),
+      "runner_job": os.environ.get("AGENT_RUNNER_JOB")}}
 ))
 if os.environ.get("FAKE_CLAUDE_WAIT"):
     ready = Path(os.environ["FAKE_CLAUDE_WAIT"])
@@ -914,6 +915,7 @@ class ClaudeEngineTests(RunnerTestCase):
         self.assertIn("without `$?`", self.option(argv, "--append-system-prompt"))
         self.assertIn("--strict-mcp-config", argv)
         self.assertIn("--no-session-persistence", argv)
+        self.assertEqual(call["runner_job"], "1")
         sandbox = json.loads(self.option(argv, "--settings"))["sandbox"]
         self.assertEqual(sandbox["filesystem"], {"denyWrite": [str(self.workspace.resolve())]})
         self.assertTrue(sandbox["failIfUnavailable"])

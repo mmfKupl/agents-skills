@@ -1238,11 +1238,13 @@ def _execute_claude(
         prompt_file.write(_worker_prompt(task, 1, None))
         prompt_file.flush()
         prompt_file.seek(0)
-        environment = None
+        # AGENT_RUNNER_JOB tells user hooks, such as the chat-title reminder, that this
+        # is a worker, not a chat with the user.
+        environment = {**os.environ, "AGENT_RUNNER_JOB": "1"}
         if fable:
             # Dispatch reruns a refused Fable job on its Opus route; Claude Code's own
             # fallback would quietly finish it on a model and effort no route chose.
-            environment = {**os.environ, "CLAUDE_CODE_DISABLE_REFUSAL_FALLBACK": "1"}
+            environment["CLAUDE_CODE_DISABLE_REFUSAL_FALLBACK"] = "1"
         try:
             process = subprocess.Popen(
                 _claude_command(claude_bin, task, configuration, scratch),

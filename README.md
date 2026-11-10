@@ -41,6 +41,10 @@ the preferred Python 3.10+ interpreter is not discoverable as `python3.12`,
 - Generates Claude Code subagents in `~/.claude/agents/` from `agents/*.toml`
   (`scripts/codex_agents_to_claude.py`). Read-only roles get read-only tools.
   Re-run the script after changing a TOML file.
+- Adds a `UserPromptSubmit` hook to `~/.claude/settings.json` that reminds every chat to apply
+  the `chat-title` skill (`scripts/hooks/chat-title-reminder.sh`). Claude Code otherwise applies
+  that skill only when the model thinks a task needs it. `agent-runner` jobs set
+  `AGENT_RUNNER_JOB`, so the hook stays silent in them.
 - `develop-task`, `develop-draft`, `review-task`, `brainstorm-task`, `diff-review`, and `trim-diff` read
   `skills/develop-task/references/claude-code.md` when they run in Claude Code. It maps
   `$skill` to `/skill`, and Luna/Terra/Sol/Astra to `haiku`/`sonnet`/`opus`/`fable`. `develop-task` uses `agent-runner` by default here too,

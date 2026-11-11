@@ -179,7 +179,20 @@ and the verdict.
 
 ## Output
 
-Findings first, by severity. Each gives Severity (`P0` critical, `P1`
+In `standalone` mode, open with an overview before any finding. Answer three
+questions in plain words, a few sentences each, with only the context needed to
+follow them:
+
+- What this PR does: the change as the user or developer sees it.
+- Why it is needed: the problem, request, or ticket behind it.
+- How it works or fixes it: the approach and the key places in the code, and why
+  this approach when the source says so.
+
+Use the user's vocabulary and a concrete example where it helps; no internal IDs,
+file lists, or review jargon. Base it on the diff, ticket, and PR; label anything
+undocumented as an inference, and do not invent product intent.
+
+Then findings, by severity. Each gives Severity (`P0` critical, `P1`
 blocking, `P2` important, `P3` minor), Title, Evidence (files, lines, or
 check results), Impact (what breaks, for whom), Reproduction
 or check (command, preview path, probe, or reasoning), Origin (introduced,
@@ -193,9 +206,3 @@ Verdict (`blocked`,
 `risky`, `mostly-ready`, or `no-findings`, with residual risk). With no
 findings, say so and still list the checks and remaining risk.
 
-In `standalone` mode, append a concise, evidence-based `Task brief` after the
-verdict: Task, Key points (essential
-requirements, constraints, affected behavior), Implemented solution, and Why
-this solution (documented rationale and tradeoffs; label anything undocumented
-as an inference from the diff, requirements, and repository patterns). Do not
-repeat findings or invent product intent.

@@ -88,7 +88,8 @@ class RouteTests(unittest.TestCase):
 
     def test_route_command(self) -> None:
         with patch.dict(os.environ, {"CLAUDECODE": "1", "CODEX_THREAD_ID": ""}), patch("builtins.print") as printed:
-            code = run_manifest.main(["route", "--role", "postflight-review", "--profile", "standard"])
+            code = run_manifest.main(["route", "--role", "postflight-review", "--profile", "standard",
+                                      "--vendor", "cross"])
             self.assertEqual(code, 0)
             self.assertEqual(printed.call_args[0][0], "gpt-6.1-sol medium (standard postflight; codex vendor)")
             run_manifest.main(["route", "--role", "preflight-review", "--profile", "deep", "--ceiling", "Sonnet"])
@@ -116,12 +117,16 @@ class RouteTests(unittest.TestCase):
 
     def test_vendor(self) -> None:
         with patch.dict(os.environ, {"CLAUDECODE": "1", "CODEX_THREAD_ID": ""}):
-            self.assertEqual(run_dispatch.target_vendor("postflight-review", "preflight", "auto"), "codex")
-            self.assertEqual(run_dispatch.target_vendor("preflight-review", "preflight", "auto"), "claude")
-            self.assertEqual(run_dispatch.target_vendor("code-simplicity-review", "postflight", "auto"), "codex")
-            self.assertEqual(run_dispatch.target_vendor("postflight-review", "preflight", "home"), "claude")
-        with patch.dict(os.environ, {"CLAUDECODE": ""}):
             self.assertEqual(run_dispatch.target_vendor("postflight-review", "preflight", "auto"), "claude")
+            self.assertEqual(run_dispatch.target_vendor("code-simplicity-review", "postflight", "auto"), "claude")
+            self.assertEqual(run_dispatch.target_vendor("postflight-review", "preflight", "cross"), "codex")
+            self.assertEqual(run_dispatch.target_vendor("code-simplicity-review", "postflight", "cross"), "codex")
+            self.assertEqual(run_dispatch.target_vendor("preflight-review", "preflight", "cross"), "claude")
+            self.assertEqual(run_dispatch.target_vendor("implementation-worker", "preflight", "codex"), "codex")
+        with patch.dict(os.environ, {"CLAUDECODE": ""}):
+            self.assertEqual(run_dispatch.target_vendor("postflight-review", "preflight", "auto"), "codex")
+            self.assertEqual(run_dispatch.target_vendor("postflight-review", "preflight", "cross"), "claude")
+            self.assertEqual(run_dispatch.target_vendor("preflight-review", "preflight", "claude"), "claude")
         self.assertEqual(run_dispatch.vendor_model("gpt-6.1-sol", "claude"), "claude-opus-5-5")
         self.assertEqual(run_dispatch.vendor_model("gpt-6.1-terra", "codex"), "gpt-6.1-terra")
 
@@ -232,7 +237,7 @@ class DispatchTests(unittest.TestCase):
         with patch.dict(os.environ, {"CLAUDECODE": "1", "CODEX_THREAD_ID": ""}):
             code, summary = self.dispatch(
                 role="postflight-review", profile="deep", workspace=str(self.workspace),
-                ceiling="Terra",
+                ceiling="Terra", vendor="cross",
             )
         self.assertEqual(code, 0)
         self.assertEqual(summary["vendor"], "codex")

@@ -168,16 +168,16 @@ def home_vendor() -> str:
 
 
 def target_vendor(role: str, gate: str, vendor: str) -> str:
+    """Run every job on the host vendor unless the user named a vendor or cross review."""
     home = home_vendor()
-    other = "codex" if home == "claude" else "claude"
-    if vendor == "home":
-        return home
-    if vendor == "other":
-        return other
+    if vendor in ("codex", "claude"):
+        return vendor
     cross = role in ("postflight-review", "diagnosis-review") or gate in (
         "postflight", "diagnosis"
     )
-    return other if cross else home
+    if vendor == "cross" and cross:
+        return "codex" if home == "claude" else "claude"
+    return home
 
 
 def vendor_model(model: str, vendor: str) -> str:

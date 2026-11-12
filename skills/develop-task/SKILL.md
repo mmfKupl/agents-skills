@@ -1,6 +1,6 @@
 ---
 name: develop-task
-description: Engineering workflow for repository implementation with mandatory preflight and postflight gates, model routing, and cross-vendor review. Use only when the user explicitly writes `$develop-task` (or `/develop-task` in Claude Code) or asks to run this workflow.
+description: Engineering workflow for repository implementation with mandatory preflight and postflight gates, model routing, and optional cross-vendor review. Use only when the user explicitly writes `$develop-task` (or `/develop-task` in Claude Code) or asks to run this workflow.
 ---
 
 # Develop Task
@@ -152,7 +152,7 @@ task and never adds behavior, tests, or validation. Run it after the writer stop
 and focused validation has run, before the first postflight, and again before any
 postflight that follows a `substantive` or `replan` fix:
 
-1. Dispatch a fresh `code-simplicity-review` job on the other vendor at the
+1. Dispatch a fresh `code-simplicity-review` job on the postflight vendor at the
    postflight minimum model/effort, with the requirements and amendments with IDs,
    the requirements revision, the full task diff against base inline (a sandboxed
    reviewer may be unable to run `git`), the worker report, and validation results. Do not give it the hypothesis or prior reasoning.
@@ -189,7 +189,7 @@ YAML artifacts, not subagent tools. Main stays the semantic orchestrator.
 For `subagents`, spawn roles with explicit model/effort, `fork_turns: "none"` or
 bounded history, and compact self-contained packets; follow up with the same live
 gate or writer when applicable. Create no run manifest. Use `agent-runner` only for
-other-vendor jobs.
+jobs off the home vendor.
 
 Later instructions to dispatch or ask a role use the selected backend. Gates,
 evidence, independence, loops, and lifecycle rules are identical across backends.
@@ -201,7 +201,7 @@ Every job gets a compact self-contained packet.
 
 Use one matrix for every run, including retries and resumes. `$develop-task D` is a
 compatibility alias. Reject the removed `$develop-task A` before delegation. The
-`agent-run-manifest dispatch` and `route` commands apply the matrix, the other vendor, and
+`agent-run-manifest dispatch` and `route` commands apply the matrix, the vendor, and
 the ceiling from the role, profile, and slice type; pass a different model only as a
 promotion or preflight override, with its reason.
 
@@ -234,39 +234,42 @@ sets one, as `E <model>`, `M`, or a plain-language limit such as "не выше 
 [`references/model-ceiling.md`](references/model-ceiling.md) before the first job.
 Never select a model above a ceiling and never ask the user to raise it.
 
-## Cross-Vendor Review
+## Vendor
 
-The home vendor hosts main: GPT in Codex, Claude in Claude Code. Preflight, workers,
-discovery specialists, and specialists that preflight requests run on it. Every
-`postflight-review`, `diagnosis-review`, and Reduction Pass job, and every specialist
-that postflight or diagnosis requests, runs on the other vendor at the peer of the
-matrix model (Luna and Haiku, Terra and Sonnet, Sol and Opus, Astra and Fable), with the
-same effort; on Claude, a Sol xhigh route runs as Fable high
-([`references/routing.md`](references/routing.md), Fable on Claude). A reviewer from
-another family does not share the writer's blind spots; this never raises the review tier.
+The home vendor hosts main: GPT in Codex, Claude in Claude Code. By default every job
+runs on it, with the matrix model mapped to its peer there (Luna and Haiku, Terra and
+Sonnet, Sol and Opus, Astra and Fable) at the same effort; on Claude, a Sol xhigh route
+runs as Fable high ([`references/routing.md`](references/routing.md), Fable on Claude).
 
-Other-vendor jobs always run through `agent-runner` via `agent-run-manifest dispatch`, are
+Only the user's words change the vendor, and the choice holds for the whole run:
+
+- another vendor's matrix ("матрица Codex", "run on Claude"): every job runs there,
+  passed as `--vendor codex` or `--vendor claude`;
+- cross-vendor review ("с кросс-ревью", "cross-review"): every `postflight-review`,
+  `diagnosis-review`, and Reduction Pass job, and every specialist that postflight or
+  diagnosis requests, runs on the other vendor, passed as `--vendor cross`. A reviewer
+  from another family does not share the writer's blind spots; this never raises the
+  review tier.
+
+Pass the chosen `--vendor` to every `dispatch` and `route` call of the run. Jobs off the
+home vendor always run through `agent-runner` via `agent-run-manifest dispatch`, are
 always one-shot, and follow `references/agent-runner.md`, in subagent mode with
-`--no-manifest`. Return
-a specialist report or a challenge to a fresh job for the same gate with the complete
-prior gate report.
+`--no-manifest`. Return a specialist report or a challenge to a fresh job for the same
+gate with the complete prior gate report.
 
-Before the first job, confirm the other vendor can start, and report cross-vendor
-review with the backend and model policy. If it is unavailable, stop and ask; never
-move a review to the home vendor silently.
+When the run uses another vendor, confirm before the first job that it can start, and
+report the vendor choice with the backend and model policy. If it is unavailable, stop
+and ask; never move a job to the home vendor silently.
 
-The one exception is exhausted usage: when an other-vendor job or the startup check
-fails because the account is out of usage, credits, or quota or is rate-limited (for
-example "usage limit", "hit your limit", "rate limit", "quota", "429", "insufficient
-credits"), do not wait or retry that vendor. Rerun the job as a fresh home-vendor job
-with the matrix model and effort, and keep later cross-vendor jobs there until the
+The one exception is exhausted usage: when a job off the home vendor or the startup
+check fails because the account is out of usage, credits, or quota or is rate-limited
+(for example "usage limit", "hit your limit", "rate limit", "quota", "429",
+"insufficient credits"), do not wait or retry that vendor. Rerun the job as a fresh
+home-vendor job with the matrix model and effort, and keep later jobs there until the
 user says otherwise. Say so in the next update, list those jobs as `home-vendor
-fallback: usage limit` under the usage table, and report it. The reviewer still gets a fresh
-context, never the writer's conversation. Missing CLIs, authentication failures, and
-other errors are not this exception.
-
-The user may turn cross-vendor review off in plain words ("без кросс-ревью", "review
-on Codex only"); record it and run those jobs on the home vendor with the matrix model.
+fallback: usage limit` under the usage table, and report it. A reviewer still gets a
+fresh context, never the writer's conversation. Missing CLIs, authentication failures,
+and other errors are not this exception.
 
 ## Ownership Invariants
 
@@ -306,7 +309,7 @@ critical domain. Critical indicators include security, authentication, permissio
 billing, persistence, migrations, destructive behavior, concurrency, public contracts,
 and low-validatability changes.
 
-| Profile | Use when | Preflight | Implementation | Postflight (other vendor) |
+| Profile | Use when | Preflight | Implementation | Postflight |
 | --- | --- | --- | --- | --- |
 | Fast | Clear local behavior, established pattern, low blast radius, narrow validation | `gpt-6.1-sol` medium | Runner worker on `gpt-6.1-terra` medium; direct fallback uses main or a Terra worker | `gpt-6.1-sol` low |
 | Standard | Clear requirements with non-trivial but bounded implementation | `gpt-6.1-sol` medium | Worker on `gpt-6.1-terra` high | `gpt-6.1-sol` medium |
@@ -400,8 +403,7 @@ Pass, so a gate requests it there only for a new question).
 13. Recalculate the postflight floor from the request, profile, actual diff, deviations,
     and validation gaps. Prepare any selected review-task audit under
     `references/composed-workflows.md`.
-14. After all slices finish, dispatch `postflight-review` on the combined change on the
-    other vendor with the task packet, preflight
+14. After all slices finish, dispatch `postflight-review` on the combined change with the task packet, preflight
     decision, writer result, changed files, the diff inline, validation, cycle, shared round count,
     contract revision, approving preflight, prior findings and fixes, the Reduction Pass
     record, the full requirements and amendments, and the worker's coverage. Require
@@ -630,7 +632,7 @@ When done, report:
   or `none`;
 - implementation-contract revisions and their approving preflight jobs;
 - Replans or promotions, or `none`;
-- delegation backend, routing matrix, cross-vendor review state, and the Agent Usage
+- delegation backend, routing matrix, vendor choice, and the Agent Usage
   summary;
 - ticket title: old and new, already conforming, or why it was not renamed;
 - PR URL/state, or why no PR was created;

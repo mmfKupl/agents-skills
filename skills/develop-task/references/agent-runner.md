@@ -1,8 +1,8 @@
 # Agent Runner Backend
 
-Read this completely when the backend is `runner`, and before the first other-vendor
-job under Cross-Vendor Review. Without the runner backend, read Resolve The Command,
-Dispatch A Job (its `--no-manifest` form), Other-Vendor Jobs, and Wait And Interpret,
+Read this completely when the backend is `runner`, and before the first job off the
+home vendor (the Vendor section of the skill). Without the runner backend, read Resolve The Command,
+Dispatch A Job (its `--no-manifest` form), Claude And Codex Engines, and Wait And Interpret,
 and skip every other `agent-run-manifest` step.
 
 ## Resolve The Command
@@ -55,7 +55,7 @@ agent-run-manifest dispatch /absolute/run.yaml --role implementation-worker \
   --prompt-file /absolute/packet.md
 ```
 
-It routes the model and effort from the matrix, picks the home or other vendor and its peer
+It routes the model and effort from the matrix, picks the vendor and its peer
 model, applies the run's ceiling, builds the task from the canonical role file
 `${CODEX_HOME:-$HOME/.codex}/agents/<role>.toml` with the runner output envelope, sets
 permissions and context budgets for the role and profile, registers the job, runs it,
@@ -72,11 +72,14 @@ flags (and `--ceiling`) and prints the route without running anything.
   `diagnosis-review`, it is the profile of the unresolved cause, not of the task.
 - `--slice visual|prose|critical-combined|exceptional`: the slice type preflight named.
 - `--for postflight` or `--for diagnosis`: a specialist that gate requested, and the
-  Reduction Pass (`code-simplicity-review --for postflight`). These go to the other vendor.
+  Reduction Pass (`code-simplicity-review --for postflight`). Under `--vendor cross` these go
+  to the other vendor.
 - `--lookup [low|medium|high]`: a specialist's bounded factual lookup on Luna; high to
   correlate several sources, low to pick a check or classify a log.
-- `--vendor home|other`: overrides the vendor, for the usage-limit fallback or when the
-  user turned cross-vendor review off.
+- `--vendor auto|cross|codex|claude`: the run's vendor choice; pass it to every job. `auto`
+  (default) keeps every job on the home vendor, `cross` sends postflight, diagnosis, and
+  their specialists to the other vendor, and a vendor name sends every job there. The
+  usage-limit fallback reruns a job with `auto`.
 - `--model` and `--effort` with `--reason`: a promotion or another route preflight required;
   the ceiling still applies.
 - `--contract-revision` is required; `--approved-by-preflight` is required for
@@ -101,7 +104,7 @@ Without the runner backend, use `dispatch --no-manifest --workspace /absolute/wo
 [--ceiling <model>]` with the same role and routing flags. It writes a private task, runs it,
 and prints the same summary, with no manifest.
 
-## Other-Vendor Jobs
+## Claude And Codex Engines
 
 A `claude-*` model runs through the runner's Claude Code engine, every other model through
 Codex, with the same schemas, permissions, worktree lock, and results. The Claude engine

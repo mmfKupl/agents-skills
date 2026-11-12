@@ -104,7 +104,7 @@ analysis, and other decision-determining questions use the requesting gate's
 exact tier or the higher tier justified by that question's own risk.
 
 Independent review means a separate reviewer with fresh context at the table's
-postflight tier, on the other vendor under Cross-Vendor Review. It does not
+postflight tier, on the vendor the Vendor section picks. It does not
 automatically require Astra. Use Astra for an
 unresolved review question only when its concrete reasoning difficulty meets
 the Exceptional criteria; follow the normal preflight and ceiling rules.
@@ -113,7 +113,7 @@ Route diagnosis at `gpt-6.1-sol` high for Fast or Standard work,
 `gpt-6.1-sol` high for Deep work, and `gpt-6.1-sol` xhigh when the unresolved
 cause itself carries the Critical profile. Use `gpt-6-astra` high only when the
 unresolved cause itself meets the Exceptional criteria. Diagnosis runs on the
-other vendor under Cross-Vendor Review.
+vendor the Vendor section picks.
 Always apply the selected ceiling to diagnosis and specialists.
 
 ## Fable on Claude

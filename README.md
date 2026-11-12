@@ -50,10 +50,11 @@ the preferred Python 3.10+ interpreter is not discoverable as `python3.12`,
   `$skill` to `/skill`, and Luna/Terra/Sol/Astra to `haiku`/`sonnet`/`opus`/`fable`. `develop-task` uses `agent-runner` by default here too,
   starting `claude -p` for Claude models; asking for subagents ("используй сабагентов") switches it to
   Claude subagents. This needs `install-skills.sh` as well, which installs the runner and role files.
-- `develop-task` runs postflight and diagnosis on the other vendor: Claude when main runs in
-  Codex, GPT when main runs in Claude Code. Both directions go through `agent-runner`, which
-  starts `claude -p` for `claude-*` models. A machine therefore needs both CLIs signed in and
-  the runner installed by `install-skills.sh`. Set `AGENT_RUNNER_CLAUDE_BIN` when `claude` is
+- `develop-task` runs every job on the vendor that hosts the chat: Claude in Claude Code, GPT in
+  Codex. Only the user's words send the run elsewhere: "матрица Codex" moves every job to that
+  vendor, and "с кросс-ревью" sends postflight and diagnosis to the other vendor. Both
+  directions go through `agent-runner`, which starts `claude -p` for `claude-*` models, so
+  those modes need both CLIs signed in and the runner installed by `install-skills.sh`. Set `AGENT_RUNNER_CLAUDE_BIN` when `claude` is
   not on `PATH`.
 
 ## Back up local skills into this repo
@@ -79,7 +80,7 @@ Skills:
 - `chat-title` - one title format for every chat: `<status> <type>: <ticket> <description>`.
 - `ticket-title` - one title format for tracker tickets: `<Type>: <clear title>`.
 - `brainstorm-task` - repository-grounded Spike, Bounded, or Architectural discovery with proportionate approval and optional delivery-slice contracts.
-- `develop-task` - single-writer repository implementation workflow with one GPT-6 Luna / GPT-6.1 Terra / GPT-6.1 Sol / GPT-6 Astra routing matrix, cross-vendor Codex/Claude postflight review, cumulative agent-usage handoffs, model ceilings on one ladder for GPT and Claude models, mandatory preflight/postflight gates with a Reduction Pass between them, supervised runner jobs by default, an explicit direct-subagent fallback, focused validation, logical commits, and draft PR creation.
+- `develop-task` - single-writer repository implementation workflow with one GPT-6 Luna / GPT-6.1 Terra / GPT-6.1 Sol / GPT-6 Astra routing matrix on the chat's vendor, optional cross-vendor Codex/Claude postflight review, cumulative agent-usage handoffs, model ceilings on one ladder for GPT and Claude models, mandatory preflight/postflight gates with a Reduction Pass between them, supervised runner jobs by default, an explicit direct-subagent fallback, focused validation, logical commits, and draft PR creation.
 - `develop-draft` - quick working prototypes with the same model tiers and direct subagents in Codex and Claude Code. Fast changes skip agent preflight; every change gets independent final review. Validation has a small shared budget, allows one relevant existing quick test, and omits new tests and CI waits by default. Delivery defaults to a draft PR linked to the known ticket, with local-only delivery on request. Invoke as `$develop-draft` or `/develop-draft` in Claude Code.
 - `diff-review` - independent fresh diff review for local changes.
 - `trim-diff` - shrinks an existing diff: a fresh reviewer traces every hunk and test to a requirement and the unjustified parts are removed. `develop-task` runs the same step as its mandatory Reduction Pass.

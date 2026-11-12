@@ -21,7 +21,7 @@ the first job.
 In runner mode the helpers enforce it: `dispatch` and `new-job` check the policy against its
 pinned source and cap every job, keeping its vendor and its effort. In subagent mode nothing
 does: pass `--ceiling` to `route` before every Agent or `spawn_agent` call and to `dispatch
---no-manifest` for every other-vendor job, and state the requested and capped model in the
+--no-manifest` for every job off the home vendor, and state the requested and capped model in the
 packet when they differ. Do not change the source or policy to
 get past an error, and never fall back to `adaptive` when a constrained invocation cannot be
 resolved: recover the missing record.

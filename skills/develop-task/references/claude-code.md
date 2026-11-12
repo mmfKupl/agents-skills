@@ -28,9 +28,9 @@ lifecycle rules stay exactly as the skill describes them.
   используй runner", "use subagents"). Follow `references/agent-runner.md`,
   including `agent-run-manifest`. It reads this session's transcript through
   `CLAUDE_CODE_SESSION_ID`.
-- In `runner` mode, home-vendor jobs use the Claude peer model (`agent.model:
-  claude-opus-5-5`) and start `claude -p`; other-vendor jobs keep the GPT model
-  and start `codex`. The Agent tool is not used for roles. Role contracts come
+- In `runner` mode, home-vendor jobs, by default all of them, use the Claude peer model
+  (`agent.model: claude-opus-5-5`) and start `claude -p`; jobs the user sent to
+  Codex keep the GPT model and start `codex`. The Agent tool is not used for roles. Role contracts come
   from `${CODEX_HOME:-$HOME/.codex}/agents/<role>.toml`, and the runner lives
   under `${CODEX_HOME:-$HOME/.codex}/tools`, so the machine needs
   `scripts/install-skills.sh` as well as `scripts/install-claude.sh`.
@@ -41,8 +41,8 @@ lifecycle rules stay exactly as the skill describes them.
 - Runner jobs have no MCP tools, no web tools, and no network. Put ticket text,
   PR comments, and other external evidence in the job prompt. Checks that need
   MCP go to Main validation.
-- In `subagents` mode, home-vendor jobs are Claude subagents and other-vendor
-  jobs still go through `agent-runner` without a manifest, as
+- In `subagents` mode, home-vendor jobs are Claude subagents and jobs the user
+  sent to Codex still go through `agent-runner` without a manifest, as
   `references/agent-runner.md` describes under Dispatch A Job (`--no-manifest`).
 - In runner mode, `agent-run-manifest usage` prints the usage table, with main's row read
   from this session's transcript. In `subagents` mode the Agent tool reports only a total:
@@ -61,7 +61,7 @@ This table applies only to the `subagents` backend.
 | `fork_turns: "none"` or bounded history | A fresh Agent call with a compact, self-contained packet. Never use `subagent_type: "fork"` for a gate, specialist, or worker: it inherits the whole conversation and breaks review independence. |
 | Explicit model ID | Agent `model` parameter (see the model map below) |
 | Explicit reasoning effort | Agent `effort` parameter. This skill explicitly requires it on every delegated job, so always pass it. |
-| Follow-up turn to the same live gate or writer | `SendMessage` to that Claude subagent's ID. Start a fresh Agent call when the skill asks for a fresh gate or job. A GPT runner job is one-shot: follow up with a fresh runner job that carries the prior report, as Cross-Vendor Review says. |
+| Follow-up turn to the same live gate or writer | `SendMessage` to that Claude subagent's ID. Start a fresh Agent call when the skill asks for a fresh gate or job. A GPT runner job is one-shot: follow up with a fresh runner job that carries the prior report, as the Vendor section says. |
 | Read-only sandbox | Read-only roles are installed with read-only tools only (no Edit or Write). Still state the read-only contract in the packet, because Bash is available to them. |
 | Workspace-write sandbox | `implementation-worker` has the full tool set. Keep the single-writer rule: never run two writers at once. |
 
@@ -86,7 +86,7 @@ One exception: a `gpt-6.1-sol` xhigh route runs on Claude as `fable` high when t
 allows it, and a refused Fable job reruns on `opus` xhigh. See `references/routing.md`,
 Fable on Claude.
 
-Other-vendor jobs keep the GPT model and run through the runner. In `subagents` mode,
+Jobs on Codex keep the GPT model and run through the runner. In `subagents` mode,
 get every home-vendor route from `agent-run-manifest route --role <role> --profile
 <profile> [--ceiling <model>]` and pass its Claude model as the matching Agent alias.
 
@@ -97,7 +97,7 @@ names in a ceiling (`E Sol` = `E opus`, `E Terra` = `E sonnet`, `E Luna` =
 model at invocation time. A capped job keeps its vendor: under `E Terra`, a
 GPT postflight runs on `gpt-6.1-terra`. In `subagents` mode nothing enforces the
 ceiling for you: pass `--ceiling` to `route` before every Agent call and to `dispatch
---no-manifest` for every other-vendor job.
+--no-manifest` for every job off the home vendor.
 
 When reporting the resolved policy, name the Claude model and, the first
 time, the GPT name it maps from (for example `opus high (Sol high)`).

@@ -1160,7 +1160,7 @@ def _argument_parser() -> argparse.ArgumentParser:
     dispatch.add_argument("--lookup", nargs="?", const="medium", choices=("low", "medium", "high"),
                           help="bounded factual lookup on Luna (default medium)")
     dispatch.add_argument("--runner", help="exact agent-runner path the user supplied")
-    dispatch.add_argument("--vendor", default="auto", choices=("auto", "home", "other"))
+    dispatch.add_argument("--vendor", default="auto", choices=("auto", "cross", "codex", "claude"))
     dispatch.add_argument("--model", help="override the routed model; needs --reason")
     dispatch.add_argument("--effort", help="override the routed effort; needs --reason")
     dispatch.add_argument("--reason")
@@ -1178,7 +1178,7 @@ def _argument_parser() -> argparse.ArgumentParser:
                          choices=("preflight", "postflight", "diagnosis"))
     routing.add_argument("--lookup", nargs="?", const="medium", choices=("low", "medium", "high"))
     routing.add_argument("--ceiling", help="cap the model, as subagent mode must at every spawn")
-    routing.add_argument("--vendor", default="auto", choices=("auto", "home", "other"))
+    routing.add_argument("--vendor", default="auto", choices=("auto", "cross", "codex", "claude"))
     usage = commands.add_parser("usage", help="print the agent usage table")
     usage.add_argument("run_manifest", help="absolute path to run.yaml")
     return parser

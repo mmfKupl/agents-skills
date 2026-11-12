@@ -405,7 +405,10 @@ Pass, so a gate requests it there only for a new question).
     decision, writer result, changed files, the diff inline, validation, cycle, shared round count,
     contract revision, approving preflight, prior findings and fixes, the Reduction Pass
     record, the full requirements and amendments, and the worker's coverage. Require
-    independent source-to-diff verification.
+    independent source-to-diff verification. The packet always has a Main-run checks
+    section: each check the writer did not run, plus the commit hook, PR CI, and preview
+    e2e, each with main's result or why it cannot run before commit or push. Run the
+    commit hook's commands locally rather than defer them.
 15. Return requested specialist results to postflight. A Blocking request still open
     makes approval impossible.
 16. Relay postflight findings in the main chat before any writer resumes (Postflight

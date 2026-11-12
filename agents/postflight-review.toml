@@ -81,6 +81,9 @@ Main-run checks:
 - A check the writer reported as not run needs main's result in the packet.
   Without it, or an explicit reason why main could not run it either, return
   `Approval: no` and name the check.
+- "Runs only after commit or push" is a sufficient reason for PR CI and preview
+  e2e; they stay required before Ready. It is not one for the commit hook, whose
+  commands main runs locally.
 
 Reduction:
 - The packet includes the Reduction Pass ledger and its applied and declined

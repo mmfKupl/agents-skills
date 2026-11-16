@@ -53,6 +53,18 @@ if not any(hook.get("command") == command for group in groups for hook in group.
 PY
 }
 
+# Link the global rules as the user CLAUDE.md, replacing only a missing or empty file.
+install_global_rules() {
+  local target="${claude_home}/CLAUDE.md"
+
+  if [[ -s "${target}" && ! -L "${target}" ]]; then
+    echo "Kept your ${target}; add ${repo_root}/global/AGENTS.md to it by hand" >&2
+    return 0
+  fi
+  ln -sfn "${repo_root}/global/AGENTS.md" "${target}"
+}
+
 link_skills
 install_agents
 install_hooks
+install_global_rules

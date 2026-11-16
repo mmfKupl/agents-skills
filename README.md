@@ -45,6 +45,10 @@ the preferred Python 3.10+ interpreter is not discoverable as `python3.12`,
   the `chat-title` skill (`scripts/hooks/chat-title-reminder.sh`). Claude Code otherwise applies
   that skill only when the model thinks a task needs it. `agent-runner` jobs set
   `AGENT_RUNNER_JOB`, so the hook stays silent in them.
+- Links `global/AGENTS.md` as `~/.claude/CLAUDE.md` (and `install-skills.sh` copies it to
+  `~/.codex/AGENTS.md`): check serious, non-trivial answers against code, docs, or reliable
+  sources instead of answering from memory. The same hook repeats it on every prompt. An
+  existing non-empty file of your own is kept, with a warning.
 - `develop-task`, `develop-draft`, `review-task`, `brainstorm-task`, `diff-review`, and `trim-diff` read
   `skills/develop-task/references/claude-code.md` when they run in Claude Code. It maps
   `$skill` to `/skill`, and Luna/Terra/Sol/Astra to `haiku`/`sonnet`/`opus`/`fable`. `develop-task` uses `agent-runner` by default here too,

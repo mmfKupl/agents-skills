@@ -85,7 +85,21 @@ install_tree() {
   echo "Installed ${label} from ${source_dir} to ${target_dir}"
 }
 
+# Install the global rules as the user AGENTS.md, replacing only a missing, empty, or
+# previously installed copy.
+install_global_rules() {
+  local source="${repo_root}/global/AGENTS.md"
+  local target="${codex_home}/AGENTS.md"
+
+  if [[ -s "${target}" ]] && ! cmp -s "${target}" "${source}" && ! grep -q "^# Global rules$" "${target}"; then
+    echo "Kept your ${target}; add ${source} to it by hand" >&2
+    return 0
+  fi
+  cp "${source}" "${target}"
+}
+
 remove_obsolete_skills
+install_global_rules
 rm -f "${codex_home}/agents/openspec-steward.toml"
 install_tree "${repo_root}/skills" "${codex_home}/skills" "skills"
 install_tree "${repo_root}/agents" "${codex_home}/agents" "agents"

@@ -31,6 +31,11 @@ outer workflow delegates that exact action. The one exception is renaming the
 Linear issue under the `ticket-title` skill, in English as
 `$develop-please` requires for all Linear text.
 
+`$develop-task`'s Visual Evidence step, through
+[`../../visual-evidence/references/ui-bakery.md`](../../visual-evidence/references/ui-bakery.md),
+replaces the Screenshot Evidence section of `$develop-please`'s `references/validation.md`
+and its review check for missing screenshots.
+
 The `$develop-please` 3 hour invocation timebox does not stop a `$develop-task` run.
 The run stops on this skill's conditions instead: an exhausted Bounded Review Loop, a
 blocker, or a decision only the developer can make. Keep `$develop-please`'s Linear and

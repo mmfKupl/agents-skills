@@ -72,5 +72,7 @@ mockups, and commit nothing from that worktree.
 
 ## Repository specifics
 
-A repository's own workflow skill, such as develop-please in UI Bakery, says which
-stands exist, how to sign in, and which comments it owns. It wins over this skill.
+In the UI Bakery monorepo, read [`references/ui-bakery.md`](references/ui-bakery.md): its
+stands, sign-in, Storybook, and preview MCP rules, which replace `$develop-please`'s
+Screenshot Evidence. In another repository, its own workflow skill says which stands exist
+and how to sign in.

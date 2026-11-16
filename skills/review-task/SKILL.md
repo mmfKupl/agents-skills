@@ -137,6 +137,11 @@ evidence beyond manual inspection or existing e2e. Backend: focused API,
 service, migration, or integration checks via repository commands. Mutate
 production-like data only where explicitly safe for testing.
 
+In `standalone` mode, capture these checks as
+[`../visual-evidence/SKILL.md`](../visual-evidence/SKILL.md) describes and give the
+developer the files in the chat; this review stays read-only, so it posts nothing to the
+PR or the ticket.
+
 ## Review Checklist
 
 Look for happy-path-only behavior; missing null, empty, permission,

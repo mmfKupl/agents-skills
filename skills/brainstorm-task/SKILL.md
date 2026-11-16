@@ -267,6 +267,11 @@ alternatives:
 A direction the user already confirmed after seeing its evidence is chosen;
 ask again only when that can still change it.
 
+When the choice is about how something looks or behaves on screen, show it: make a
+mockup of the leading approaches under Mockups before code in
+[`../visual-evidence/SKILL.md`](../visual-evidence/SKILL.md) and put the screenshots
+next to the comparison. Mockups stay outside the repository's history.
+
 ### 5. Approve the scope
 
 Before the first approval, run a final synthesis audit: rebuild the ledger

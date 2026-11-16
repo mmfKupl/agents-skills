@@ -616,9 +616,20 @@ row. Account for every job, including failed and retried ones. Show unavailable 
 Estimate cost only with a known tariff, label it, and never infer subscription percentages
 from tokens.
 
+## Visual Evidence
+
+When the change has visible or runtime behavior, read
+[`../visual-evidence/SKILL.md`](../visual-evidence/SKILL.md) and follow it once a build
+with the approved change runs: the PR preview after delivery, or a local stand when
+there is no preview. It is evidence for the developer, not a gate check, and it never
+reopens the approved diff by itself; a defect it shows goes back through postflight.
+
 ## Report Format
 
 When done, report:
+
+- visual evidence: links to the posted video, screenshots, and Storybook stories, or why
+  there are none;
 
 - Problem and cause, when applicable;
 - Execution Profile and writer;

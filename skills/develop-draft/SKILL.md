@@ -123,6 +123,10 @@ Default for main, writer, and reviewers:
   implementation or reasoning.
 - One short manual demo when a local runtime is easy to use; inspect rendered UI
   when feasible. No extensive browser script or temporary harness.
+- Visual evidence is outside this budget. For a prototype with visible or runtime
+  behavior, after the draft PR exists, read
+  [`../visual-evidence/SKILL.md`](../visual-evidence/SKILL.md) and post its video and
+  screenshots: a prototype exists to be seen.
 - Reuse passing evidence until relevant code changes, then rerun only affected
   checks. Fix a failing selected check or show it is an unrelated baseline
   issue; a timeout is not a pass.

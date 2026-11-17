@@ -46,16 +46,24 @@ Remove the worktree and temporary files when done.
 
 ## Storybook
 
-When the build serves Storybook and the change touches components that have stories,
-post a separate comment with a direct link to each affected story. Take the story IDs
-from Storybook's `index.json`, and say for each link what to look at or click, for
-example "open the popover, check the `this chat` badge".
+When the build serves Storybook and the change adds or touches stories, or components
+that have them, post a Storybook comment of its own: a direct link to each affected story,
+with what to look at or click, for example "open the popover, check the `this chat`
+badge". Take the story IDs from Storybook's `index.json`. Post it before the final report,
+never inside the report or one of its collapsible blocks, and link it from the report.
 
 ## Where to post
 
 - Upload files to the tracker, for Linear with `prepare_file_upload` and a PUT of the
   raw bytes, and post them in a ticket comment: the video and screenshots first with one
-  line per scenario, API logs and details in a collapsible block. Videos stay `webm`.
+  line per scenario, API logs and details in a collapsible block.
+- Trackers such as Linear show an uploaded video only as a link, so give each video an
+  inline GIF preview and link the full video under it as H.264 `mp4`. Make both with
+  ffmpeg, for example `ffmpeg -i in.webm -vf "fps=8,scale=960:-1:flags=lanczos,split[a][b];[a]palettegen[p];[b][p]paletteuse" out.gif`
+  and `ffmpeg -i in.webm -c:v libx264 -pix_fmt yuv420p -movflags +faststart out.mp4`.
+  Playwright's bundled ffmpeg encodes only VP8 and cannot make either. Without a system
+  ffmpeg, post the `webm` link, say the preview is missing because ffmpeg is not
+  installed, and ask the developer to install it.
 - Link the same comment from the PR when the outer workflow owns a PR.
 - In a chat app that can show files, also send the files to the developer.
 - Ask before posting on a ticket or PR that another person owns, unless the active

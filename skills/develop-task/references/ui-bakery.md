@@ -34,7 +34,9 @@ Linear issue under the `ticket-title` skill, in English as
 `$develop-task`'s Visual Evidence step, through
 [`../../visual-evidence/references/ui-bakery.md`](../../visual-evidence/references/ui-bakery.md),
 replaces the Screenshot Evidence section of `$develop-please`'s `references/validation.md`
-and its review check for missing screenshots.
+and its review check for missing screenshots. Its separate Storybook comment is part of
+the Linear closeout, not an extra report that `$develop-please`'s comment rules would fold
+into the final one.
 
 The `$develop-please` 3 hour invocation timebox does not stop a `$develop-task` run.
 The run stops on this skill's conditions instead: an exhausted Bounded Review Loop, a

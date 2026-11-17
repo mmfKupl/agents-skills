@@ -35,15 +35,19 @@ How to capture on the preview:
 
 Storybook:
 
-- The preview serves Storybook at `https://storybook.<preview host>`. When the change
-  touches components with stories, post a separate Linear comment with a direct link to
-  each affected story, taken from `<storybook>/index.json`, and say for each what to look
-  at or click.
+- The preview serves one Storybook per project under `https://storybook.<preview host>/`,
+  for example `/bakery/` and `/workbench/`. Read story IDs from
+  `https://storybook.<preview host>/<project>/index.json` and link each story as
+  `https://storybook.<preview host>/<project>/?path=/story/<id>`.
+- Post them as a Storybook comment of its own on the Linear issue, before the final
+  report, with what to look at or click for each story. The final report links to that
+  comment and does not repeat the list, in Details or anywhere else.
 
 Where to post:
 
-- upload the video (keep `webm`) and screenshots to Linear and put them in the final
-  Linear report, with API logs and details in a collapsible block; link it from the PR;
+- upload the GIF preview, the `mp4` video, and screenshots to Linear and put them in the
+  final Linear report, the GIF inline with the video link under it, and API logs and
+  details in a collapsible block; link it from the PR;
 - do not paste local filesystem paths as Linear evidence;
 - acceptable evidence: Linear-uploaded attachments, GitHub/PR comment attachments,
   accessible Playwright report URL, or another stable HTTPS artifact;

@@ -312,7 +312,7 @@ def _claude_user_text(entry: dict[str, Any]) -> str:
     command = re.search(r"<command-name>/([^<\s]+)</command-name>", content)
     if command:
         arguments = re.search(r"<command-args>(.*?)</command-args>", content, re.DOTALL)
-        return f"${command[1]} {arguments[1] if arguments else ''}".rstrip()
+        content = f"${command[1]} {arguments[1] if arguments else ''}".rstrip()
     return re.sub(r"(?<![\w/.-])/develop-task(?![\w/-])", "$develop-task", content)
 
 

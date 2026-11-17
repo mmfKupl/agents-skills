@@ -428,6 +428,19 @@ class RunManifestTests(unittest.TestCase):
         self.assertEqual(document["run"]["model_policy"]["mode"], "adaptive")
         run_manifest._verify_model_policy(document["run"])
 
+    def test_init_reads_develop_task_in_another_slash_commands_arguments(self) -> None:
+        self.write_claude_session([
+            self.claude_user(
+                "<command-message>develop-please</command-message>\n"
+                "<command-name>/develop-please</command-name>\n"
+                "<command-args>+ /develop-task этого тикета</command-args>", "u1",
+            ),
+            self.claude_assistant("claude-opus-5-5"),
+        ])
+        document = self.read_run(self.init_run())
+        self.assertEqual(document["run"]["model_policy"]["mode"], "adaptive")
+        self.assertEqual(document["run"]["model_policy_source"]["turn_id"], "u1")
+
     def claude_queued(self, prompt: str, uuid: str, kind: str = "human") -> dict[str, object]:
         return {"type": "attachment", "uuid": uuid, "attachment": {
             "type": "queued_command", "prompt": prompt, "commandMode": "prompt",

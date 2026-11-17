@@ -44,7 +44,8 @@ rules require another.
 ## Limits
 
 Rename only the task's own ticket, never related or similar ones, and change only
-its title. Leave titles that other automation creates or matches, such as
+its title. Keep a leading status prefix that an outer workflow manages, such as
+`[Working]` from `$develop-please`, and rename only the part after it. Leave titles that other automation creates or matches, such as
 `[E2E Auto]` issues, unchanged. This authorizes no other tracker change. It is best
 effort and never a gate: if the tracker tool is unavailable or the edit fails, carry
 on and mention it in the final report.

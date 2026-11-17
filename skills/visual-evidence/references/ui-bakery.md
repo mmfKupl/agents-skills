@@ -45,9 +45,9 @@ Storybook:
 
 Where to post:
 
-- upload the GIF preview, the `mp4` video, and screenshots to Linear and put them in the
-  final Linear report, the GIF inline with the video link under it, and API logs and
-  details in a collapsible block; link it from the PR;
+- upload the videos and screenshots to Linear and put them in the final Linear report, each
+  video on its own `▶ Video` line, and API logs and details in a collapsible block; link
+  it from the PR;
 - do not paste local filesystem paths as Linear evidence;
 - acceptable evidence: Linear-uploaded attachments, GitHub/PR comment attachments,
   accessible Playwright report URL, or another stable HTTPS artifact;

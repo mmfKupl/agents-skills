@@ -80,7 +80,12 @@ Choose the narrowest check that proves the changed behavior:
   lint/typecheck when available.
 - Chat backend or Custom Apps agent changes: run focused Jest tests in
   `front/projects/chat`; use relevant evals for generated-app, tool, planning,
-  datasource sync, screenshot, file-operation, or sandbox behavior changes.
+  datasource sync, screenshot, file-operation, or sandbox behavior changes. Also run
+  `npx tsc -p tsconfig.json --noEmit` there before every push: the tests compile with
+  `tsconfig.spec.json`, which turns off `strictNullChecks`, and the commit hook runs no
+  type check, so only this command catches the strict errors that break `npm run build`.
+  The writer runs it in its sandbox. It needs current dependencies in both `front` and
+  `front/projects/chat`; a stale `node_modules` reports errors that are not in the code.
 - Datasource changes: run focused tests in `front/projects/datasource`.
 - Docker sandbox changes: run focused tests in
   `front/projects/docker-sandbox`.

@@ -184,30 +184,50 @@ and the verdict.
 
 ## Output
 
-In `standalone` mode, open with an overview before any finding. Answer three
-questions in plain words, a few sentences each, with only the context needed to
-follow them:
+In `standalone` mode, write the report from this template. Keep every heading and
+field in this order and write `none` where a section has nothing. Before sending,
+check that no heading or field is missing.
 
-- What this PR does: the change as the user or developer sees it.
-- Why it is needed: the problem, request, or ticket behind it.
-- How it works or fixes it: the approach and the key places in the code, and why
-  this approach when the source says so.
+```markdown
+### What this PR does
+<the change as the user or developer sees it, a few sentences>
 
-Use the user's vocabulary and a concrete example where it helps; no internal IDs,
-file lists, or review jargon. Base it on the diff, ticket, and PR; label anything
-undocumented as an inference, and do not invent product intent.
+### Why it is needed
+<the problem, request, or ticket behind it>
 
-Then findings, by severity. Each gives Severity (`P0` critical, `P1`
-blocking, `P2` important, `P3` minor), Title, Evidence (files, lines, or
-check results), Impact (what breaks, for whom), Reproduction
-or check (command, preview path, probe, or reasoning), Origin (introduced,
-pre-existing and exposed, unrelated pre-existing, or unknown, with baseline
-evidence), Scope assessment (in scope, boundary, or outside, and why), and
-Suggested direction (concise fix strategy, not a full plan unless asked).
+### How it works
+<the approach and the key places in the code, and why this approach when the source says so>
 
-Then: Validation reused, Validation run (with results), Validation gaps (what
-was not checked and why), Delegation (agents used or manual fallback), and
-Verdict (`blocked`,
-`risky`, `mostly-ready`, or `no-findings`, with residual risk). With no
-findings, say so and still list the checks and remaining risk.
+### Findings
+#### <P0 | P1 | P2 | P3> — <title>
+- **Evidence** — <files, lines, or check results>
+- **Impact** — <what breaks, for whom>
+- **Reproduction or check** — <command, preview path, probe, or reasoning>
+- **Origin** — <introduced | pre-existing and exposed | unrelated pre-existing | unknown>, with baseline evidence
+- **Scope** — <in scope | boundary | outside>, and why
+- **Suggested direction** — <concise fix strategy, not a full plan unless asked>
 
+### Validation reused
+<passed checks cited, with commit and result>
+
+### Validation run
+<checks run in this review, with results>
+
+### Validation gaps
+<what was not checked, and why>
+
+### Delegation
+<agents used with model and effort, or the manual fallback>
+
+### Verdict
+<blocked | risky | mostly-ready | no-findings>, with the residual risk
+```
+
+Severity is `P0` critical, `P1` blocking, `P2` important, or `P3` minor; order
+findings by it. With no findings, write `none` under Findings and still fill in the
+checks and remaining risk.
+
+Write the first three sections in plain words, with only the context needed to
+follow them. Use the user's vocabulary and a concrete example where it helps; no
+internal IDs, file lists, or review jargon. Base them on the diff, ticket, and PR;
+label anything undocumented as an inference, and do not invent product intent.

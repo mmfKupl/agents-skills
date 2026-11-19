@@ -66,9 +66,9 @@ These defaults apply only to standalone review. Give every specialist an
 explicit callable model ID and effort, and `fork_turns: "none"` or a positive
 bounded history with a self-contained packet.
 
-- `standard`: `gpt-6.1-terra` high; `deep`: `gpt-6.1-sol` high; `audit`:
-  `gpt-6.1-sol` xhigh by default.
-- `gpt-6.1-sol` max only when several critical risks combine, failure is
+- `standard`: `gpt-6.1-terra` high; `deep`: `gpt-6.2-sol` high; `audit`:
+  `gpt-6.2-sol` xhigh by default.
+- `gpt-6.2-sol` max only when several critical risks combine, failure is
   especially costly or hard to validate, or a lower Sol tier made a conceptual
   mistake.
 - Runtime, preview, and visual probes (rendered UI, screenshots, Playwright)

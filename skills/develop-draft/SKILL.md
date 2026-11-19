@@ -68,8 +68,8 @@ a finding. Source review does not verify runtime behavior.
 
 ## Routing matrix
 
-`develop-task`'s model tiers, delegated directly. `Sol` is `gpt-6.1-sol`,
-`Terra` is `gpt-6.1-terra`, `Astra` is `gpt-6-astra`.
+`develop-task`'s model tiers, delegated directly. `Sol` is `gpt-6.2-sol`,
+`Terra` is `gpt-6.1-terra`, `Astra` is `gpt-6.2-astra`.
 
 | Profile | Evidence | Preflight | Writer | Final review |
 | --- | --- | --- | --- | --- |
@@ -96,8 +96,8 @@ preflight sets ordered, bounded slices with explicit interfaces; writers stay
 sequential and final review covers the combined diff.
 
 Ceilings cap every job: `E <model>` explicitly, `M` at the invocation-turn main
-model; default adaptive. Codex order: Luna < Terra < previous `gpt-6-sol` < Sol
-< Astra; Claude uses the adapter's. Take the lower of matrix model and ceiling
+model; default adaptive. Codex order: Luna < Terra < earlier `gpt-6-sol` and `gpt-6.1-sol` <
+Sol < earlier `gpt-6-astra` < Astra; Claude uses the adapter's. Take the lower of matrix model and ceiling
 at the same effort; report requested and selected models when capped. Resolve
 an unknown `M` from runtime evidence or ask before delegating. Never guess,
 drop, or ask to raise a ceiling. Spawn fresh agents with explicit model, effort,

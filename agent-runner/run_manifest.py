@@ -41,18 +41,20 @@ MODEL_ORDER = (
     "gpt-6.1-terra",
     "gpt-6-sol",
     "gpt-6.1-sol",
+    "gpt-6.2-sol",
     "gpt-6-astra",
+    "gpt-6.2-astra",
 )
 # Claude models share the rank of their GPT peer, so one ceiling covers both
 # vendors. A capped job keeps its vendor.
 CLAUDE_MODEL_PEERS = {
     "claude-haiku-5-5": "gpt-6-luna",
     "claude-sonnet-5-5": "gpt-6.1-terra",
-    "claude-opus-5-5": "gpt-6.1-sol",
-    "claude-fable-5-2": "gpt-6-astra",
+    "claude-opus-5-5": "gpt-6.2-sol",
+    "claude-fable-5-2": "gpt-6.2-astra",
 }
 # Earlier Claude models keep their rank so `M` and older runs still resolve; new jobs use the peers.
-PREVIOUS_CLAUDE_MODELS = {"claude-fable-5-1": "gpt-6-astra"}
+PREVIOUS_CLAUDE_MODELS = {"claude-fable-5-1": "gpt-6.2-astra"}
 MODEL_RANK = {model: rank for rank, model in enumerate(MODEL_ORDER)}
 MODEL_RANK.update(
     {model: MODEL_RANK[peer] for model, peer in {**PREVIOUS_CLAUDE_MODELS, **CLAUDE_MODEL_PEERS}.items()}
@@ -555,13 +557,14 @@ def _invocation_policy(
         if mode == "explicit_ceiling":
             model_token = re.match(r"\s*:?\s*([^\s,;]+)", suffix[parameter.end():])
             explicit_maximum = _model_id(model_token[1]) if model_token else None
-            # Older runs pinned the short Sol alias to GPT-6 Sol. Re-check
-            # that source without raising an already recorded ceiling.
+            # Older runs pinned a short alias such as Sol or Astra to an earlier
+            # model of that family. Re-check that source without raising the
+            # recorded ceiling.
             if (
                 preserve_pinned_alias
                 and model_token is not None
-                and model_token[1].lower() == "sol"
-                and maximum_model == "gpt-6-sol"
+                and maximum_model in MODEL_ORDER
+                and maximum_model.endswith("-" + model_token[1].lower())
             ):
                 explicit_maximum = maximum_model
             if explicit_maximum not in MODEL_RANK:

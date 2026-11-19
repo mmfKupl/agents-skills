@@ -180,22 +180,22 @@ Parameters immediately after the skill name are authoritative:
   rejected before run creation;
 - `M` / `main_ceiling` uses the supported model recorded in that invocation's
   `turn_context`, not a later turn's model;
-- `E Luna`, `E: Sol`, `E Astra`, or `explicit_ceiling gpt-6.1-sol` selects the
+- `E Luna`, `E: Sol`, `E Astra`, or `explicit_ceiling gpt-6.2-sol` selects the
   named ceiling;
 - no restriction keeps `adaptive`.
 
 Supported ceilings follow this order: `gpt-6-luna`, `gpt-6.1-terra`,
-`gpt-6-sol`, `gpt-6.1-sol`, `gpt-6-astra`. Claude models share their GPT
-peer's rank: `claude-haiku-5-5` = Luna, `claude-sonnet-5-5` = Terra,
-`claude-opus-5-5` = GPT-6.1 Sol, `claude-fable-5-2` = Astra (`claude-fable-5-1`
+`gpt-6-sol`, `gpt-6.1-sol`, `gpt-6.2-sol`, `gpt-6-astra`, `gpt-6.2-astra`. Claude
+models share their GPT peer's rank: `claude-haiku-5-5` = Luna, `claude-sonnet-5-5` =
+Terra, `claude-opus-5-5` = GPT-6.2 Sol, `claude-fable-5-2` = GPT-6.2 Astra (`claude-fable-5-1`
 keeps that rank for `M` and older runs). Short names
 (`Luna`, `Terra`, `Sol`, `Astra`, `Haiku`, `Sonnet`, `Opus`, `Fable`) resolve
 to these IDs. A capped job keeps its vendor: it gets that vendor's strongest
 model at or below the ceiling's rank, so `E Terra` caps `claude-opus-5-5` to
-`claude-sonnet-5-5`, and `gpt-6-sol` caps it to Sonnet as well. Sol resolves to
-`gpt-6.1-sol` for new runs; use the full `gpt-6-sol` ID for a
-previous-generation ceiling. Existing pinned Sol ceilings retain their recorded
-model. Full GPT-5.6 IDs, including `gpt-5.6-terra`, are rejected for new runs
+`claude-sonnet-5-5`, and `gpt-6-sol` or `gpt-6.1-sol` caps it to Sonnet as well.
+Sol resolves to `gpt-6.2-sol` and Astra to `gpt-6.2-astra` for new runs; use a full
+earlier ID such as `gpt-6.1-sol` for an earlier-generation ceiling. Existing pinned Sol
+and Astra ceilings retain their recorded model. Full GPT-5.6 IDs, including `gpt-5.6-terra`, are rejected for new runs
 and jobs.
 
 Main still interprets natural-language constraints. It may pass

@@ -79,10 +79,10 @@ the effort level unchanged (`low`, `medium`, `high`, `xhigh`, `max`):
 | --- | --- | --- |
 | `gpt-6-luna`, Luna | `haiku` | `claude-haiku-5-5` |
 | `gpt-6.1-terra`, Terra | `sonnet` | `claude-sonnet-5-5` |
-| `gpt-6.1-sol`, `gpt-6-sol`, Sol | `opus` | `claude-opus-5-5` |
-| `gpt-6-astra`, Astra | `fable` | `claude-fable-5-2` |
+| `gpt-6.2-sol`, `gpt-6.1-sol`, `gpt-6-sol`, Sol | `opus` | `claude-opus-5-5` |
+| `gpt-6.2-astra`, `gpt-6-astra`, Astra | `fable` | `claude-fable-5-2` |
 
-One exception: a `gpt-6.1-sol` xhigh route runs on Claude as `fable` high when the ceiling
+One exception: a `gpt-6.2-sol` xhigh route runs on Claude as `fable` high when the ceiling
 allows it, and a refused Fable job reruns on `opus` xhigh. See `references/routing.md`,
 Fable on Claude.
 
@@ -91,7 +91,8 @@ get every home-vendor route from `agent-run-manifest route --role <role> --profi
 <profile> [--ceiling <model>]` and pass its Claude model as the matching Agent alias.
 
 Model ceilings use one ladder for both vendors: `haiku` = Luna < `sonnet` =
-Terra < `gpt-6-sol` < `opus` = GPT-6.1 Sol < `fable` = Astra. Accept both
+Terra < `gpt-6-sol` < `gpt-6.1-sol` < `opus` = GPT-6.2 Sol < `gpt-6-astra` <
+`fable` = GPT-6.2 Astra. Accept both
 names in a ceiling (`E Sol` = `E opus`, `E Terra` = `E sonnet`, `E Luna` =
 `E haiku`, `E Astra` = `E fable`). For `M`, the ceiling is the main session's
 model at invocation time. A capped job keeps its vendor: under `E Terra`, a

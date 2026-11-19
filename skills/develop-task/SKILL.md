@@ -205,7 +205,7 @@ compatibility alias. Reject the removed `$develop-task A` before delegation. The
 the ceiling from the role, profile, and slice type; pass a different model only as a
 promotion or preflight override, with its reason.
 
-For the main chat, recommend `gpt-6.1-sol` low when coordinating a clear approved
+For the main chat, recommend `gpt-6.2-sol` low when coordinating a clear approved
 plan and medium when main must resolve substantive technical choices; keep the
 user's selection. Delegate difficult judgments to the gate tier.
 
@@ -311,11 +311,11 @@ and low-validatability changes.
 
 | Profile | Use when | Preflight | Implementation | Postflight |
 | --- | --- | --- | --- | --- |
-| Fast | Clear local behavior, established pattern, low blast radius, narrow validation | `gpt-6.1-sol` medium | Runner worker on `gpt-6.1-terra` medium; direct fallback uses main or a Terra worker | `gpt-6.1-sol` low |
-| Standard | Clear requirements with non-trivial but bounded implementation | `gpt-6.1-sol` medium | Worker on `gpt-6.1-terra` high | `gpt-6.1-sol` medium |
-| Deep | Cross-layer, novel, ambiguous, high-risk, or difficult to validate | `gpt-6.1-sol` high | Worker on `gpt-6.1-sol` high by default; `gpt-6.1-terra` high for a visual or prose slice | `gpt-6.1-sol` high |
-| Critical | Multiple critical risks, costly failure, low reversibility, or failed lower-tier reasoning | `gpt-6.1-sol` xhigh | Bounded known-pattern slice on `gpt-6.1-sol` high; use xhigh for the exact slice with combined critical factors; `gpt-6.1-terra` high for a visual or prose slice | `gpt-6.1-sol` xhigh |
-| Exceptional | Evidenced novel, coupled, difficult-to-validate reasoning beyond the Critical route, or a prior Sol conceptual failure | `gpt-6-astra` high | `gpt-6.1-sol` high for ordinary bounded slices; `gpt-6.1-terra` high for a visual or prose slice; Astra high for the exact exceptional slice | `gpt-6-astra` high |
+| Fast | Clear local behavior, established pattern, low blast radius, narrow validation | `gpt-6.2-sol` medium | Runner worker on `gpt-6.1-terra` medium; direct fallback uses main or a Terra worker | `gpt-6.2-sol` low |
+| Standard | Clear requirements with non-trivial but bounded implementation | `gpt-6.2-sol` medium | Worker on `gpt-6.1-terra` high | `gpt-6.2-sol` medium |
+| Deep | Cross-layer, novel, ambiguous, high-risk, or difficult to validate | `gpt-6.2-sol` high | Worker on `gpt-6.2-sol` high by default; `gpt-6.1-terra` high for a visual or prose slice | `gpt-6.2-sol` high |
+| Critical | Multiple critical risks, costly failure, low reversibility, or failed lower-tier reasoning | `gpt-6.2-sol` xhigh | Bounded known-pattern slice on `gpt-6.2-sol` high; use xhigh for the exact slice with combined critical factors; `gpt-6.1-terra` high for a visual or prose slice | `gpt-6.2-sol` xhigh |
+| Exceptional | Evidenced novel, coupled, difficult-to-validate reasoning beyond the Critical route, or a prior Sol conceptual failure | `gpt-6.2-astra` high | `gpt-6.2-sol` high for ordinary bounded slices; `gpt-6.1-terra` high for a visual or prose slice; Astra high for the exact exceptional slice | `gpt-6.2-astra` high |
 
 A visual slice is UI work on an established pattern accepted by rendered output. A
 prose slice delivers mainly text for people. Agent instructions and prompts are logic,

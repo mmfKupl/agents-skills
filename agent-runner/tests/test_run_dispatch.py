@@ -50,16 +50,16 @@ print(result)
 class RouteTests(unittest.TestCase):
     def test_matrix(self) -> None:
         cases = {
-            ("preflight-review", "standard"): ("gpt-6.1-sol", "medium"),
+            ("preflight-review", "standard"): ("gpt-6.2-sol", "medium"),
             ("implementation-worker", "fast"): ("gpt-6.1-terra", "medium"),
             ("implementation-worker", "standard"): ("gpt-6.1-terra", "high"),
-            ("implementation-worker", "deep"): ("gpt-6.1-sol", "high"),
-            ("postflight-review", "fast"): ("gpt-6.1-sol", "low"),
-            ("postflight-review", "critical"): ("gpt-6.1-sol", "xhigh"),
-            ("preflight-review", "exceptional"): ("gpt-6-astra", "high"),
-            ("diagnosis-review", "standard"): ("gpt-6.1-sol", "high"),
-            ("diagnosis-review", "critical"): ("gpt-6.1-sol", "xhigh"),
-            ("diagnosis-review", "fast"): ("gpt-6.1-sol", "high"),
+            ("implementation-worker", "deep"): ("gpt-6.2-sol", "high"),
+            ("postflight-review", "fast"): ("gpt-6.2-sol", "low"),
+            ("postflight-review", "critical"): ("gpt-6.2-sol", "xhigh"),
+            ("preflight-review", "exceptional"): ("gpt-6.2-astra", "high"),
+            ("diagnosis-review", "standard"): ("gpt-6.2-sol", "high"),
+            ("diagnosis-review", "critical"): ("gpt-6.2-sol", "xhigh"),
+            ("diagnosis-review", "fast"): ("gpt-6.2-sol", "high"),
         }
         for (role, profile), expected in cases.items():
             self.assertEqual(run_dispatch.route(role, profile)[:2], expected, (role, profile))
@@ -69,17 +69,17 @@ class RouteTests(unittest.TestCase):
         self.assertEqual(route("implementation-worker", "deep", slice_kind="visual")[:2],
                          ("gpt-6.1-terra", "high"))
         self.assertEqual(route("implementation-worker", "exceptional", slice_kind="exceptional")[:2],
-                         ("gpt-6-astra", "high"))
+                         ("gpt-6.2-astra", "high"))
         self.assertEqual(route("test-review", "standard", lookup="medium")[:2], ("gpt-6-luna", "medium"))
         self.assertEqual(route("test-review", "standard", lookup="high")[:2], ("gpt-6-luna", "high"))
-        self.assertEqual(route("test-review", "standard", gate="diagnosis")[:2], ("gpt-6.1-sol", "high"))
-        self.assertEqual(route("diagnosis-review", "exceptional")[:2], ("gpt-6-astra", "high"))
-        self.assertEqual(route("diagnosis-review", "deep")[:2], ("gpt-6.1-sol", "high"))
+        self.assertEqual(route("test-review", "standard", gate="diagnosis")[:2], ("gpt-6.2-sol", "high"))
+        self.assertEqual(route("diagnosis-review", "exceptional")[:2], ("gpt-6.2-astra", "high"))
+        self.assertEqual(route("diagnosis-review", "deep")[:2], ("gpt-6.2-sol", "high"))
         for bad in ({"lookup": "medium"}, {"gate": "postflight"}):
             with self.assertRaises(run_manifest.ManifestError):
                 route("implementation-worker", "fast", **bad)
         self.assertEqual(route("code-simplicity-review", "fast", gate="postflight")[:2],
-                         ("gpt-6.1-sol", "low"))
+                         ("gpt-6.2-sol", "low"))
         for bad in ({"slice_kind": "visual"}, {"slice_kind": "critical-combined"}):
             with self.assertRaises(run_manifest.ManifestError):
                 route("implementation-worker", "standard", **bad)
@@ -91,7 +91,7 @@ class RouteTests(unittest.TestCase):
             code = run_manifest.main(["route", "--role", "postflight-review", "--profile", "standard",
                                       "--vendor", "cross"])
             self.assertEqual(code, 0)
-            self.assertEqual(printed.call_args[0][0], "gpt-6.1-sol medium (standard postflight; codex vendor)")
+            self.assertEqual(printed.call_args[0][0], "gpt-6.2-sol medium (standard postflight; codex vendor)")
             run_manifest.main(["route", "--role", "preflight-review", "--profile", "deep", "--ceiling", "Sonnet"])
             self.assertEqual(printed.call_args[0][0], "claude-sonnet-5-5 high (deep preflight; claude vendor)")
 
@@ -99,7 +99,7 @@ class RouteTests(unittest.TestCase):
         adaptive = run_dispatch.ceiling_policy(None)
         critical = run_dispatch.route("preflight-review", "critical")
         self.assertEqual(run_dispatch.resolve(*critical, "claude", adaptive)[:2], ("claude-fable-5-2", "high"))
-        self.assertEqual(run_dispatch.resolve(*critical, "codex", adaptive)[:2], ("gpt-6.1-sol", "xhigh"))
+        self.assertEqual(run_dispatch.resolve(*critical, "codex", adaptive)[:2], ("gpt-6.2-sol", "xhigh"))
         for ceiling in ("Opus", "Sol", "Terra"):
             model, effort, _ = run_dispatch.resolve(*critical, "claude", run_dispatch.ceiling_policy(ceiling))
             self.assertEqual((run_dispatch.capped(model, ceiling), effort),
@@ -127,7 +127,7 @@ class RouteTests(unittest.TestCase):
             self.assertEqual(run_dispatch.target_vendor("postflight-review", "preflight", "auto"), "codex")
             self.assertEqual(run_dispatch.target_vendor("postflight-review", "preflight", "cross"), "claude")
             self.assertEqual(run_dispatch.target_vendor("preflight-review", "preflight", "claude"), "claude")
-        self.assertEqual(run_dispatch.vendor_model("gpt-6.1-sol", "claude"), "claude-opus-5-5")
+        self.assertEqual(run_dispatch.vendor_model("gpt-6.2-sol", "claude"), "claude-opus-5-5")
         self.assertEqual(run_dispatch.vendor_model("gpt-6.1-terra", "codex"), "gpt-6.1-terra")
 
 
@@ -148,7 +148,7 @@ class DispatchTests(unittest.TestCase):
         rollout.parent.mkdir()
         items = [
             {"type": "event_msg", "payload": {"type": "task_started", "turn_id": "t1"}},
-            {"type": "turn_context", "payload": {"turn_id": "t1", "model": "gpt-6.1-sol"}},
+            {"type": "turn_context", "payload": {"turn_id": "t1", "model": "gpt-6.2-sol"}},
             {"type": "response_item", "payload": {
                 "type": "message", "role": "user",
                 "content": [{"type": "input_text", "text": "$develop-task E Terra fix it"}],
@@ -189,7 +189,7 @@ class DispatchTests(unittest.TestCase):
         )
         self.assertEqual(code, 0)
         self.assertEqual(summary["job"], "001-preflight")
-        self.assertEqual(summary["requested_model"], "gpt-6.1-sol")
+        self.assertEqual(summary["requested_model"], "gpt-6.2-sol")
         self.assertEqual(summary["model"], "gpt-6.1-terra")
         self.assertEqual(summary["report"], "Decision: proceed")
         task = yaml.safe_load(Path(summary["task"]).read_text())
@@ -211,7 +211,7 @@ class DispatchTests(unittest.TestCase):
         self.assertIn("universal `completed`", task["agent"]["developer_instructions"])
 
         table = run_dispatch.usage_table(str(self.run_path))
-        self.assertIn("| 001-preflight | gpt-6.1-terra medium (capped from gpt-6.1-sol) | completed | 1 | 30 | 60 | 10 | 7 (2) |", table)
+        self.assertIn("| 001-preflight | gpt-6.1-terra medium (capped from gpt-6.2-sol) | completed | 1 | 30 | 60 | 10 | 7 (2) |", table)
         self.assertIn("| Total: 2 jobs | | | 2 |", table)
         self.assertIn("| main | | | | 100 | 400 | 0 | 9 (3) |", table)
 
@@ -221,7 +221,7 @@ class DispatchTests(unittest.TestCase):
                           run_manifest=str(self.run_path), contract_revision=1)
         with self.assertRaisesRegex(run_manifest.ManifestError, "reason"):
             self.dispatch(role="preflight-review", profile="fast", run_manifest=str(self.run_path),
-                          contract_revision=1, model="gpt-6-astra", effort="high")
+                          contract_revision=1, model="gpt-6.2-astra", effort="high")
         with self.assertRaisesRegex(run_manifest.ManifestError, "contract-revision"):
             self.dispatch(role="preflight-review", profile="fast", run_manifest=str(self.run_path))
         with self.assertRaisesRegex(run_manifest.ManifestError, "ceiling"):

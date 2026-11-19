@@ -130,7 +130,7 @@ impossible.
   evidence, and repo-practice result and must say where local practice should
   be followed or challenged.
 
-For standalone discovery, use `gpt-6.1-terra` high by default and `gpt-6.1-sol` high for novel,
+For standalone discovery, use `gpt-6.1-terra` high by default and `gpt-6.2-sol` high for novel,
 cross-layer, high-risk, or difficult-to-validate questions, read-only, with no
 recursive delegation. If a required role is unavailable, stop and name it;
 never imitate it. A missing optional one does not block.

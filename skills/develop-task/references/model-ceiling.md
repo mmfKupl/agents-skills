@@ -2,8 +2,9 @@
 
 Read this when the invocation or the user sets a ceiling, in `M`, `E`, or plain words.
 
-The order is `gpt-6-luna` < `gpt-6.1-terra` < `gpt-6-sol` < `gpt-6.1-sol` < `gpt-6-astra`;
-`Sol` means `gpt-6.1-sol`, and the full `gpt-6-sol` ID requests the previous generation.
+The order is `gpt-6-luna` < `gpt-6.1-terra` < `gpt-6-sol` < `gpt-6.1-sol` < `gpt-6.2-sol` <
+`gpt-6-astra` < `gpt-6.2-astra`. `Sol` means `gpt-6.2-sol` and `Astra` means `gpt-6.2-astra`;
+a full earlier ID such as `gpt-6.1-sol` requests that generation.
 
 - `adaptive` is the default: no ceiling.
 - `explicit_ceiling` (`E`) uses the model the user named: `E Sol`, `E: Luna`, `E Opus`, or

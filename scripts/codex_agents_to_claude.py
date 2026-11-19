@@ -18,8 +18,8 @@ CLAUDE_RUNTIME_NOTE = """## Claude Code runtime
 These instructions were written for Codex. In Claude Code:
 - read `CLAUDE.md` files as well as `AGENTS.md` files;
 - GPT model names map to Claude models: Luna / `gpt-6-luna` -> `haiku`,
-  Terra / `gpt-6.1-terra` -> `sonnet`, Sol / `gpt-6.1-sol` / `gpt-6-sol` -> `opus`,
-  Astra / `gpt-6-astra` -> `fable`; effort levels are unchanged. Name Claude
+  Terra / `gpt-6.1-terra` -> `sonnet`, Sol / `gpt-6.2-sol` / `gpt-6.1-sol` / `gpt-6-sol` -> `opus`,
+  Astra / `gpt-6.2-astra` / `gpt-6-astra` -> `fable`; effort levels are unchanged. Name Claude
   models for Claude jobs and GPT models for postflight and diagnosis, which run
   on GPT through the runner under cross-vendor review;
 - there is no runner backend: you were started as a Claude Code subagent;

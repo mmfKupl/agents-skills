@@ -16,7 +16,7 @@ Exceptional requires concrete evidence for at least one of these conditions:
   for the core decision, and is difficult to validate or roll back;
 - the key decision requires novel architecture across several tightly coupled
   subsystems;
-- `gpt-6.1-sol` high or xhigh already made a conceptual error or could not
+- `gpt-6.2-sol` high or xhigh already made a conceptual error or could not
   produce an approvable contract from sufficient context. On Claude, a Sol xhigh
   route already runs on Fable high, so the next step there is Fable xhigh.
 
@@ -56,17 +56,17 @@ that invalidates the approved boundary, ordering, behavior, or critical
 contract stops the sequence and returns to fresh preflight.
 
 Use `gpt-6.1-terra` medium for confirmed Fast implementation and high for
-confirmed Standard implementation. Fast postflight uses `gpt-6.1-sol` low;
-Standard postflight uses `gpt-6.1-sol` medium. A conceptual failure despite
+confirmed Standard implementation. Fast postflight uses `gpt-6.2-sol` low;
+Standard postflight uses `gpt-6.2-sol` medium. A conceptual failure despite
 sufficient context, newly ambiguous requirements, or novel coupled behavior
 requires fresh preflight to reassess the affected scope and its profile. When
 that preflight keeps the Standard profile, the next writer may use Terra xhigh;
 move implementation to Sol only after Terra xhigh also fails conceptually or
 the profile changes. Ordinary lint, type, formatting, build, or test
 failures alone do not justify changing models. Keep the Standard postflight
-floor at `gpt-6.1-sol` medium while the task remains Standard.
+floor at `gpt-6.2-sol` medium while the task remains Standard.
 
-For Deep implementation, use `gpt-6.1-sol` high. A conceptual failure, novel
+For Deep implementation, use `gpt-6.2-sol` high. A conceptual failure, novel
 architecture without a strong local precedent, or several inseparable coupled
 layers may require a fresh preflight and Exceptional routing for the affected
 slice. A lint, type, formatting, build, or ordinary test failure alone is not a
@@ -79,14 +79,14 @@ changes a critical contract or carries the exceptional decision is not a
 visual slice for routing; route it like any other slice.
 
 For Critical implementation, keep a bounded slice with an established
-repository pattern on `gpt-6.1-sol` high. Use Sol xhigh only when the exact slice
+repository pattern on `gpt-6.2-sol` high. Use Sol xhigh only when the exact slice
 combines several concrete factors: security/auth reasoning, concurrency, complex
 migration, costly public-contract change, difficult validation or rollback,
 or a prior conceptual failure by Sol high. Reserve Sol max for quality-first
 work after a lower Sol tier fails conceptually; do not apply it automatically.
 
-For Exceptional implementation, start ordinary bounded slices on `gpt-6.1-sol`
-high. Use `gpt-6-astra` high only for the exact slice carrying the Exceptional
+For Exceptional implementation, start ordinary bounded slices on `gpt-6.2-sol`
+high. Use `gpt-6.2-astra` high only for the exact slice carrying the Exceptional
 evidence. Do not promote mechanical writing, deterministic migrations,
 generated bindings, or straightforward UI work merely because another slice is
 Exceptional. Use Astra xhigh only after Astra high makes a conceptual error or
@@ -109,16 +109,16 @@ automatically require Astra. Use Astra for an
 unresolved review question only when its concrete reasoning difficulty meets
 the Exceptional criteria; follow the normal preflight and ceiling rules.
 
-Route diagnosis at `gpt-6.1-sol` high for Fast or Standard work,
-`gpt-6.1-sol` high for Deep work, and `gpt-6.1-sol` xhigh when the unresolved
-cause itself carries the Critical profile. Use `gpt-6-astra` high only when the
+Route diagnosis at `gpt-6.2-sol` high for Fast or Standard work,
+`gpt-6.2-sol` high for Deep work, and `gpt-6.2-sol` xhigh when the unresolved
+cause itself carries the Critical profile. Use `gpt-6.2-astra` high only when the
 unresolved cause itself meets the Exceptional criteria. Diagnosis runs on the
 vendor the Vendor section picks.
 Always apply the selected ceiling to diagnosis and specialists.
 
 ## Fable on Claude
 
-On Claude, every route at `gpt-6.1-sol` xhigh runs as `claude-fable-5-2` high instead of
+On Claude, every route at `gpt-6.2-sol` xhigh runs as `claude-fable-5-2` high instead of
 `claude-opus-5-5` xhigh. That covers Critical preflight, postflight, and diagnosis, the
 specialists of a Critical gate, and the `critical-combined` slice. Fable 5.2 scores higher
 at about the same cost per task. `dispatch` and `route` apply this; GPT jobs keep Sol xhigh.
@@ -130,5 +130,5 @@ model. When a safety refusal stops a routed Fable job, Exceptional Astra jobs in
 partial edits, and the summary names the refused job under `refused`. The runner cannot
 see a soft refusal: a Fable report that declines or cuts short part of an auth,
 permission, or security question. Discard such a report and dispatch the same job with
-`--model gpt-6.1-sol --effort xhigh --reason "Fable refused"`. In subagent mode, do the
+`--model gpt-6.2-sol --effort xhigh --reason "Fable refused"`. In subagent mode, do the
 same with an `opus` Agent job at xhigh.

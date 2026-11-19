@@ -43,31 +43,31 @@ SLUGS = {
 }
 # The default matrix in GPT names; the other vendor maps through its peer.
 PREFLIGHT = {
-    "fast": ("gpt-6.1-sol", "medium"),
-    "standard": ("gpt-6.1-sol", "medium"),
-    "deep": ("gpt-6.1-sol", "high"),
-    "critical": ("gpt-6.1-sol", "xhigh"),
-    "exceptional": ("gpt-6-astra", "high"),
+    "fast": ("gpt-6.2-sol", "medium"),
+    "standard": ("gpt-6.2-sol", "medium"),
+    "deep": ("gpt-6.2-sol", "high"),
+    "critical": ("gpt-6.2-sol", "xhigh"),
+    "exceptional": ("gpt-6.2-astra", "high"),
 }
 POSTFLIGHT = {
-    "fast": ("gpt-6.1-sol", "low"),
-    "standard": ("gpt-6.1-sol", "medium"),
-    "deep": ("gpt-6.1-sol", "high"),
-    "critical": ("gpt-6.1-sol", "xhigh"),
-    "exceptional": ("gpt-6-astra", "high"),
+    "fast": ("gpt-6.2-sol", "low"),
+    "standard": ("gpt-6.2-sol", "medium"),
+    "deep": ("gpt-6.2-sol", "high"),
+    "critical": ("gpt-6.2-sol", "xhigh"),
+    "exceptional": ("gpt-6.2-astra", "high"),
 }
 WRITER = {
     "fast": ("gpt-6.1-terra", "medium"),
     "standard": ("gpt-6.1-terra", "high"),
-    "deep": ("gpt-6.1-sol", "high"),
-    "critical": ("gpt-6.1-sol", "high"),
-    "exceptional": ("gpt-6.1-sol", "high"),
+    "deep": ("gpt-6.2-sol", "high"),
+    "critical": ("gpt-6.2-sol", "high"),
+    "exceptional": ("gpt-6.2-sol", "high"),
 }
 SLICES = {
     "visual": ("gpt-6.1-terra", "high", ("deep", "critical", "exceptional")),
     "prose": ("gpt-6.1-terra", "high", ("deep", "critical", "exceptional")),
-    "critical-combined": ("gpt-6.1-sol", "xhigh", ("critical",)),
-    "exceptional": ("gpt-6-astra", "high", ("exceptional",)),
+    "critical-combined": ("gpt-6.2-sol", "xhigh", ("critical",)),
+    "exceptional": ("gpt-6.2-astra", "high", ("exceptional",)),
 }
 BUDGETS = {
     "fast": (155000, 180000, 20, 2),
@@ -77,12 +77,12 @@ BUDGETS = {
     "exceptional": (220000, 250000, 60, 5),
 }
 GPT_PEER = {gpt: claude for claude, gpt in manifest.CLAUDE_MODEL_PEERS.items()}
-GPT_PEER["gpt-6-sol"] = "claude-opus-5-5"
+GPT_PEER.update({"gpt-6-sol": "claude-opus-5-5", "gpt-6.1-sol": "claude-opus-5-5", "gpt-6-astra": "claude-fable-5-2"})
 # On Claude, Fable high replaces Opus xhigh: it scores higher at about the same cost per
 # task. Its safeguards refuse much security work, so a routed Fable job that a safety
 # refusal stops reruns on the strongest Opus route.
-CLAUDE_UPGRADES = {("gpt-6.1-sol", "xhigh"): ("claude-fable-5-2", "high")}
-REFUSAL_ROUTE = ("gpt-6.1-sol", "xhigh")
+CLAUDE_UPGRADES = {("gpt-6.2-sol", "xhigh"): ("claude-fable-5-2", "high")}
+REFUSAL_ROUTE = ("gpt-6.2-sol", "xhigh")
 REFUSAL_RETRY = """\
 A previous job for this packet ran on Claude Fable and stopped on a safety refusal.
 This is the rerun on Claude Opus. The worktree may hold that job's partial edits:
@@ -110,11 +110,11 @@ status and explanation in `report`.
 
 SPECIALISTS = ("repo-practice-review", "best-practice-review", "test-review", "code-simplicity-review")
 DIAGNOSIS = {
-    "fast": ("gpt-6.1-sol", "high"),
-    "standard": ("gpt-6.1-sol", "high"),
-    "deep": ("gpt-6.1-sol", "high"),
-    "critical": ("gpt-6.1-sol", "xhigh"),
-    "exceptional": ("gpt-6-astra", "high"),
+    "fast": ("gpt-6.2-sol", "high"),
+    "standard": ("gpt-6.2-sol", "high"),
+    "deep": ("gpt-6.2-sol", "high"),
+    "critical": ("gpt-6.2-sol", "xhigh"),
+    "exceptional": ("gpt-6.2-astra", "high"),
 }
 
 

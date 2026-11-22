@@ -16,7 +16,8 @@ Choose by what the change touches; a change can need several:
 
 - **UI:** a video of each main scenario walked by hand, and screenshots of its key
   states. Add a `before` screenshot from the base build when the change alters
-  something that existed.
+  something that existed. Take `before` and `after` with the same account, data,
+  viewport, and UI state, so that the change is the only difference between them.
 - **API, MCP, or jobs:** a short readable log of request and response for each
   scenario. Add a screenshot when the result also shows in the UI.
 - **Agent or chat behavior:** the agent conversation and a screenshot of what it
@@ -47,12 +48,16 @@ repository's Storybook.
 - Walk the scenarios with a scratch Playwright spec that reuses the repository's e2e
   fixtures and page objects for sign-up, sign-in, and navigation. Put it in a disposable
   worktree at the change's commit, never in the task's worktree, and never commit it.
+  Only when the change is not committed yet, keep the spec in a git-ignored folder of
+  the task's worktree, and remove it when done.
 - Install that worktree's own dependencies and the Playwright browser it pins; another
   checkout's `node_modules` can be weeks older.
 - Turn on video, a short `slowMo`, and the e2e viewport, and log the API responses the
   scenario depends on. Wait for a visible state, not a fixed time, before each screenshot.
 - A scratch spec breaks on small details, such as a menu that Escape does not close.
   Fix it and rerun; a failed capture is not evidence.
+- Take a cropped or zoomed screenshot after the video has stopped, or cut it from the
+  full screenshot: one taken during the recording leaves a grey frame in the video.
 
 Remove the worktree and temporary files when done, after the inspection.
 
@@ -70,9 +75,12 @@ cheaper model that ran the capture.
   and frames from every video, as absolute file paths. Do not give it your notes or your
   opinion of the result.
 - No model watches a video. Extract frames, for example
-  `ffmpeg -i <video> -vf fps=5 <directory>/frame-%04d.png`, and pass the frames around
-  each click, open, close, and load. Without `ffmpeg`, rerun the scenario with a
-  screenshot every 100 to 200 ms around those moments.
+  `ffmpeg -i <video> -r 5 <directory>/frame-%04d.png`; the `ffmpeg` that Playwright
+  installs is enough, and it has no `fps` filter. Pass only the frames around each click,
+  open, close, and load, a few before and a few after, about ten per video: every frame
+  is read as an image, and a whole recording costs far more than the rest of the run.
+  Without `ffmpeg`, rerun the scenario with a screenshot every 100 to 200 ms around those
+  moments.
 - Its role file tells it what to do with each image: describe what it shows, list every
   difference from the expected list and from the `before` image, and go through a basic
   checklist: text is complete and readable, the layout holds, each state matches similar

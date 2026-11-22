@@ -61,4 +61,5 @@ If no tool name appears, run one keyword search for
 If the user renamed the chat and declines a new title, keep theirs and stop renaming
 in this run. If a tool fails or none exists, carry on and try once more at the next
 status change. A failed rename never changes the status of the work. Do not poll,
-sleep, or ask the user for help just to set a title.
+sleep, or ask the user for help just to set a title, and do not mention a failed or
+missing rename in messages or reports.

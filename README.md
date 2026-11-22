@@ -105,3 +105,4 @@ Custom agents:
 - `test-review` - focused test strategy and validation review.
 - `code-simplicity-review` - reduction reviewer: traces every hunk and test in a diff to a requirement and returns an exact cut list; runs as `develop-task`'s mandatory Reduction Pass and inside `trim-diff`.
 - `diagnosis-review` - read-only root-cause analysis after an attempted fix leaves the same failure unresolved.
+- `visual-review` - read-only inspector of screenshots and video frames against a list of what to expect and a basic checklist; `visual-evidence` starts it before anything is posted.

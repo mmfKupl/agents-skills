@@ -51,7 +51,7 @@ supervision:
   max_attempts: 3
 ```
 
-The runner reads the original bytes once, records their SHA-256, and never rewrites the task. `workspace.cwd` must be an absolute existing directory. v2 always uses explicit deny-all approvals; it never silently approves or enables auto-review.
+The runner reads the original bytes once, records their SHA-256, and never rewrites the task. `workspace.cwd` must be an absolute existing directory. The optional `workspace.read_dirs` lists absolute existing directories outside the worktree that the job may read, such as the folder of screenshots a `visual-review` job inspects; the Claude engine passes each one as `--add-dir`. v2 always uses explicit deny-all approvals; it never silently approves or enables auto-review.
 
 Supported permission combinations are:
 

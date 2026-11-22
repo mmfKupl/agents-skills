@@ -308,6 +308,18 @@ class ValidationTests(RunnerTestCase):
                 "absolute",
             ),
             (
+                lambda value: value["workspace"].__setitem__("read_dirs", "/tmp"),  # type: ignore[union-attr]
+                "read_dirs must be a list",
+            ),
+            (
+                lambda value: value["workspace"].__setitem__("read_dirs", ["relative"]),  # type: ignore[union-attr]
+                "absolute existing directory",
+            ),
+            (
+                lambda value: value["workspace"].__setitem__("read_dirs", ["/nonexistent-dir"]),  # type: ignore[union-attr]
+                "absolute existing directory",
+            ),
+            (
                 lambda value: value["permissions"].__setitem__("approval_policy", "on_request"),  # type: ignore[union-attr]
                 "never",
             ),
@@ -955,6 +967,13 @@ class ClaudeEngineTests(RunnerTestCase):
 
         _, _, call = self.run_claude(claude_response(), self.claude_task("read_only"))
         self.assertNotIn("--add-dir", call["argv"])
+
+        evidence = self.root / "evidence"
+        evidence.mkdir()
+        task = self.claude_task("read_only")
+        task["workspace"]["read_dirs"] = [str(evidence)]  # type: ignore[index]
+        _, _, call = self.run_claude(claude_response(), task)
+        self.assertEqual(self.option(call["argv"], "--add-dir"), str(evidence))
 
         _, _, call = self.run_claude(claude_response(), self.claude_task("danger_full_access"))
         argv = call["argv"]

@@ -60,6 +60,8 @@ class RouteTests(unittest.TestCase):
             ("diagnosis-review", "standard"): ("gpt-6.2-sol", "high"),
             ("diagnosis-review", "critical"): ("gpt-6.2-sol", "xhigh"),
             ("diagnosis-review", "fast"): ("gpt-6.2-sol", "high"),
+            ("visual-review", "standard"): ("gpt-6.2-sol", "medium"),
+            ("visual-review", "critical"): ("gpt-6.2-sol", "xhigh"),
         }
         for (role, profile), expected in cases.items():
             self.assertEqual(run_dispatch.route(role, profile)[:2], expected, (role, profile))
@@ -214,6 +216,27 @@ class DispatchTests(unittest.TestCase):
         self.assertIn("| 001-preflight | gpt-6.1-terra medium (capped from gpt-6.2-sol) | completed | 1 | 30 | 60 | 10 | 7 (2) |", table)
         self.assertIn("| Total: 2 jobs | | | 2 |", table)
         self.assertIn("| main | | | | 100 | 400 | 0 | 9 (3) |", table)
+
+    def test_visual_review_job_may_read_the_evidence_directory(self) -> None:
+        evidence = self.root / "evidence"
+        evidence.mkdir()
+        code, summary = self.dispatch(
+            role="visual-review", profile="standard", run_manifest=str(self.run_path),
+            contract_revision=1, read_dirs=[str(evidence)],
+        )
+        self.assertEqual(code, 0)
+        self.assertEqual(summary["job"], "001-visual")
+        task = yaml.safe_load(Path(summary["task"]).read_text())
+        self.assertEqual(task["workspace"]["read_dirs"], [str(evidence)])
+        self.assertEqual(task["permissions"]["sandbox_mode"], "read_only")
+        self.assertIn("You are visual-review.", task["agent"]["developer_instructions"])
+
+        code, summary = self.dispatch(
+            role="postflight-review", profile="standard", run_manifest=str(self.run_path),
+            contract_revision=1, approved_by_preflight="001-visual",
+        )
+        task = yaml.safe_load(Path(summary["task"]).read_text())
+        self.assertNotIn("read_dirs", task["workspace"])
 
     def test_dispatch_rejects_unlinked_writer_and_bad_override(self) -> None:
         with self.assertRaisesRegex(run_manifest.ManifestError, "approved-by-preflight"):

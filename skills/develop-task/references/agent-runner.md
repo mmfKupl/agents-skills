@@ -66,8 +66,12 @@ flags (and `--ceiling`) and prints the route without running anything.
 
 - `--role`: `preflight-review`, `implementation-worker`, `postflight-review`,
   `repo-practice-review`, `best-practice-review`, `test-review`, `code-simplicity-review`,
-  or `diagnosis-review`. Composed discovery uses these roles too, with no approving
-  preflight; a final review-task audit goes in a `postflight-review` packet.
+  `diagnosis-review`, or `visual-review`. Composed discovery uses these roles too, with no
+  approving preflight; a final review-task audit goes in a `postflight-review` packet.
+- `--read-dir <directory>`: a directory outside the worktree the job may read, repeatable.
+  A `visual-review` job needs it for the folder that holds the screenshots and video
+  frames; name the files by absolute path in its packet. It takes the postflight route of
+  the profile.
 - `--profile`: the confirmed Execution Profile. Specialists use the requesting gate's. For
   `diagnosis-review`, it is the profile of the unresolved cause, not of the task.
 - `--slice visual|prose|critical-combined|exceptional`: the slice type preflight named.

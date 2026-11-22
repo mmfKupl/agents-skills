@@ -126,8 +126,8 @@ Default for main, writer, and reviewers:
 - Visual evidence is outside this budget. For a prototype with visible or runtime
   behavior, after the draft PR exists, read
   [`../visual-evidence/SKILL.md`](../visual-evidence/SKILL.md) and post its video and
-  screenshots: a prototype exists to be seen. Its inspector runs at the final-review
-  model and effort. A defect it finds in the agreed demo gets one fix, through the same
+  screenshots: a prototype exists to be seen. Its inspector, a `visual-review`
+  subagent, runs at the final-review model and effort. A defect it finds in the agreed demo gets one fix, through the same
   writer and a final review of the new diff, and one recapture; what remains goes to
   Limits and Needs from you.
 - Reuse passing evidence until relevant code changes, then rerun only affected

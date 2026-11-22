@@ -285,13 +285,24 @@ def parse_task(raw: bytes, task_path: Path) -> dict[str, Any]:
     _nonempty_string(job["id"], "job.id")
     _nonempty_string(job["prompt"], "job.prompt")
 
-    workspace = _require_mapping(root["workspace"], "workspace", {"cwd"})
+    workspace = _require_optional_mapping(
+        root["workspace"], "workspace", {"cwd"}, {"read_dirs"}
+    )
     cwd_text = _nonempty_string(workspace["cwd"], "workspace.cwd")
     cwd = Path(cwd_text)
     if not cwd.is_absolute():
         raise TaskValidationError("workspace.cwd must be absolute")
     if not cwd.is_dir():
         raise TaskValidationError("workspace.cwd must be an existing directory")
+    read_dirs = workspace.get("read_dirs", [])
+    if not isinstance(read_dirs, list):
+        raise TaskValidationError("workspace.read_dirs must be a list")
+    for index, item in enumerate(read_dirs):
+        directory = Path(_nonempty_string(item, f"workspace.read_dirs[{index}]"))
+        if not directory.is_absolute() or not directory.is_dir():
+            raise TaskValidationError(
+                f"workspace.read_dirs[{index}] must be an absolute existing directory"
+            )
 
     agent = _require_optional_mapping(
         root["agent"],
@@ -1109,6 +1120,10 @@ def _claude_command(
         command += ["--settings", json.dumps(configuration["settings"])]
     if scratch:
         command += ["--add-dir", scratch]
+    # Without this a read-only job cannot open files outside its worktree, such as
+    # the screenshots a visual-review job inspects.
+    for directory in task["workspace"].get("read_dirs", []):
+        command += ["--add-dir", directory]
     return command
 
 

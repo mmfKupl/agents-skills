@@ -74,8 +74,8 @@ bounded history with a self-contained packet.
   mistake.
 - Runtime, preview, and visual probes (rendered UI, screenshots, Playwright)
   use `gpt-6.1-terra` high at any depth; the depth's model judges defects.
-- Finding verifiers and the visual-evidence inspector judge defects, so they
-  use the depth's model and effort.
+- Finding verifiers and the visual-evidence inspector (the `visual-review`
+  role) judge defects, so they use the depth's model and effort.
 
 Raise the route when repository evidence is riskier than the depth word. If a
 route is unavailable, use an equivalent-or-stronger one or check manually and

@@ -623,15 +623,13 @@ from tokens.
 When the change has visible or runtime behavior, read
 [`../visual-evidence/SKILL.md`](../visual-evidence/SKILL.md) and follow it once a build
 with the approved change runs: the PR preview after delivery, or a local stand when
-there is no preview. It ends with an inspection of every screenshot and video by a fresh
-agent, the inspector. Start the inspector as a direct read-only subagent on the home
-vendor: this is the one exception to Delegation Backend and Vendor. It judges defects, so
-take its model and effort from `agent-run-manifest route --role postflight-review
---profile <profile>`, with `--ceiling` when the run has one, and add its usage as its own
-line under the usage table. Evidence is for the developer and never reopens the approved
-diff by itself: a defect the inspector or the developer finds in it goes back through
-postflight, which decides whether it is fixed or becomes an accepted risk. Do not report
-the task done while such a defect is undecided.
+there is no preview. It ends with an inspection of every screenshot and video frame by the
+`visual-review` role. Dispatch it through the selected backend like any other job; in
+runner mode pass the folder that holds the files with `--read-dir`. It judges defects, so
+it takes the profile's postflight route. Evidence is for the developer and never reopens
+the approved diff by itself: a defect the inspector or the developer finds in it goes back
+through postflight, which decides whether it is fixed or becomes an accepted risk. Do not
+report the task done while such a defect is undecided.
 
 ## Report Format
 

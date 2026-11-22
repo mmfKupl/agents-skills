@@ -30,6 +30,7 @@ ROLES = (
     "test-review",
     "code-simplicity-review",
     "diagnosis-review",
+    "visual-review",
 )
 SLUGS = {
     "preflight-review": "preflight",
@@ -40,6 +41,7 @@ SLUGS = {
     "test-review": "test-review",
     "code-simplicity-review": "simplicity",
     "diagnosis-review": "diagnosis",
+    "visual-review": "visual",
 }
 # The default matrix in GPT names; the other vendor maps through its peer.
 PREFLIGHT = {
@@ -153,6 +155,9 @@ def route(
         return (*PREFLIGHT[profile], f"{profile} preflight")
     if role == "postflight-review":
         return (*POSTFLIGHT[profile], f"{profile} postflight")
+    if role == "visual-review":
+        # It judges defects in screenshots, so it takes the gate's route.
+        return (*POSTFLIGHT[profile], f"{profile} visual review")
     if role == "implementation-worker":
         return (*WRITER[profile], f"{profile} writer")
     if role == "diagnosis-review":
@@ -225,7 +230,7 @@ def role_instructions(role: str) -> str:
 
 def build_task(
     *, job_id: str, role: str, profile: str, model: str, effort: str, prompt: str,
-    workspace: str, unrestricted: bool,
+    workspace: str, unrestricted: bool, read_dirs: list[str] | None = None,
 ) -> dict[str, Any]:
     if role == "implementation-worker":
         sandbox = "danger_full_access" if unrestricted else "workspace_write"
@@ -234,11 +239,14 @@ def build_task(
     else:
         sandbox = "read_only"
     soft, hard, grace, attempts = BUDGETS[profile]
+    workspace_value: dict[str, Any] = {"cwd": workspace}
+    if read_dirs:
+        workspace_value["read_dirs"] = [str(Path(item).resolve()) for item in read_dirs]
     return {
         "kind": "agent-task",
         "schema_version": 2,
         "job": {"id": job_id, "prompt": prompt},
-        "workspace": {"cwd": workspace},
+        "workspace": workspace_value,
         "agent": {
             "model": model,
             "reasoning_effort": effort,
@@ -297,7 +305,7 @@ def dispatch(
     slice_kind: str | None = None, gate: str = "preflight", lookup: str | None = None,
     vendor: str = "auto", model: str | None = None, effort: str | None = None,
     reason: str | None = None, job_id: str | None = None, unrestricted: bool = False,
-    runner: str | None = None,
+    runner: str | None = None, read_dirs: list[str] | None = None,
 ) -> tuple[int, str]:
     prompt = Path(prompt_file).read_text(encoding="utf-8")
     if (model or effort) and not (model and effort and reason):
@@ -343,6 +351,7 @@ def dispatch(
                     job_id=job_id, role=role, profile=profile, model=requested,
                     effort=job_effort, prompt=header(selected) + prompt,
                     workspace=document["run"]["workspace"], unrestricted=unrestricted,
+                    read_dirs=read_dirs,
                 )
                 draft.write_text(yaml.safe_dump(task, sort_keys=False, allow_unicode=True), "utf-8")
                 try:
@@ -368,6 +377,7 @@ def dispatch(
             job_id=job_id, role=role, profile=profile, model=selected,
             effort=job_effort, prompt=header(selected) + prompt,
             workspace=str(Path(workspace).resolve()), unrestricted=unrestricted,
+            read_dirs=read_dirs,
         )
         task_path = job_dir / "task.yaml"
         task_path.write_text(yaml.safe_dump(task, sort_keys=False, allow_unicode=True), "utf-8")
@@ -420,7 +430,7 @@ def dispatch(
                 slice_kind=slice_kind, gate=gate, lookup=lookup, vendor=vendor,
                 model=REFUSAL_ROUTE[0], effort=REFUSAL_ROUTE[1],
                 reason=f"{job_id} on {requested} was refused", unrestricted=unrestricted,
-                runner=runner,
+                runner=runner, read_dirs=read_dirs,
             )
         retry = yaml.safe_load(output)
         retry["refused"] = {"job": job_id, "model": requested, "error": summary["error"]["message"]}

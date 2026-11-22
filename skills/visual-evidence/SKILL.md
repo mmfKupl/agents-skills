@@ -59,35 +59,26 @@ Remove the worktree and temporary files when done, after the inspection.
 ## Inspect what you captured
 
 A screenshot nobody examined proves only that the page loaded. Before posting, a fresh
-agent with no conversation history, the inspector, examines every file. It wrote neither
-the change nor the capture script, and it changes nothing. This skill authorizes it. Give
-it the model of the calling workflow's final reviewer, or the session's own model on a
-direct request, not a cheaper model that ran the capture.
+`visual-review` agent with no conversation history, the inspector, examines every file.
+It wrote neither the change nor the capture script, and it changes nothing. This skill
+authorizes it. The calling workflow starts it the way it starts its other roles: through
+the runner where the workflow uses the runner, otherwise as a subagent. Give it the model
+of the workflow's final reviewer, or the session's own model on a direct request, not a
+cheaper model that ran the capture.
 
 - Give it the expected list, every screenshot with its `before` pair when there is one,
-  and frames from every video. Do not give it your notes or your opinion of the result.
+  and frames from every video, as absolute file paths. Do not give it your notes or your
+  opinion of the result.
 - No model watches a video. Extract frames, for example
   `ffmpeg -i <video> -vf fps=5 <directory>/frame-%04d.png`, and pass the frames around
   each click, open, close, and load. Without `ffmpeg`, rerun the scenario with a
   screenshot every 100 to 200 ms around those moments.
-- Ask it, for each image, to describe what the image shows, then list every difference
-  from the expected list and from the `before` image, then go through the checklist. It
-  answers per image: what is wrong or doubtful, and where in the image. For a doubtful
-  area it crops the image to that area and looks again rather than guessing.
-
-Checklist, for every image:
-
-- it matches the expected list: everything expected is there, and nothing appeared or
-  disappeared that the requirements do not explain;
-- text is complete and readable: enough contrast, nothing cut off or overlapping, the
-  right wording, no placeholder, debug, or raw technical text;
-- the layout holds at every captured width: elements line up, gaps are even, nothing
-  overflows or overlaps;
-- each state looks right and matches the same state of similar controls nearby: default,
-  hover, keyboard focus, disabled, loading, empty, error;
-- it is consistent with the screen around it: fonts, sizes, colors, and icons;
-- values on screen match the API responses kept with the screenshot;
-- between frames nothing jumps, flickers, or shifts, and loading ends.
+- Its role file tells it what to do with each image: describe what it shows, list every
+  difference from the expected list and from the `before` image, and go through a basic
+  checklist: text is complete and readable, the layout holds, each state matches similar
+  controls nearby, the screen is consistent, values match the API responses, and nothing
+  jumps or flickers between frames. Pass the API responses that belong to a screenshot
+  with it.
 
 What the inspector reports as wrong is a defect of this change, unless the `before` image
 shows the same problem: then it is only a follow-up note. Where a defect goes depends on
@@ -101,8 +92,8 @@ who called this skill:
 A defect is closed when its fix passes a new inspection, or when the reviewer or the
 developer accepts it. What the inspector cannot settle, such as taste or an intended
 redesign, goes to the developer as a question with the image. If no fresh agent can open
-images, inspect each file yourself, one by one, against the same list and checklist, and
-say so.
+images, read the `visual-review` role file in your runtime's `agents` folder, inspect each
+file yourself, one by one, the way it describes, and say so.
 
 ## Storybook
 

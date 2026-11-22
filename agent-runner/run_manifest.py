@@ -1170,6 +1170,8 @@ def _argument_parser() -> argparse.ArgumentParser:
     dispatch.add_argument("--job-id")
     dispatch.add_argument("--unrestricted", action="store_true",
                           help="full access for a writer, only when the user allowed it")
+    dispatch.add_argument("--read-dir", dest="read_dirs", action="append",
+                          help="a directory outside the worktree the job may read; repeatable")
     dispatch.add_argument("--no-manifest", action="store_true")
     dispatch.add_argument("--workspace", help="worktree, with --no-manifest")
     dispatch.add_argument("--ceiling", help="model ceiling, with --no-manifest")
@@ -1229,7 +1231,7 @@ def main(argv: list[str] | None = None) -> int:
                 slice_kind=args.slice_kind, gate=args.gate, lookup=args.lookup,
                 vendor=args.vendor, model=args.model, effort=args.effort,
                 reason=args.reason, job_id=args.job_id, unrestricted=args.unrestricted,
-                runner=args.runner,
+                runner=args.runner, read_dirs=args.read_dirs,
             )
             print(output, end="")
             return code

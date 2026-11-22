@@ -83,6 +83,14 @@ pick a heavier one for ceremony.
 - Answer the user's own question in the first sentence, then explain.
 - Add no headings or numbering of your own, such as "Part 1", and do not list
   settled decisions again outside a checkpoint.
+- Say what was found, not which step or reviewer of this skill found it: "both
+  checks finished" tells the user nothing.
+- Do not ask again about something the user decided earlier in this
+  conversation.
+- Name files where they help the user see the problem: the file to change and
+  the chain of files that leads to it, each with a few words on what it does.
+  Put them together in one place after the explanation, not scattered through
+  its sentences.
 - Use the user's vocabulary and established names; coin no terms,
   abbreviations, or labels. Describe an identifier's behavior before naming it.
 - Explain in prose, not formulas, arrow chains, pseudocode, or shorthand; a
@@ -142,6 +150,8 @@ never imitate it. A missing optional one does not block.
 Then compare, as separately labeled evidence, what the repository does, what
 strong general practice would do, where they agree, conflict, or leave no
 precedent, and your reconciliation: the constraints and decisions that follow.
+Keep the comparison in proportion: when the repository has a clear pattern and
+general practice agrees with it, it is two or three sentences without labels.
 
 ## Plan validation from the affected behavior
 
@@ -213,6 +223,12 @@ stops unless the user turns it into a build request. For Bounded or
 Architectural work, show the comparison and wait for the user's reaction
 before the interview, without solution options.
 
+The exception is Bounded work where the repository has a clear pattern and
+general practice agrees with it: do not spend a turn on the comparison. Send one
+message with the finding in two or three sentences, including what the request
+missed, such as more affected cases; then the first interview question from the
+template; then where the problem is in the code.
+
 ### 3. Interview one decision at a time
 
 Interview even when the description seems detailed: one focused question per
@@ -244,14 +260,14 @@ the first thing the user reads:
 ```
 
 - Before the question, put at most one sentence that answers what the user just
-  said. Work you did meanwhile gets one line after the template.
+  said, or the short finding when this message also reports the research. Work
+  you did meanwhile gets one line after the template.
 - Explain a new mechanism, label, or tradeoff plainly in the Example and Why
   lines, and recommend a default when evidence or practice supports one. Never
   ask approval of an unexplained term (a policy, marker, lifecycle, or opt-in),
   or "does that make sense?" in place of the decision.
-- Keep out what does not change the answer: file paths, calculations, and
-  findings on other topics. Offer them in one closing line when the user may
-  want them.
+- Keep out what does not change the answer: calculations and findings on other
+  topics. Offer them in one closing line when the user may want them.
 - Explain every linked premise in full; split across turns only when a premise
   itself needs a user decision.
 
@@ -312,7 +328,8 @@ an outcome, which have no reachable failure without them, and which add most of
 the size, each with a simpler alternative. Show the user a short minimal design
 with its rough production and test size, and put each expensive requirement to
 them as a numbered question with what dropping it would change. Never drop a
-requirement yourself.
+requirement yourself. A requirement the user already decided in this
+conversation is not asked again: note its cost in one line.
 
 Before approval, map every confirmed decision to a canonical section or
 Rejected (internally unless asked) and resolve contradictions. Research facts,
@@ -323,6 +340,11 @@ risks, and rejected ideas are not requirements merely because they surfaced.
 - Architectural: that checkpoint, then a technical direction checkpoint only
   when an unresolved implementation choice or hard technical constraint could
   materially change the result, with only the evidence it needs.
+
+Lay a checkpoint message out in this order: the open questions, each from the
+template, or one line saying that nothing is open; the scope; then the minimal
+design and its rough size in two or three lines. Nothing comes before the first
+question.
 
 Never drop an exact decision for length; an Output contract may grow to the
 detail implementation needs. A requirements change invalidates

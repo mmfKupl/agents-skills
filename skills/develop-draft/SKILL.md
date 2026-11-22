@@ -126,7 +126,10 @@ Default for main, writer, and reviewers:
 - Visual evidence is outside this budget. For a prototype with visible or runtime
   behavior, after the draft PR exists, read
   [`../visual-evidence/SKILL.md`](../visual-evidence/SKILL.md) and post its video and
-  screenshots: a prototype exists to be seen.
+  screenshots: a prototype exists to be seen. Its inspector runs at the final-review
+  model and effort. A defect it finds in the agreed demo gets one fix, through the same
+  writer and a final review of the new diff, and one recapture; what remains goes to
+  Limits and Needs from you.
 - Reuse passing evidence until relevant code changes, then rerun only affected
   checks. Fix a failing selected check or show it is an unrelated baseline
   issue; a timeout is not a pass.
@@ -212,10 +215,28 @@ unaffected delivery, report the exact blocker, and give the PR or commit state.
 A missing required ticket link is a delivery gap. Never call a local patch the
 completed default workflow.
 
-The compact final response states: what works and how to try it; checks and
-demo steps passed, failed, or unavailable, whether the quick test ran, and that
-no tests were added unless requested; limitations and unverified behavior;
-preflight approval or Fast exemption, final-review decision, correction rounds,
-roles, and actual models/efforts; draft PR URL/state, ticket link or why none,
-branch and commit/push state, and any blocker or pending decision. Report token
-usage only if the runtime supplies it; never invent telemetry or build accounting.
+Write the compact final response from this template. Keep every heading in this
+order and write `none` where a section has nothing. Everything above Details is
+for a developer who did not follow the run: plain words, no workflow terms.
+
+```markdown
+### What works
+<what the prototype does and how to try it, with one real example; links to the posted video and screenshots, or why there are none>
+
+### Needs from you
+<nothing, or each blocker or pending decision as a numbered question with the options and a recommendation>
+
+### Checked and not checked
+<checks and demo steps passed, failed, or unavailable; whether the quick test ran; that no tests were added unless requested>
+
+### Limits
+<limitations and unverified behavior>
+
+### State
+<draft PR URL and state, ticket link or why none, branch and commit and push state>
+
+### Details
+<preflight approval or Fast exemption, final-review decision, correction rounds, roles, actual models and efforts, and token usage when the runtime supplies it>
+```
+
+Never invent telemetry or build accounting.

@@ -592,18 +592,20 @@ state may be; state the exact condition and decision needed.
 
 ## Postflight Relay
 
-After every postflight response, report in the main chat:
+After every postflight response, tell the developer in the main chat, in plain words:
 
-- Blocking findings, or `none`;
-- Recommended findings accepted or declined with a reason, or `none`;
-- notable Optional findings, or `none`;
-- Validation gaps, or `none`;
-- Accepted risks, or `none`;
-- Failure class and routing recommendation;
-- Next Change Class, whether fresh preflight is required, and why;
-- current contract revision and approving preflight job;
-- requirements revision, coverage gaps, and confirmed amendments, or `none`;
-- Approval and review cycle.
+- the result: approved or not, and which review cycle this was;
+- what will be fixed: each Blocking finding and each accepted Recommended finding as
+  one line with the input or state and the wrong result, or `none`;
+- what will not be fixed and why: declined Recommended findings and Accepted risks, or
+  `none`;
+- what was not checked: Validation gaps, or `none`;
+- what happens next, and whether it needs the developer.
+
+Then, under `Gate details`, one short line per item: failure class and routing
+recommendation; Next Change Class with whether fresh preflight is required and why;
+current contract revision and approving preflight job; requirements revision with
+coverage gaps and confirmed amendments; notable Optional findings.
 
 ## Agent Usage At Handoff And Completion
 
@@ -621,39 +623,53 @@ from tokens.
 When the change has visible or runtime behavior, read
 [`../visual-evidence/SKILL.md`](../visual-evidence/SKILL.md) and follow it once a build
 with the approved change runs: the PR preview after delivery, or a local stand when
-there is no preview. It is evidence for the developer, not a gate check, and it never
-reopens the approved diff by itself; a defect it shows goes back through postflight.
+there is no preview. It ends with an inspection of every screenshot and video by a fresh
+agent, the inspector. Start the inspector as a direct read-only subagent on the home
+vendor: this is the one exception to Delegation Backend and Vendor. It judges defects, so
+take its model and effort from `agent-run-manifest route --role postflight-review
+--profile <profile>`, with `--ceiling` when the run has one, and add its usage as its own
+line under the usage table. Evidence is for the developer and never reopens the approved
+diff by itself: a defect the inspector or the developer finds in it goes back through
+postflight, which decides whether it is fixed or becomes an accepted risk. Do not report
+the task done while such a defect is undecided.
 
 ## Report Format
 
-When done, report:
+When done, write the report from this template. Keep every heading in this order and
+write `none` where a section has nothing. Everything above Details is for a developer
+who did not follow the run: plain words, no workflow terms.
 
-- visual evidence: links to the posted video, screenshots, and Storybook stories, or why
-  there are none;
+```markdown
+### What changed
+<how it was and how it is now, as the user or caller sees it, with one real example; for a bug, also the cause in one or two sentences>
 
-- Problem and cause, when applicable;
-- Execution Profile and writer;
-- model policy and any jobs whose requested model was capped;
-- Fix;
-- Validation and skipped checks;
-- Preflight and postflight results and cycle count;
-- Reduction Pass: cuts applied and declined, and lines removed;
-- size against the budget, and any widening main made with its reason;
-- accepted risks: every finding or edge case left unfixed, with how likely it is and why,
-  or `none`;
-- implementation-contract revisions and their approving preflight jobs;
-- Replans or promotions, or `none`;
-- delegation backend, routing matrix, vendor choice, and the Agent Usage
-  summary;
-- ticket title: old and new, already conforming, or why it was not renamed;
-- PR URL/state, or why no PR was created;
-- branch and uncommitted/committed/pushed state;
-- whether user approval or another decision remains;
-- improvement suggestions, only when this run shows friction: a command or context that
-  was hard to find, an instruction that was wrong or stale, a mistake a check could have
-  caught, or a correction the user says they have given before. For each, say what
-  happened, what to change, and where. Prefer a lint rule, type, test, or CI check; propose
-  a written rule only when no tool could catch it. Trace each to a specific moment of this
-  run, change nothing yourself, and omit this item when there is none.
+### How to see it
+<links to the posted video, screenshots, and Storybook stories, or why there are none>
+
+### Needs from you
+<nothing, or each approval or decision that remains as a numbered question with the options and a recommendation>
+
+### Checked and not checked
+<checks that passed, in a line or two; every check that failed, was skipped, or could not run, with the reason>
+
+### Accepted risks
+<every finding or edge case left unfixed: the case, how likely it is, and why it was left>
+
+### State
+<the outcome: completed, blocked, needs_user_input, or stopped_by_user; PR URL and state, or why no PR was created; branch and uncommitted, committed, or pushed state; ticket title old and new, already conforming, or why it was not renamed>
+
+### Details
+<one line per item: Execution Profile and writer; model policy and any jobs whose requested model was capped; preflight and postflight results and cycle count; Reduction Pass cuts applied and declined, and lines removed; size against the budget and any widening main made with its reason; implementation-contract revisions and their approving preflight jobs; replans or promotions; delegation backend, routing matrix, and vendor choice; then the Agent Usage summary>
+
+### Suggestions
+<improvement suggestions, or none>
+```
+
+Suggestions are only for friction this run showed: a command or context that was hard to
+find, an instruction that was wrong or stale, a mistake a check could have caught, or a
+correction the user says they have given before. For each, say what happened, what to
+change, and where. Prefer a lint rule, type, test, or CI check; propose a written rule
+only when no tool could catch it. Trace each to a specific moment of this run and change
+nothing yourself.
 
 Keep the final response concise and concrete.

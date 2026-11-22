@@ -36,7 +36,17 @@ Linear issue under the `ticket-title` skill, in English as
 replaces the Screenshot Evidence section of `$develop-please`'s `references/validation.md`
 and its review check for missing screenshots. Its separate Storybook comment is part of
 the Linear closeout, not an extra report that `$develop-please`'s comment rules would fold
-into the final one.
+into the final one. Do not close out as Ready while a defect from its inspection is open.
+
+`$develop-please` asks for a compact final chat response of five handoff lines with no
+extra sections. The developer wants `$develop-task`'s Report Format there: write it in
+full and put those five lines, unchanged, in its State section.
+
+One addition to `$develop-please`'s final Linear report format: a question or decision
+for the developer never goes inside `+++ Details`. Put it in its own visible section,
+`### Needs from you`, right after `### Solution`, as a numbered question with the
+options and a recommendation. In this Linear report, omit the section when there is
+nothing to ask.
 
 The `$develop-please` 3 hour invocation timebox does not stop a `$develop-task` run.
 The run stops on this skill's conditions instead: an exhausted Bounded Review Loop, a

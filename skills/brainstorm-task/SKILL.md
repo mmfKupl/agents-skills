@@ -75,10 +75,14 @@ pick a heavier one for ceremony.
   (where code lives, who owns behavior, how logic works). Ask only about
   intent or a choice: behavior, user outcome, boundary, constraint, priority,
   risk tolerance, or completion evidence.
-- Give enough context to understand the point, one mechanism, concept, or
-  decision per message, never compressed for a word count. Raise a speculative
+- Give the context a decision needs and nothing else: one mechanism, concept, or
+  decision per message. Never drop what the user needs in order to be shorter,
+  and never add what does not change their answer. Raise a speculative
   technical subproblem only when it can change the boundary, user-visible
   behavior, or approach.
+- Answer the user's own question in the first sentence, then explain.
+- Add no headings or numbering of your own, such as "Part 1", and do not list
+  settled decisions again outside a checkpoint.
 - Use the user's vocabulary and established names; coin no terms,
   abbreviations, or labels. Describe an identifier's behavior before naming it.
 - Explain in prose, not formulas, arrow chains, pseudocode, or shorthand; a
@@ -222,17 +226,37 @@ Establish every relevant high-impact decision among:
   constraints, only where the task touches them;
 - observable evidence that would prove the task complete.
 
-Ask only what the user can answer from the current message. Before asking
-about a new mechanism, label, or tradeoff, explain it plainly, say what the
-answer changes, give a concrete example or consequence, and recommend a
-default when evidence or practice supports one. Never ask approval of an unexplained
-term (a policy, marker, lifecycle, or opt-in), or "does that make sense?" in
-place of the decision. Explain every linked premise in full; split across
-turns only when a premise itself needs a user decision.
+Ask only what the user can answer from the current message. Write every message
+that asks for a decision from this template, in this order, so the question is
+the first thing the user reads:
 
-When several decisions are open at once, number each question, give it a short
-title, and put the recommendation on its own line, phrased so a plain "yes"
-accepts it. A reply such as "all good except 2" accepts the rest.
+```markdown
+**Question: <short title>**
+<the decision, in one or two sentences in the user's words>
+
+**I suggest:** <the default, phrased so a plain "yes" accepts it; or "no default", and why>
+
+**Example:** <how it is today and how it would be, with real values>
+
+**Why:** <the facts that decide it, each with where it comes from; three is usually enough>
+
+**Otherwise:** <what another answer would mean, or the real alternatives>
+```
+
+- Before the question, put at most one sentence that answers what the user just
+  said. Work you did meanwhile gets one line after the template.
+- Explain a new mechanism, label, or tradeoff plainly in the Example and Why
+  lines, and recommend a default when evidence or practice supports one. Never
+  ask approval of an unexplained term (a policy, marker, lifecycle, or opt-in),
+  or "does that make sense?" in place of the decision.
+- Keep out what does not change the answer: file paths, calculations, and
+  findings on other topics. Offer them in one closing line when the user may
+  want them.
+- Explain every linked premise in full; split across turns only when a premise
+  itself needs a user decision.
+
+When several decisions are open at once, use the template once per question,
+numbered. A reply such as "all good except 2" accepts the rest.
 
 Ask another question only when its answer can change the goal, boundary,
 approach, risk, or acceptance criteria, but always at least one to confirm the

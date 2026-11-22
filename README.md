@@ -47,8 +47,11 @@ the preferred Python 3.10+ interpreter is not discoverable as `python3.12`,
   `AGENT_RUNNER_JOB`, so the hook stays silent in them.
 - Links `global/AGENTS.md` as `~/.claude/CLAUDE.md` (and `install-skills.sh` copies it to
   `~/.codex/AGENTS.md`): check serious, non-trivial answers against code, docs, or reliable
-  sources instead of answering from memory. The same hook repeats it on every prompt. An
-  existing non-empty file of your own is kept, with a warning.
+  sources instead of answering from memory. The same hook repeats it on every prompt. The
+  file also says to follow a skill's output format exactly, and how to write answers and
+  reports: the result first, plain words, a before and after example, and questions for the
+  developer in the visible text. An existing non-empty file of your own is kept, with a
+  warning.
 - `develop-task`, `develop-draft`, `review-task`, `brainstorm-task`, `diff-review`, and `trim-diff` read
   `skills/develop-task/references/claude-code.md` when they run in Claude Code. It maps
   `$skill` to `/skill`, and Luna/Terra/Sol/Astra to `haiku`/`sonnet`/`opus`/`fable`. `develop-task` uses `agent-runner` by default here too,
@@ -83,13 +86,13 @@ Skills:
 
 - `chat-title` - one title format for every chat: `<status> <type>: <ticket> <description>`.
 - `ticket-title` - one title format for tracker tickets: `<Type>: <clear title>`.
-- `visual-evidence` - video, screenshots, API logs, and Storybook links that show a change working, posted where the developer sees them; mockups before code for brainstorm and drafts.
+- `visual-evidence` - video, screenshots, API logs, and Storybook links that show a change working, posted where the developer sees them; a fresh agent inspects every screenshot and video frame for defects before posting; mockups before code for brainstorm and drafts.
 - `brainstorm-task` - repository-grounded Spike, Bounded, or Architectural discovery with proportionate approval and optional delivery-slice contracts.
 - `develop-task` - single-writer repository implementation workflow with one GPT-6 Luna / GPT-6.1 Terra / GPT-6.2 Sol / GPT-6.2 Astra routing matrix on the chat's vendor, optional cross-vendor Codex/Claude postflight review, cumulative agent-usage handoffs, model ceilings on one ladder for GPT and Claude models, mandatory preflight/postflight gates with a Reduction Pass between them, supervised runner jobs by default, an explicit direct-subagent fallback, focused validation, logical commits, and draft PR creation.
 - `develop-draft` - quick working prototypes with the same model tiers and direct subagents in Codex and Claude Code. Fast changes skip agent preflight; every change gets independent final review. Validation has a small shared budget, allows one relevant existing quick test, and omits new tests and CI waits by default. Delivery defaults to a draft PR linked to the known ticket, with local-only delivery on request. Invoke as `$develop-draft` or `/develop-draft` in Claude Code.
 - `diff-review` - independent fresh diff review for local changes.
 - `trim-diff` - shrinks an existing diff: a fresh reviewer traces every hunk and test to a requirement and the unjustified parts are removed. `develop-task` runs the same step as its mandatory Reduction Pass.
-- `review-task` - deep audit workflow for already implemented tasks, with specialist review, validation reuse, focused checks, and runtime/preview probes when useful.
+- `review-task` - deep audit workflow for already implemented tasks, with specialist review, validation reuse, focused checks, and runtime/preview probes when useful. A fresh agent tries to disprove each finding before it is reported; the report opens with what the PR does, why, and how, then the verdict and what is needed from the developer.
 
 Custom agents:
 

@@ -7,6 +7,8 @@ description: "Show how a change looks and behaves: walk its main scenarios by ha
 
 The developer should see the result without building it locally. Evidence shows the
 change working, scenario by scenario, as a user or a caller of the API would see it.
+Recording a scenario does not check it: every capture is also examined for defects
+before it is posted (Inspect what you captured).
 
 ## What to capture
 
@@ -22,9 +24,19 @@ Choose by what the change touches; a change can need several:
 - **Nothing visible:** one line saying why, instead of evidence.
 
 The scenarios come from the requirements: the main path first, then the cases the
-change exists for. Keep the API responses behind each screenshot: a screenshot alone
-cannot tell a rounding rule from a stale value. When what you see differs from what you
-expected and the requirements do not settle it, report it as a question, not as a bug.
+change exists for. Include the states a user can reach on the changed screen, such as
+hover, keyboard focus, disabled, loading, empty, and error, and the narrow width when the
+layout can be narrow. Keep the API responses behind each screenshot: a
+screenshot alone cannot tell a rounding rule from a stale value. When what you see
+differs from what you expected and the requirements do not settle it, report it as a
+question, not as a bug.
+
+## Write down what to expect first
+
+Before the walkthrough, list what the developer should see at each key state of each
+scenario: which elements are there, their text and state, and what must stay as it was.
+Take the list from the requirements, the design, and the same screen on the base build,
+not from the new code: a list written from the code can only confirm what was built.
 
 ## How to capture
 
@@ -42,7 +54,55 @@ repository's Storybook.
 - A scratch spec breaks on small details, such as a menu that Escape does not close.
   Fix it and rerun; a failed capture is not evidence.
 
-Remove the worktree and temporary files when done.
+Remove the worktree and temporary files when done, after the inspection.
+
+## Inspect what you captured
+
+A screenshot nobody examined proves only that the page loaded. Before posting, a fresh
+agent with no conversation history, the inspector, examines every file. It wrote neither
+the change nor the capture script, and it changes nothing. This skill authorizes it. Give
+it the model of the calling workflow's final reviewer, or the session's own model on a
+direct request, not a cheaper model that ran the capture.
+
+- Give it the expected list, every screenshot with its `before` pair when there is one,
+  and frames from every video. Do not give it your notes or your opinion of the result.
+- No model watches a video. Extract frames, for example
+  `ffmpeg -i <video> -vf fps=5 <directory>/frame-%04d.png`, and pass the frames around
+  each click, open, close, and load. Without `ffmpeg`, rerun the scenario with a
+  screenshot every 100 to 200 ms around those moments.
+- Ask it, for each image, to describe what the image shows, then list every difference
+  from the expected list and from the `before` image, then go through the checklist. It
+  answers per image: what is wrong or doubtful, and where in the image. For a doubtful
+  area it crops the image to that area and looks again rather than guessing.
+
+Checklist, for every image:
+
+- it matches the expected list: everything expected is there, and nothing appeared or
+  disappeared that the requirements do not explain;
+- text is complete and readable: enough contrast, nothing cut off or overlapping, the
+  right wording, no placeholder, debug, or raw technical text;
+- the layout holds at every captured width: elements line up, gaps are even, nothing
+  overflows or overlaps;
+- each state looks right and matches the same state of similar controls nearby: default,
+  hover, keyboard focus, disabled, loading, empty, error;
+- it is consistent with the screen around it: fonts, sizes, colors, and icons;
+- values on screen match the API responses kept with the screenshot;
+- between frames nothing jumps, flickers, or shifts, and loading ends.
+
+What the inspector reports as wrong is a defect of this change, unless the `before` image
+shows the same problem: then it is only a follow-up note. Where a defect goes depends on
+who called this skill:
+
+- an implementation workflow returns it through its own fix path, within its limit on fix
+  rounds, then recaptures and has the new files inspected;
+- `review-task` reports it as a finding;
+- on a direct request, show it to the developer with the image.
+
+A defect is closed when its fix passes a new inspection, or when the reviewer or the
+developer accepts it. What the inspector cannot settle, such as taste or an intended
+redesign, goes to the developer as a question with the image. If no fresh agent can open
+images, inspect each file yourself, one by one, against the same list and checklist, and
+say so.
 
 ## Storybook
 
@@ -53,6 +113,9 @@ badge". Take the story IDs from Storybook's `index.json`. Post it before the fin
 never inside the report or one of its collapsible blocks, and link it from the report.
 
 ## Where to post
+
+Post only after the inspection, and add one line with it: what was inspected, and what it
+found and how that was resolved, or that it found nothing.
 
 - Upload files to the tracker, for Linear with `prepare_file_upload` and a PUT of the
   raw bytes, and post them in a ticket comment: the video and screenshots first with one
@@ -74,7 +137,8 @@ Never paste local paths as evidence.
 For brainstorm-task and develop-draft, when the idea is visual, try it before code
 exists: change a story or a page in a disposable worktree, run Storybook or a local
 stand, and capture one or two variants. Show them with the proposal, say they are
-mockups, and commit nothing from that worktree.
+mockups, and commit nothing from that worktree. A mockup needs no inspector: look at it
+yourself before showing it.
 
 ## Repository specifics
 

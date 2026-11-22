@@ -37,6 +37,8 @@ decides the sections; these rules decide the text inside them.
 - Say what is not obvious: why it is done this way, what it depends on, what would
   surprise me.
 - Explain a technical term in the same sentence, or drop it.
+- Name a file by its path from the repository root, with the line when it matters, so
+  that it opens on a click. Never use a bare file name or a partial path.
 - Cut a sentence that would fit a report about a different task.
 - A question or decision for me goes in the visible text, never inside a collapsed block,
   a details section, or a log.

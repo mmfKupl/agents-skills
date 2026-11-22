@@ -88,9 +88,9 @@ pick a heavier one for ceremony.
 - Do not ask again about something the user decided earlier in this
   conversation.
 - Name files where they help the user see the problem: the file to change and
-  the chain of files that leads to it, each with a few words on what it does.
-  Put them together in one place after the explanation, not scattered through
-  its sentences.
+  the chain of files that leads to it, each by its path from the repository
+  root, with a few words on what it does. Put them together in one place after
+  the explanation, not scattered through its sentences.
 - Use the user's vocabulary and established names; coin no terms,
   abbreviations, or labels. Describe an identifier's behavior before naming it.
 - Explain in prose, not formulas, arrow chains, pseudocode, or shorthand; a
@@ -254,7 +254,7 @@ the first thing the user reads:
 
 **Example:** <how it is today and how it would be, with real values>
 
-**Why:** <the facts that decide it, each with where it comes from; three is usually enough>
+**Why:** <the facts that decide it, in words; three is usually enough>
 
 **Otherwise:** <what another answer would mean, or the real alternatives>
 ```

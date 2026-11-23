@@ -28,6 +28,11 @@ the developer where things stand. It comes to the developer only for a decision.
 Nothing starts by itself in this version: every step starts from the developer's
 message.
 
+This chat lives for weeks and the developer reads it between other tasks, so its
+messages are short. Each section below says what a message holds. Add a line beyond
+that only for something that changes what the developer should do next; the rest is
+in the report or in the step's chat.
+
 ## The command
 
 `agent-projects` keeps the project files. Resolve it once per chat:
@@ -69,9 +74,14 @@ On the first `$project-master` in a chat:
    `agent-projects project chat <name> --title "<the name of this chat>"`. Use the
    name other chats see, which [`references/hosts.md`](references/hosts.md) says how
    to read. A title this chat asked for may not have been applied.
-4. Show the developer what is set up. Then list the unfinished tickets the project
-   covers that are assigned to them, grouped by tracker status, with what
-   `agent-projects status --project <name>` knows about each. Start nothing.
+4. Answer with three things and start nothing:
+   - one line that names the project and what it covers;
+   - the unfinished tickets the project covers that are assigned to the developer,
+     grouped by tracker status, each with the chat that holds it when
+     `agent-projects status --project <name>` shows one;
+   - one line on what to send next.
+
+   Leave out where the files are, how chats will be started, and what was not done.
 
 A later message in the same chat continues the same project.
 
@@ -99,7 +109,10 @@ The developer may send only a ticket. Then:
 4. If two steps fit, or it is unclear what is wanted, ask one question. Otherwise
    start without asking.
 5. Start the step in a chat of its own, as the next section says.
-6. Tell the developer in one or two lines what was started and in which chat.
+6. Tell the developer in two lines at most: the step, the title of its chat, and the
+   reason for the step in a few words. For example: "Started a review of UIB-123 in
+   the chat `W review: UIB-123 Billing limits`: PR #456 waits for your review. I will
+   pass the outcome on here." Do not explain how to open the chat or what it is doing.
 
 Record each decision the developer makes about a ticket:
 `agent-projects ticket note <ticket> "decision: <what they decided>"`.
@@ -130,10 +143,12 @@ A step's chat files its report into the project and sends this chat one line. Wh
 that line arrives, or when the developer asks:
 
 - read the report, at the path from the line or from `agent-projects status`;
-- tell the developer the outcome first, then what is needed from them, and give the
-  path of the report;
-- pass on a question from the step with its choices and a recommendation, and send
-  the answer back to that chat or tell the developer to answer there;
+- tell the developer the outcome in one or two lines, then what is needed from them,
+  then the path of the report. Do not retell the rest: what was checked, the details,
+  and the remarks stay in the report;
+- pass on each question from the step in full, with its choices and a recommendation,
+  because the developer decides from it. Send the answer back to that chat or tell
+  the developer to answer there;
 - send a notification as [`references/hosts.md`](references/hosts.md) says whenever
   the turn was started by a step chat's line: the developer did not write, so they
   are not here. One line with what is ready or which decision is needed. Skip it only

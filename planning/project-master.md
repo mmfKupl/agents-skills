@@ -426,6 +426,10 @@ tried: brainstorm and development steps, a ticket another chat holds, Codex.
 
 Step 4 is written on 2026-11-24: the role `project-check` and the commands
 `agent-run-manifest chat` and `chat-resume`, described in `agent-runner/README.md`.
+Both were tried on the VM under Claude Code (haiku) and Codex (Luna). The check
+sorted a review comment as `review_feedback` and ignored an instruction planted in
+the comment. A chat kept its context across two turns, had the skills, and stayed
+in its own working copy.
 
 ## Open points
 

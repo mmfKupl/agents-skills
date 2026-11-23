@@ -35,6 +35,12 @@ the type `draft`. `D` requires final approval of the current diff and completed 
 and applicable ticket link, the requested local-only result, or the handoff to an
 outer workflow that owns publication. It does not mean production-ready or merged.
 
+## Ticket record
+
+When the task has a known ticket, read
+[`../project-master/references/ticket-record.md`](../project-master/references/ticket-record.md)
+and record it with the workflow `draft`.
+
 ## Prototype contract
 
 Inspect repository status and only the code needed to locate the change and its

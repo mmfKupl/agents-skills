@@ -1,0 +1,61 @@
+---
+name: project-scope
+description: "Run one workflow as part of a project: `$project-scope <project> <command>`. Files the result where the project chat finds it and records the ticket's history. Use only when the user writes `$project-scope` (or `/project-scope` in Claude Code)."
+---
+
+# Project Scope
+
+`$project-scope <project> <command>` runs `<command>` as part of the project
+`<project>`. The first word after the skill name is the project. Everything after it
+is the command, exactly as written:
+
+```
+$project-scope billing $review-task UIB-123
+```
+
+## Claude Code runtime
+
+If you are running in Claude Code rather than Codex, read
+[`../develop-task/references/claude-code.md`](../develop-task/references/claude-code.md) before
+anything else. It maps `$skill` to `/skill`.
+
+## Steps
+
+1. Resolve `agent-projects`:
+   `${CODEX_HOME:-$HOME/.codex}/tools/agent-runner/bin/agent-projects`, then `PATH`.
+   Run `agent-projects project show <project>`. If the command or the project is
+   missing, say so and stop; do not run the command outside the project.
+2. Run the command as if the developer had written it as this chat's message. A
+   `$skill` in it is an explicit invocation of that skill, and all of that skill's
+   rules, gates, chat title, and report format apply unchanged. This skill sets no
+   title of its own.
+3. When the command names a ticket, record it before the work starts:
+
+   ```bash
+   agent-projects ticket take <ticket> --workflow <review|brainstorm|develop|draft> \
+     --project <project> --title "<this chat's title>"
+   ```
+
+   A workflow that records the ticket itself then finds the record already there.
+4. When the command reaches its final report, or stops blocked:
+   - file the report, with the same text the developer gets, on standard input:
+     `agent-projects report add --project <project> --ticket <ticket> --kind <review|brainstorm|develop|draft>`;
+   - release the ticket: `agent-projects ticket release <ticket> --result "<one line: the outcome>"`;
+   - tell the project chat, the `chat` that `project show` printed, in one line, as
+     [`../project-master/references/hosts.md`](../project-master/references/hosts.md)
+     says: `<ticket>: <kind> report ready, <the outcome in a few words>. <path>`;
+   - end the final answer with the line `Saved to project <project>: <path>`.
+
+A command with no ticket files nothing; say so in one line. The report is never held
+back or shortened because of these steps. If one of them fails, say which in one line
+and carry on.
+
+## Project rules
+
+These apply on top of the command's own rules.
+
+- Write nothing to the tracker or to a pull request unless the developer says so in
+  this chat, or the command's own workflow owns that write, as `$develop-please` owns
+  the status and the reports of the ticket it develops.
+- A review asks, in the `Needs from you` section of its report, whether to post the
+  review to the ticket. Post it only on a yes.

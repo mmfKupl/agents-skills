@@ -6,7 +6,7 @@ Personal Codex skills and custom agents backup and sync repository.
 
 - `skills/` - skill folders that can be copied into `${CODEX_HOME:-$HOME/.codex}/skills`
 - `agents/` - custom agent TOML files that can be copied into `${CODEX_HOME:-$HOME/.codex}/agents`
-- `agent-runner/` - one-shot supervised Codex or Claude Code job runner and atomic run-manifest companion used by `develop-task`
+- `agent-runner/` - one-shot supervised Codex or Claude Code job runner and atomic run-manifest companion used by `develop-task`, and the `agent-projects` command that keeps projects, ticket records, and reports for `project-master`
 - `scripts/install-skills.sh` - install skills, custom agents, and the runner into local Codex
 - `scripts/backup-local-skills.sh` - copy local non-system skills and custom agents back into this repository
 
@@ -52,7 +52,8 @@ the preferred Python 3.10+ interpreter is not discoverable as `python3.12`,
   reports: the result first, plain words, a before and after example, and questions for the
   developer in the visible text. An existing non-empty file of your own is kept, with a
   warning.
-- `develop-task`, `develop-draft`, `review-task`, `brainstorm-task`, `diff-review`, and `trim-diff` read
+- `develop-task`, `develop-draft`, `review-task`, `brainstorm-task`, `diff-review`, `trim-diff`,
+  `project-master`, and `project-scope` read
   `skills/develop-task/references/claude-code.md` when they run in Claude Code. It maps
   `$skill` to `/skill`, and Luna/Terra/Sol/Astra to `haiku`/`sonnet`/`opus`/`fable`. `develop-task` uses `agent-runner` by default here too,
   starting `claude -p` for Claude models; asking for subagents ("используй сабагентов") switches it to
@@ -93,6 +94,8 @@ Skills:
 - `diff-review` - independent fresh diff review for local changes.
 - `trim-diff` - shrinks an existing diff: a fresh reviewer traces every hunk and test to a requirement and the unjustified parts are removed. `develop-task` runs the same step as its mandatory Reduction Pass.
 - `review-task` - deep audit workflow for already implemented tasks, with specialist review, validation reuse, focused checks, and runtime/preview probes when useful. A large change gets two independent diff passes, and a fresh agent tries to disprove each finding before it is reported; the report opens with what the PR does, why, and how, then the verdict and what is needed from the developer.
+- `project-master` - one chat that manages a project: takes a ticket, decides whether it needs a review, a plan, or development, and starts that workflow in a visible chat of its own; answers where each task stands. It keeps projects, ticket history, and reports in `~/agent-projects` through the `agent-projects` command, shared by every chat and both hosts on the machine. Requirements and the build plan are in `planning/project-master.md`; automatic watching is not built yet.
+- `project-scope` - wrapper that runs one workflow as part of a project, `$project-scope <project> <command>`: files its report into the project, records the ticket's history, and tells the project chat. `review-task`, `brainstorm-task`, `develop-task`, and `develop-draft` also record which chat works on a ticket when the folder exists.
 
 Custom agents:
 

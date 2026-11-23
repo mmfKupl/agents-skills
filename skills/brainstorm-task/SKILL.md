@@ -21,6 +21,13 @@ scope. For a Spike, `D` means the requested feasibility findings and recommendat
 are complete. In explicit autopilot mode it means the requested report is complete,
 not approved.
 
+## Ticket record
+
+When the task has a ticket, read
+[`../project-master/references/ticket-record.md`](../project-master/references/ticket-record.md)
+and record it with the workflow `brainstorm`. The record is a file outside the
+repository, so read-only work allows it.
+
 ## Outcome and boundary
 
 Read-only: do not edit product code, tests, configuration, tickets, or

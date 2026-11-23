@@ -26,8 +26,8 @@ next time you rename it. Never rename other chats.
 ## Type
 
 `chat` for ordinary work. An active workflow sets its own type: `develop`, `draft`,
-`review`, or `brainstorm`. Only the workflow the user started sets the type; an
-embedded step does not replace it.
+`review`, `brainstorm`, or `project`. Only the workflow the user started sets the
+type; an embedded step does not replace it.
 
 ## Status
 

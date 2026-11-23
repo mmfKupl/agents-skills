@@ -24,6 +24,12 @@ When the task has a known ticket, read
 [`../ticket-title/SKILL.md`](../ticket-title/SKILL.md) once its requirements are
 established, in standalone and embedded mode. Analysis-only requests do not rename.
 
+## Ticket record
+
+When the task has a known ticket, read
+[`../project-master/references/ticket-record.md`](../project-master/references/ticket-record.md)
+and record it with the workflow `develop`.
+
 ## Core Contract
 
 Implement one coherent repository task at a time. Own task framing, model and

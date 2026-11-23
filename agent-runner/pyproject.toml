@@ -16,6 +16,7 @@ dependencies = [
 [project.scripts]
 agent-runner = "agent_runner:main"
 agent-run-manifest = "run_manifest:main"
+agent-projects = "agent_projects:main"
 
 [tool.setuptools]
-py-modules = ["agent_runner", "run_manifest", "run_dispatch"]
+py-modules = ["agent_runner", "run_manifest", "run_dispatch", "agent_projects"]

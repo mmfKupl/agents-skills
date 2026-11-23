@@ -19,6 +19,13 @@ At entry, read [`../chat-title/SKILL.md`](../chat-title/SKILL.md) and follow it 
 the type `review`. `D` means the requested audit and report are complete, not that the implementation
 has no findings or is merged.
 
+## Ticket record
+
+When the audited task has a ticket, read
+[`../project-master/references/ticket-record.md`](../project-master/references/ticket-record.md)
+and record it with the workflow `review`. The record is a file outside the repository,
+so read-only work allows it.
+
 ## Core Contract
 
 Audit one implemented task for credible correctness, requirement, testing,

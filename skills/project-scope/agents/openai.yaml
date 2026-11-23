@@ -1,0 +1,4 @@
+interface:
+  display_name: "Project Scope"
+  short_description: "Run a workflow as part of a project."
+  default_prompt: "Use $project-scope with a project name and a command to run that command as part of the project and file its report there."

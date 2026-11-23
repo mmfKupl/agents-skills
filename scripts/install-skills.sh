@@ -48,6 +48,7 @@ install_agent_runner() {
     "${source_dir}"
   "${target_venv}/bin/agent-runner" --help >/dev/null
   "${target_venv}/bin/agent-run-manifest" --help >/dev/null
+  "${target_venv}/bin/agent-projects" --help >/dev/null
 
   echo "Installed agent-runner to ${target_venv}/bin/agent-runner"
 }

@@ -92,7 +92,7 @@ Skills:
 - `develop-draft` - quick working prototypes with the same model tiers and direct subagents in Codex and Claude Code. Fast changes skip agent preflight; every change gets independent final review. Validation has a small shared budget, allows one relevant existing quick test, and omits new tests and CI waits by default. Delivery defaults to a draft PR linked to the known ticket, with local-only delivery on request. Invoke as `$develop-draft` or `/develop-draft` in Claude Code.
 - `diff-review` - independent fresh diff review for local changes.
 - `trim-diff` - shrinks an existing diff: a fresh reviewer traces every hunk and test to a requirement and the unjustified parts are removed. `develop-task` runs the same step as its mandatory Reduction Pass.
-- `review-task` - deep audit workflow for already implemented tasks, with specialist review, validation reuse, focused checks, and runtime/preview probes when useful. A fresh agent tries to disprove each finding before it is reported; the report opens with what the PR does, why, and how, then the verdict and what is needed from the developer.
+- `review-task` - deep audit workflow for already implemented tasks, with specialist review, validation reuse, focused checks, and runtime/preview probes when useful. A large change gets two independent diff passes, and a fresh agent tries to disprove each finding before it is reported; the report opens with what the PR does, why, and how, then the verdict and what is needed from the developer.
 
 Custom agents:
 

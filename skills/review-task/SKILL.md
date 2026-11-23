@@ -89,8 +89,9 @@ report the delegation gap; never silently downgrade.
 4. Map changed files, subsystems, contracts, state flow, persistence, runtime paths, and likely failure modes.
 5. Collect existing validation evidence first. Run only missing focused validation that can change confidence, preferring narrow checks or temporary probes over broad suites.
 6. Delegate when useful: `$diff-review` (fresh diff pass), `repo-practice-review` (local conventions and helpers), `best-practice-review` (engineering risks, weak precedent), `test-review` (coverage and e2e/smoke strategy), `code-simplicity-review` (scope creep, simpler approaches). If agents are technically unavailable, do their checks manually and say so.
-7. Correlate all evidence yourself; specialist output is evidence, not the verdict. The result is a list of candidate findings.
-8. Verify the candidates (Finding verification) before any of them reaches the report.
+7. In `standalone` mode, run the fresh diff pass (`$diff-review`) twice for a large change: two agents started in parallel from the same packet, neither shown the other's result. A change is large when it has more than 20 changed files or more than 500 changed lines, added plus removed, not counting generated files, lock files, and snapshots. One pass over a large change misses real problems, and a second independent pass finds different ones.
+8. Correlate all evidence yourself; specialist output is evidence, not the verdict. The result is a list of candidate findings. A problem that two passes or specialists report is one candidate.
+9. Verify the candidates (Finding verification) before any of them reaches the report.
 
 ## Coverage and baseline verification
 
@@ -203,9 +204,19 @@ conversation history, in parallel when the tool layer allows:
 - `P3` candidates get none: keep one only when you can point to the exact line
   and the wrong result yourself, and drop the rest.
 
-Rate a candidate by what it would break if it were true. Do not drop a `P0`,
-`P1`, or `P2` candidate yourself because you believe it is wrong, however small
-the diff: only a verifier rejects it.
+A candidate is every claim that the change makes something behave wrongly,
+whether a specialist raised it or you did, including one you now believe is
+wrong. Rate it by what it would break if it were true. However small the diff, a
+`P0`, `P1`, or `P2` candidate is closed in one of two ways only:
+
+- a verifier answers it;
+- you run a check, such as a test, a probe, or a command, and its output shows
+  that the claim is wrong. Give the command and the output under Dropped claims.
+
+Reading the code yourself does not close a candidate: a claim you would drop
+after reading goes to a verifier. The same holds for the list under Evidence
+Standards: whether a claim of wrong behavior is older than the change, correct
+after all, or unreachable is for a verifier or a run to show.
 
 Give a verifier only this, for each of its candidates:
 
@@ -236,9 +247,13 @@ claim, with evidence:
   wrong depends on intent the requirements do not settle.
 - `could not check`: what blocked the check and what would settle it.
 
-Prefer running a check to reading the code: a focused test, a temporary probe,
-or a request against the preview. Reading alone confirms only what the code
-shows directly, such as a missing branch or a wrong condition.
+Ask the verifier to run a check before it relies on reading: a focused test, a
+temporary probe, or a request against the preview. A claim about what happens
+while the code runs, such as timing, the order of events, the state after an
+action, or what the user sees, calls for a run. Reading alone settles only what
+the code shows directly, such as a missing branch or a wrong condition. A result
+that rests on reading alone says why no check was run, and the report repeats
+that reason.
 
 Then place each candidate in the report:
 
@@ -300,7 +315,7 @@ check that no heading or field is missing.
 - **What happens** — <the steps or input, what the user or caller gets, and what they should get>
 - **Why it matters** — <who is affected and how badly>
 - **Where and since when** — <file and line; new in this PR, older and made reachable or worse by it, or older and stops a named requirement from holding>
-- **How it was confirmed** — <the check that was run and its result, or the code path that was traced>
+- **How it was confirmed** — <the check that was run and its result; or the code path that was traced, and why no check was run>
 - **Fix direction** — <one or two sentences, not a full plan unless asked>
 
 ### Checked and not checked
@@ -309,7 +324,7 @@ check that no heading or field is missing.
 - **Not checked:** <what, why, and what would check it>
 
 ### Details
-- **Dropped claims:** <each claim that verification rejected and why, one line each>
+- **Dropped claims:** <each rejected claim and what rejected it: a verifier and its reason, or your own check with the command and its output; one item each>
 - **Older problems:** <each confirmed problem that was there before this PR and where, one line each; follow-ups only>
 - **How the review ran:** <agents used with model and effort, or the manual fallback>
 ```

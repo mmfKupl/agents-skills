@@ -424,6 +424,9 @@ written to Linear or the pull request. Two defects found there are fixed: the
 project chat recorded a title it did not have, and it sent no notification. Not
 tried: brainstorm and development steps, a ticket another chat holds, Codex.
 
+Step 4 is written on 2026-11-24: the role `project-check` and the commands
+`agent-run-manifest chat` and `chat-resume`, described in `agent-runner/README.md`.
+
 ## Open points
 
 - Notification when the project chat is closed or dead: the report stays in

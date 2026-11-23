@@ -32,6 +32,7 @@ ROLES = (
     "diagnosis-review",
     "visual-review",
     "finding-verifier",
+    "project-check",
 )
 SLUGS = {
     "preflight-review": "preflight",
@@ -44,6 +45,7 @@ SLUGS = {
     "diagnosis-review": "diagnosis",
     "visual-review": "visual",
     "finding-verifier": "verifier",
+    "project-check": "check",
 }
 # The default matrix in GPT names; the other vendor maps through its peer.
 PREFLIGHT = {
@@ -142,6 +144,10 @@ def route(
         if lookup not in ("low", "medium", "high"):
             raise manifest.ManifestError(f"unsupported lookup effort: {lookup!r}")
         return "gpt-6-luna", lookup, "bounded factual lookup"
+    if role == "project-check":
+        # It only picks one outcome for a trigger, so the profile does not raise its
+        # model; a trigger that wants another one passes --model.
+        return "gpt-6-luna", "low", "trigger check"
     if slice_kind is not None:
         if slice_kind not in SLICES:
             raise manifest.ManifestError(f"unsupported slice: {slice_kind!r}")
@@ -276,6 +282,16 @@ def build_task(
     }
 
 
+def check_outcome(report: str | None) -> str | None:
+    """Return the outcome a project-check report names on its `outcome:` line."""
+    for line in (report or "").splitlines():
+        key, separator, value = line.partition(":")
+        # A model may dress the line as markdown: **Outcome:** `name`.
+        if separator and key.strip(" *`\t").lower() == "outcome":
+            return value.strip(" *`\t") or None
+    return None
+
+
 def _next_job_id(jobs: list[dict[str, Any]], role: str) -> str:
     taken = {job["id"] for job in jobs}
     number = len(jobs) + 1
@@ -318,6 +334,8 @@ def dispatch(
     prompt = Path(prompt_file).read_text(encoding="utf-8")
     if (model or effort) and not (model and effort and reason):
         raise manifest.ManifestError("--model and --effort need each other and a --reason")
+    # A trigger file names a model the short way, such as haiku or Sol.
+    model = manifest._model_id(model)
     if model:
         chosen_model, chosen_effort, rule = model, effort, f"override: {reason}"
     else:
@@ -438,6 +456,9 @@ def dispatch(
             error=result.get("error"),
             report=outcome.get("report"),
         )
+        if role == "project-check":
+            # The watching script branches on this, so it does not parse the report.
+            summary["check_outcome"] = check_outcome(outcome.get("report"))
     refused = (summary.get("error") or {}).get("type") == "refusal"
     if refused and not model and str(summary.get("model")).startswith("claude-fable-"):
         with tempfile.TemporaryDirectory() as retry_dir:

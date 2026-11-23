@@ -34,7 +34,8 @@ value = {{
     "attempts": [{{"number": 1}}],
     "usage": {{"input_tokens": 100, "cached_input_tokens": 60, "cache_write_input_tokens": 10,
                "output_tokens": 7, "reasoning_output_tokens": 2, "total_tokens": 107}},
-    "outcome": {{"status": "completed", "summary": "done", "report": "Decision: proceed"}},
+    "outcome": {{"status": "completed", "summary": "done",
+                 "report": os.environ.get("FAKE_REPORT", "Decision: proceed")}},
     "approval": {{}}, "error": None,
 }}
 if os.environ.get("FAKE_REFUSE") and task["agent"]["model"].startswith("claude-fable-"):
@@ -64,6 +65,8 @@ class RouteTests(unittest.TestCase):
             ("visual-review", "critical"): ("gpt-6.2-sol", "xhigh"),
             ("finding-verifier", "standard"): ("gpt-6.2-sol", "medium"),
             ("finding-verifier", "deep"): ("gpt-6.2-sol", "high"),
+            ("project-check", "fast"): ("gpt-6-luna", "low"),
+            ("project-check", "critical"): ("gpt-6-luna", "low"),
         }
         for (role, profile), expected in cases.items():
             self.assertEqual(run_dispatch.route(role, profile)[:2], expected, (role, profile))
@@ -266,6 +269,38 @@ class DispatchTests(unittest.TestCase):
             self.dispatch(role="finding-verifier", profile="standard", workspace=str(copy),
                           unrestricted=True)
         self.assertEqual(yaml.safe_load(self.run_path.read_text())["jobs"], [])
+
+    def test_project_check_is_read_only_cheap_and_reports_its_outcome(self) -> None:
+        report = "outcome: review_feedback\nreason: the author asked for changes on the PR"
+        with patch.dict(os.environ, {"FAKE_REPORT": report}):
+            code, summary = self.dispatch(role="project-check", profile="fast", workspace=str(self.workspace))
+        self.assertEqual(code, 0)
+        self.assertEqual((summary["job"], summary["requested_model"], summary["effort"]),
+                         ("check", "gpt-6-luna", "low"))
+        self.assertEqual(summary["check_outcome"], "review_feedback")
+        task = yaml.safe_load(Path(summary["task"]).read_text())
+        self.assertEqual(task["permissions"]["sandbox_mode"], "read_only")
+        self.assertFalse(task["permissions"]["network_access"])
+
+        # A trigger names its model the short way and on the vendor of its project.
+        code, summary = self.dispatch(
+            role="project-check", profile="fast", workspace=str(self.workspace), vendor="claude",
+            model="Haiku", effort="low", reason="trigger my progress",
+        )
+        self.assertEqual(summary["requested_model"], "claude-haiku-5-5")
+        self.assertIsNone(summary["check_outcome"])
+        code, summary = self.dispatch(
+            role="project-check", profile="fast", workspace=str(self.workspace), vendor="codex",
+            model="sonnet", effort="medium", reason="trigger my progress",
+        )
+        self.assertEqual(summary["requested_model"], "gpt-6.1-terra")
+
+    def test_check_outcome_reads_the_outcome_line(self) -> None:
+        self.assertEqual(run_dispatch.check_outcome("outcome: noise\nreason: a bot wrote it"), "noise")
+        self.assertEqual(run_dispatch.check_outcome("Some preface\n**Outcome:** `new_work_small`\n"), "new_work_small")
+        self.assertIsNone(run_dispatch.check_outcome("reason: no outcome line"))
+        self.assertIsNone(run_dispatch.check_outcome("outcome:"))
+        self.assertIsNone(run_dispatch.check_outcome(None))
 
     def test_dispatch_rejects_unlinked_writer_and_bad_override(self) -> None:
         with self.assertRaisesRegex(run_manifest.ManifestError, "approved-by-preflight"):

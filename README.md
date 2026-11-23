@@ -6,7 +6,7 @@ Personal Codex skills and custom agents backup and sync repository.
 
 - `skills/` - skill folders that can be copied into `${CODEX_HOME:-$HOME/.codex}/skills`
 - `agents/` - custom agent TOML files that can be copied into `${CODEX_HOME:-$HOME/.codex}/agents`
-- `agent-runner/` - one-shot supervised Codex or Claude Code job runner and atomic run-manifest companion used by `develop-task`, and the `agent-projects` command that keeps projects, ticket records, and reports for `project-master`
+- `agent-runner/` - one-shot supervised Codex or Claude Code job runner and atomic run-manifest companion used by `develop-task`, the `agent-projects` command that keeps projects, ticket records, and reports for `project-master`, and `agent-run-manifest chat`, which starts or continues a full chat with skills and connections from a script
 - `scripts/install-skills.sh` - install skills, custom agents, and the runner into local Codex
 - `scripts/backup-local-skills.sh` - copy local non-system skills and custom agents back into this repository
 
@@ -110,3 +110,4 @@ Custom agents:
 - `diagnosis-review` - read-only root-cause analysis after an attempted fix leaves the same failure unresolved.
 - `visual-review` - read-only inspector of screenshots and video frames against a list of what to expect and a basic checklist; `visual-evidence` starts it before anything is posted.
 - `finding-verifier` - tries to disprove each finding of a review by running a temporary test or probe in a disposable copy of the change; `review-task` starts it before a finding reaches the report.
+- `project-check` - read-only classifier that sorts one tracker event into one outcome of a project trigger, on the cheapest model; it runs before a trigger starts anything.

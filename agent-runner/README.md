@@ -287,3 +287,51 @@ Usage summaries
 come from existing job results: count each attempt once, distinguish unavailable
 zero-initialized counters from measured usage, and keep the manifest path out of
 user-facing handoff/final reports. See develop-task for the report requirements.
+
+## Project checks and full chats
+
+Two commands serve project triggers (`planning/project-master.md`). Neither needs a
+run manifest.
+
+A **check** is an ordinary read-only job with the role `project-check`. It sorts one
+tracker event into one outcome of a trigger. It runs on the cheapest model whatever
+the profile, unless `--model` names another one; `--model` accepts short names such
+as `haiku` or `Sol`. The summary carries `check_outcome`, read from the `outcome:`
+line of the report, so a script can branch without reading the report. Like every
+job it has no tracker and no network: the caller puts the event, the ticket's
+history, and the ticket's local record into the packet.
+
+```bash
+agent-run-manifest dispatch --no-manifest --workspace /absolute/repository \
+  --role project-check --profile fast --vendor claude --prompt-file /absolute/packet.md
+```
+
+A **chat** is the opposite of a job: the application's normal session, with its
+skills and connections, kept so that it can be continued after a person answers.
+Use it to run a whole skill.
+
+```bash
+agent-run-manifest chat --workspace /absolute/repository --model opus --effort high \
+  --prompt-file /absolute/prompt.md --run-dir /absolute/run --worktree uib-123-review
+agent-run-manifest chat-resume /absolute/run --prompt-file /absolute/answer.md
+```
+
+- `--vendor auto`, the default, follows the model's own name: a Claude name starts
+  `claude -p`, any other starts `codex exec`. `--vendor claude` or `--vendor codex`
+  moves the model to its peer on that vendor. Set `AGENT_RUNNER_CLAUDE_BIN` or
+  `AGENT_RUNNER_CODEX_BIN` when the application is not on `PATH`.
+- `--worktree <name>` gives the chat a working copy of its own. Claude Code makes it
+  in `.claude/worktrees/<name>` and leaves it locked when the turn ends; remove it
+  with `git worktree unlock` and `git worktree remove`. Codex makes a managed one and
+  ignores the name.
+- Permissions are the application's own defaults on that machine. `--unrestricted`
+  turns approvals and the sandbox off, only when the user allowed it.
+- The prompt goes to standard input. A chat started this way does not appear in the
+  Claude sidebar.
+- `--run-dir` holds `chat.yaml` and, for every turn, the prompt, the final message,
+  the raw output, and the error output. Without it the command makes a temporary
+  folder. One turn runs at a time per chat.
+- The command prints a summary with `status` (`completed`, `failed`, or `timed_out`),
+  `session`, `usage` in the same convention as a job, `cost_usd` when the application
+  reports it, and the final message as `report`. It exits with 0 only for
+  `completed`. `--timeout-minutes`, 180 by default, stops a turn that runs too long.

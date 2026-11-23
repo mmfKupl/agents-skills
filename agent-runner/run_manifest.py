@@ -1186,6 +1186,25 @@ def _argument_parser() -> argparse.ArgumentParser:
     routing.add_argument("--vendor", default="auto", choices=("auto", "cross", "codex", "claude"))
     usage = commands.add_parser("usage", help="print the agent usage table")
     usage.add_argument("run_manifest", help="absolute path to run.yaml")
+    chat = commands.add_parser(
+        "chat", help="start a full chat with the application's skills and connections, and record it"
+    )
+    chat.add_argument("--workspace", required=True, help="the repository folder the chat works in")
+    chat.add_argument("--model", required=True, help="any accepted name, such as opus, Sol, or a full id")
+    chat.add_argument("--effort", required=True, choices=("low", "medium", "high", "xhigh"))
+    chat.add_argument("--prompt-file", required=True, help="the first message of the chat")
+    chat.add_argument("--vendor", default="auto", choices=("auto", "codex", "claude"),
+                      help="auto follows the model's own name")
+    chat.add_argument("--run-dir", help="where to keep the chat's record; a temporary folder by default")
+    chat.add_argument("--name", help="a display name for the chat")
+    chat.add_argument("--worktree", help="run in a working copy of its own with this name")
+    chat.add_argument("--unrestricted", action="store_true",
+                      help="no approvals and no sandbox, only when the user allowed it")
+    chat.add_argument("--timeout-minutes", type=float, default=180.0)
+    chat_resume = commands.add_parser("chat-resume", help="send the next message to a recorded chat")
+    chat_resume.add_argument("run_dir", help="the folder a chat command printed")
+    chat_resume.add_argument("--prompt-file", required=True, help="the next message")
+    chat_resume.add_argument("--timeout-minutes", type=float, default=180.0)
     return parser
 
 
@@ -1252,6 +1271,23 @@ def main(argv: list[str] | None = None) -> int:
             import run_dispatch
 
             output = run_dispatch.usage_table(args.run_manifest)
+        elif args.command in ("chat", "chat-resume"):
+            import run_chat
+
+            if args.command == "chat":
+                code, output = run_chat.start(
+                    workspace=args.workspace, model=args.model, effort=args.effort,
+                    prompt_file=args.prompt_file, vendor=args.vendor, run_dir=args.run_dir,
+                    name=args.name, worktree=args.worktree, unrestricted=args.unrestricted,
+                    timeout_minutes=args.timeout_minutes,
+                )
+            else:
+                code, output = run_chat.resume(
+                    run_dir=args.run_dir, prompt_file=args.prompt_file,
+                    timeout_minutes=args.timeout_minutes,
+                )
+            print(output, end="")
+            return code
         elif args.command == "finish":
             path = finish_manifest(args.run_manifest, args.status)
             output = str(path.resolve())

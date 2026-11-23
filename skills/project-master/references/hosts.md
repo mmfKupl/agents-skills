@@ -35,11 +35,20 @@ given title and prompt.
 A chat started without Remote Control does not appear in the sidebar. Do not start a
 step the developer asked for that way.
 
+## The name of this chat
+
+Other chats message a chat by the name they see, which is not always the title the
+chat asked for.
+
+- **Claude Code.** `ListAgents` starts with the line `This session is <name> [code]`.
+  The name is the text before the bracketed code.
+- **Otherwise.** The chat's title.
+
 ## Message another chat on this machine
 
-- **Claude Code.** Use `SendMessage` to the chat by its title (`ListAgents` shows the
-  names; load both with `ToolSearch` when they are deferred). An idle chat starts a
-  turn when the message arrives.
+- **Claude Code.** Use `SendMessage` to the chat by the name recorded for it
+  (`ListAgents` shows the names; load both with `ToolSearch` when they are deferred).
+  An idle chat starts a turn when the message arrives.
 - **Otherwise.** Skip the message. The report is in the project folder, and the
   project chat finds it with `agent-projects status`.
 

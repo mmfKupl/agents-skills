@@ -66,7 +66,9 @@ On the first `$project-master` in a chat:
 
    `--ticket <id>`, repeatable, names single tickets instead of a tracker project.
 3. Record this chat as the project's chat, so that step chats know where to report:
-   `agent-projects project chat <name> --title "<this chat's title>"`.
+   `agent-projects project chat <name> --title "<the name of this chat>"`. Use the
+   name other chats see, which [`references/hosts.md`](references/hosts.md) says how
+   to read. A title this chat asked for may not have been applied.
 4. Show the developer what is set up. Then list the unfinished tickets the project
    covers that are assigned to them, grouped by tracker status, with what
    `agent-projects status --project <name>` knows about each. Start nothing.

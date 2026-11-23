@@ -166,6 +166,29 @@ class RunChatTests(unittest.TestCase):
         ])
         self.assertEqual(self.calls()[1]["cwd"], str(self.workspace))
 
+    def test_later_codex_turns_run_in_the_working_copy_codex_made(self) -> None:
+        copy = self.root / "codex-home" / "worktrees" / "38e5" / "repo"
+        copy.mkdir(parents=True)
+        known = {str(self.workspace)}
+        with patch("run_chat._worktree_paths", side_effect=[known, known | {str(copy)}]):
+            self.start(model="Sol", worktree="any")
+        record = yaml.safe_load((self.run_dir / "chat.yaml").read_text())
+        self.assertEqual(record["cwd"], str(copy))
+        run_chat.resume(run_dir=str(self.run_dir), prompt_file=self.prompt("go on", "answer.md"))
+        self.assertEqual(self.calls()[1]["cwd"], str(copy))
+
+        # Two working copies appeared at once, so there is no telling which one is the chat's.
+        other = self.root / "chat-two"
+        with patch("run_chat._worktree_paths", side_effect=[known, known | {str(copy), str(self.root)}]):
+            self.start(model="Sol", worktree="any", run_dir=str(other))
+        self.assertEqual(yaml.safe_load((other / "chat.yaml").read_text())["cwd"], str(self.workspace))
+
+    def test_worktree_paths_lists_the_repository_copies(self) -> None:
+        self.assertEqual(run_chat._worktree_paths(str(self.workspace)), set())
+        import subprocess
+        subprocess.run(["git", "init", "-q", str(self.workspace)], check=True)
+        self.assertEqual(run_chat._worktree_paths(str(self.workspace)), {str(self.workspace)})
+
     def test_unrestricted_claude_chat_skips_approvals(self) -> None:
         self.start(unrestricted=True)
         self.assertEqual(self.calls()[0]["argv"][-2:], ["--permission-mode", "bypassPermissions"])

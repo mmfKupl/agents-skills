@@ -322,8 +322,9 @@ agent-run-manifest chat-resume /absolute/run --prompt-file /absolute/answer.md
   `AGENT_RUNNER_CODEX_BIN` when the application is not on `PATH`.
 - `--worktree <name>` gives the chat a working copy of its own. Claude Code makes it
   in `.claude/worktrees/<name>` and leaves it locked when the turn ends; remove it
-  with `git worktree unlock` and `git worktree remove`. Codex makes a managed one and
-  ignores the name.
+  with `git worktree unlock` and `git worktree remove`. Codex makes a managed one,
+  ignores the name, and does not print its path: the command takes the working copy
+  that appeared during the first turn. Later turns run in that copy.
 - Permissions are the application's own defaults on that machine. `--unrestricted`
   turns approvals and the sandbox off, only when the user allowed it.
 - The prompt goes to standard input. A chat started this way does not appear in the

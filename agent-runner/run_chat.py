@@ -101,6 +101,17 @@ def _run(command: list[str], cwd: str, prompt: str, stdout: Path, stderr: Path, 
             return None
 
 
+def _worktree_paths(workspace: str) -> set[str]:
+    """Return the working copies Git knows for the repository, or nothing outside Git."""
+    listing = subprocess.run(
+        ["git", "-C", workspace, "worktree", "list", "--porcelain"],
+        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
+    )
+    if listing.returncode != 0:
+        return set()
+    return {line.split(" ", 1)[1] for line in listing.stdout.splitlines() if line.startswith("worktree ")}
+
+
 def _json_lines(text: str) -> list[dict[str, Any]]:
     values = []
     for line in text.splitlines():
@@ -188,8 +199,17 @@ def _turn(run_dir: Path, record: dict[str, Any], prompt: str, timeout_minutes: f
         _save(record_path, record)
 
         command = _command(record, _binary(record["vendor"]), first)
+        managed = first and record["vendor"] == "codex" and bool(record["worktree"])
+        before = _worktree_paths(record["workspace"]) if managed else set()
         code = _run(command, record["cwd"] if not first else record["workspace"], prompt,
                     files["output"], files["stderr"], timeout_minutes * 60)
+        if managed:
+            # Codex names its managed working copy itself and does not print the path, so
+            # it is the one that appeared during the turn. With none or several, later
+            # turns stay in the repository folder.
+            made = sorted(_worktree_paths(record["workspace"]) - before)
+            if len(made) == 1 and Path(made[0]).is_dir():
+                record["cwd"] = made[0]
         text = files["output"].read_text(encoding="utf-8", errors="replace")
         parsed = _parse_claude(text) if record["vendor"] == "claude" else _parse_codex(text)
         if code is None:

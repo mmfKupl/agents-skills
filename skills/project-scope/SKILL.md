@@ -41,9 +41,12 @@ anything else. It maps `$skill` to `/skill`.
    - file the report, with the same text the developer gets, on standard input:
      `agent-projects report add --project <project> --ticket <ticket> --kind <review|brainstorm|develop|draft>`;
    - release the ticket: `agent-projects ticket release <ticket> --result "<one line: the outcome>"`;
-   - tell the project chat, the `chat` that `project show` printed, in one line, as
+   - tell the project chat in one line, as
      [`../project-master/references/hosts.md`](../project-master/references/hosts.md)
-     says: `<ticket>: <kind> report ready, <the outcome in a few words>. <path>`;
+     says: `<ticket>: <kind> report ready, <the outcome in a few words>. <path>`. Run
+     `project show` again for the chat's name, which may have changed since step 1.
+     The project chat notifies the developer; notify them from this chat only when
+     the project chat cannot be reached;
    - end the final answer with the line `Saved to project <project>: <path>`.
 
 A command with no ticket files nothing; say so in one line. The report is never held

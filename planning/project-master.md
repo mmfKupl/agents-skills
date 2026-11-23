@@ -414,9 +414,14 @@ one starts.
 
 Steps 1 to 3 are the manual part and need no Linear key and no runner change.
 
-Status on 2026-11-23: steps 1 to 3 are written. The command has unit tests and
-was tried end to end in a temporary folder. The skills have not yet been tried on
-a real ticket.
+Status on 2026-11-23: steps 1 to 3 are written and were tried once on the VM
+under Claude Code, on UIB-6602 in a project for "Droys Agent". The project chat
+set the project up without questions, chose a review, and started a visible chat
+in its own working copy. That chat recorded the ticket, ran the review, filed the
+report, and messaged the project chat, which passed the outcome on. Nothing was
+written to Linear or the pull request. Two defects found there are fixed: the
+project chat recorded a title it did not have, and it sent no notification. Not
+tried: brainstorm and development steps, a ticket another chat holds, Codex.
 
 ## Open points
 

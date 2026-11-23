@@ -427,6 +427,11 @@ tried: brainstorm and development steps, a ticket another chat holds, Codex.
 
 - Notification when the project chat is closed or dead: the report stays in
   the folder, but nothing reaches the phone.
+- Whether a notification arrives. On 2026-11-23 two test notifications reached
+  the developer's phone and a third, from the review chat of the first trial, did
+  not, although the tool answered "Mobile push requested". The cause is unknown.
+- How much the project chat writes. After the first trial the developer found
+  its messages long, without being sure.
 - Opening a visible chat and sending a notification under Codex: not checked.
 - The length of the delay before the script acts on a status change.
 - What to build first.

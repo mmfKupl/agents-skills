@@ -427,9 +427,11 @@ tried: brainstorm and development steps, a ticket another chat holds, Codex.
 
 - Notification when the project chat is closed or dead: the report stays in
   the folder, but nothing reaches the phone.
-- Whether a notification arrives. On 2026-11-23 two test notifications reached
-  the developer's phone and a third, from the review chat of the first trial, did
-  not, although the tool answered "Mobile push requested". The cause is unknown.
+- Whether a notification always arrives. On 2026-11-23 three of four reached the
+  developer's phone, among them the one the project chat sent after a report came
+  in, which is the designed path. The one that did not arrive came from the review
+  chat of the first trial, although the tool answered "Mobile push requested". The
+  cause is unknown.
 - Whether the project chat's messages are short enough. After the first trial the
   developer found them long, and the skill now fixes what each of its three
   messages holds. A second short trial showed the shorter messages.

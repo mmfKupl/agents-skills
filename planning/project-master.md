@@ -430,8 +430,9 @@ tried: brainstorm and development steps, a ticket another chat holds, Codex.
 - Whether a notification arrives. On 2026-11-23 two test notifications reached
   the developer's phone and a third, from the review chat of the first trial, did
   not, although the tool answered "Mobile push requested". The cause is unknown.
-- How much the project chat writes. After the first trial the developer found
-  its messages long, without being sure.
+- Whether the project chat's messages are short enough. After the first trial the
+  developer found them long, and the skill now fixes what each of its three
+  messages holds. A second short trial showed the shorter messages.
 - Opening a visible chat and sending a notification under Codex: not checked.
 - The length of the delay before the script acts on a status change.
 - What to build first.

@@ -66,8 +66,15 @@ flags (and `--ceiling`) and prints the route without running anything.
 
 - `--role`: `preflight-review`, `implementation-worker`, `postflight-review`,
   `repo-practice-review`, `best-practice-review`, `test-review`, `code-simplicity-review`,
-  `diagnosis-review`, or `visual-review`. Composed discovery uses these roles too, with no
-  approving preflight; a final review-task audit goes in a `postflight-review` packet.
+  `diagnosis-review`, `visual-review`, or `finding-verifier`. Composed discovery uses these
+  roles too, with no approving preflight; a final review-task audit goes in a
+  `postflight-review` packet.
+- A `finding-verifier` job is the only reviewer that may write: it adds temporary tests
+  and probes to check a review finding. It therefore runs only with `--no-manifest` and a
+  `--workspace` that is a disposable copy of the change, never a run's worktree or the
+  checkout you are in; the helper refuses both. It has no network. Two writing jobs cannot
+  share one copy: the second fails with `worktree_locked`, so give each verifier that
+  runs at the same time its own copy. It takes the postflight route of the profile.
 - `--read-dir <directory>`: a directory outside the worktree the job may read, repeatable.
   A `visual-review` job needs it for the folder that holds the screenshots and video
   frames; name the files by absolute path in its packet. It takes the postflight route of

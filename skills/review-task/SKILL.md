@@ -30,9 +30,10 @@ Stay read-only: do not fix product code, keep test changes, commit, push, edit
 PRs, update Linear, or manage lifecycle state; report issues for the user to
 delegate.
 
-`$review-task` authorizes read-only delegation to `$diff-review`, the
-specialists below, the finding verifiers, and the visual-evidence inspector; do
-not wait for a separate request for subagents.
+`$review-task` authorizes delegation to `$diff-review`, the specialists below,
+the visual-evidence inspector, and the finding verifiers; do not wait for a
+separate request for subagents. All of them are read-only, except that a finding
+verifier writes temporary tests and probes in a disposable copy of the change.
 
 Avoid persistent repository edits; probe with temporary files outside the
 repository, one-off snippets, Browser/Playwright, or a harness in dry-run form.
@@ -74,8 +75,9 @@ bounded history with a self-contained packet.
   mistake.
 - Runtime, preview, and visual probes (rendered UI, screenshots, Playwright)
   use `gpt-6.1-terra` high at any depth; the depth's model judges defects.
-- Finding verifiers and the visual-evidence inspector (the `visual-review`
-  role) judge defects, so they use the depth's model and effort.
+- Finding verifiers (the `finding-verifier` role) and the visual-evidence
+  inspector (the `visual-review` role) judge defects, so they use the depth's
+  model and effort.
 
 Raise the route when repository evidence is riskier than the depth word. If a
 route is unavailable, use an equivalent-or-stronger one or check manually and
@@ -196,7 +198,9 @@ this step removes the ones that are not real. In `embedded` mode skip it: the
 gate and main's challenges do that work.
 
 Give each candidate a severity (see Output), then start fresh verifiers with no
-conversation history, in parallel when the tool layer allows:
+conversation history, in parallel when the tool layer allows. A verifier is the
+`finding-verifier` role, started the way this review starts its other roles:
+through the runner where the review uses the runner, otherwise as a subagent.
 
 - each `P0` or `P1` candidate gets its own verifier;
 - all `P2` candidates share one verifier, or one per area when they touch
@@ -228,11 +232,16 @@ Do not give it the severity, the reasoning behind a claim, candidates that belon
 to another verifier, or your opinion: a verifier that sees a verdict tends to
 repeat it.
 
-A verifier works under this review's own contract: no edits in the repository,
-and probes in temporary files outside it. When a check on the base needs a base
-checkout, main prepares a disposable one outside the repository and removes it
-afterward. A verifier that cannot run its check returns `could not check` with
-the command, and main runs it.
+A verifier never writes in the repository. Main prepares a disposable copy of
+the change for it, outside the repository: the head of the change checked out,
+with dependencies installed or linked the way the repository's instructions say,
+so that its tests can run. The verifier adds temporary tests and probes only
+there, and main deletes the copy when verification ends. Verifiers that run at
+the same time each get their own copy, because two cannot write to one. In
+runner mode the copy is the job's `--workspace` with `--no-manifest`; the runner
+refuses this role on a run's worktree and on the checkout main works in. A
+verifier that still cannot run its check returns `could not check` with the
+command, and main runs it.
 
 Ask the verifier to try to prove each claim wrong and to return one result per
 claim, with evidence:
@@ -289,8 +298,9 @@ and the verdict.
 ## Output
 
 In `standalone` mode, write the report from this template. Keep every heading and
-field in this order and write `none` where a section has nothing. Before sending,
-check that no heading or field is missing.
+field in this order and write `none` where a section has nothing. Keep the
+headings and field names in English exactly as written, whatever language the
+text under them is in. Before sending, check that no heading or field is missing.
 
 ```markdown
 ### What this PR does

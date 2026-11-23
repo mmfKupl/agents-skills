@@ -62,6 +62,8 @@ class RouteTests(unittest.TestCase):
             ("diagnosis-review", "fast"): ("gpt-6.2-sol", "high"),
             ("visual-review", "standard"): ("gpt-6.2-sol", "medium"),
             ("visual-review", "critical"): ("gpt-6.2-sol", "xhigh"),
+            ("finding-verifier", "standard"): ("gpt-6.2-sol", "medium"),
+            ("finding-verifier", "deep"): ("gpt-6.2-sol", "high"),
         }
         for (role, profile), expected in cases.items():
             self.assertEqual(run_dispatch.route(role, profile)[:2], expected, (role, profile))
@@ -237,6 +239,33 @@ class DispatchTests(unittest.TestCase):
         )
         task = yaml.safe_load(Path(summary["task"]).read_text())
         self.assertNotIn("read_dirs", task["workspace"])
+
+    def test_finding_verifier_writes_only_in_a_disposable_copy(self) -> None:
+        copy = self.root / "pr-copy"
+        copy.mkdir()
+        code, summary = self.dispatch(role="finding-verifier", profile="standard", workspace=str(copy))
+        self.assertEqual(code, 0)
+        self.assertEqual(summary["job"], "verifier")
+        task = yaml.safe_load(Path(summary["task"]).read_text())
+        self.assertEqual(task["workspace"]["cwd"], str(copy))
+        self.assertEqual(task["permissions"]["sandbox_mode"], "workspace_write")
+        self.assertFalse(task["permissions"]["network_access"])
+        self.assertIn("You are finding-verifier.", task["agent"]["developer_instructions"])
+        self.assertNotIn("universal `completed`", task["agent"]["developer_instructions"])
+
+        with self.assertRaisesRegex(run_manifest.ManifestError, "disposable copy"):
+            self.dispatch(role="finding-verifier", profile="standard",
+                          run_manifest=str(self.run_path), contract_revision=1)
+        with self.assertRaisesRegex(run_manifest.ManifestError, "disposable copy"):
+            self.dispatch(role="finding-verifier", profile="standard")
+        for inside in (copy, copy / "front"):
+            with patch("run_dispatch.Path.cwd", return_value=inside):
+                with self.assertRaisesRegex(run_manifest.ManifestError, "not the checkout you are in"):
+                    self.dispatch(role="finding-verifier", profile="standard", workspace=str(copy))
+        with self.assertRaisesRegex(run_manifest.ManifestError, "only to implementation-worker"):
+            self.dispatch(role="finding-verifier", profile="standard", workspace=str(copy),
+                          unrestricted=True)
+        self.assertEqual(yaml.safe_load(self.run_path.read_text())["jobs"], [])
 
     def test_dispatch_rejects_unlinked_writer_and_bad_override(self) -> None:
         with self.assertRaisesRegex(run_manifest.ManifestError, "approved-by-preflight"):

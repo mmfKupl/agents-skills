@@ -31,6 +31,7 @@ ROLES = (
     "code-simplicity-review",
     "diagnosis-review",
     "visual-review",
+    "finding-verifier",
 )
 SLUGS = {
     "preflight-review": "preflight",
@@ -42,6 +43,7 @@ SLUGS = {
     "code-simplicity-review": "simplicity",
     "diagnosis-review": "diagnosis",
     "visual-review": "visual",
+    "finding-verifier": "verifier",
 }
 # The default matrix in GPT names; the other vendor maps through its peer.
 PREFLIGHT = {
@@ -158,6 +160,9 @@ def route(
     if role == "visual-review":
         # It judges defects in screenshots, so it takes the gate's route.
         return (*POSTFLIGHT[profile], f"{profile} visual review")
+    if role == "finding-verifier":
+        # It decides whether a reported defect is real, so it takes the gate's route.
+        return (*POSTFLIGHT[profile], f"{profile} finding verification")
     if role == "implementation-worker":
         return (*WRITER[profile], f"{profile} writer")
     if role == "diagnosis-review":
@@ -236,6 +241,9 @@ def build_task(
         sandbox = "danger_full_access" if unrestricted else "workspace_write"
     elif unrestricted:
         raise manifest.ManifestError("--unrestricted applies only to implementation-worker")
+    elif role == "finding-verifier":
+        # It adds temporary tests and probes, and its workspace is a disposable copy.
+        sandbox = "workspace_write"
     else:
         sandbox = "read_only"
     soft, hard, grace, attempts = BUDGETS[profile]
@@ -330,6 +338,18 @@ def dispatch(
             f"({job_rule}; {target} vendor).\n\n"
         )
 
+    if role == "finding-verifier":
+        # The job may write in its workspace, so the workspace must be a copy made for
+        # it, never a run's worktree or the checkout the caller works in.
+        if run_manifest is not None or not workspace:
+            raise manifest.ManifestError(
+                "finding-verifier works in a disposable copy: use --no-manifest with --workspace"
+            )
+        copy, here = Path(workspace).resolve(), Path.cwd().resolve()
+        if here == copy or copy in here.parents:
+            raise manifest.ManifestError(
+                "finding-verifier needs a disposable copy as --workspace, not the checkout you are in"
+            )
     if run_manifest is not None:
         if ceiling:
             raise manifest.ManifestError("--ceiling is for --no-manifest; the run has its own policy")

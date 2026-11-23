@@ -36,7 +36,8 @@ what is where. `project-master` is one chat per project that:
 - First call, in the developer's words: "/project-master я хочу вести тут
   задачи связанные по билингу, в линере есть проект с билингом. давай настроим
   всё что нужно для этого". The agent checks what must be set up, asks what to
-  watch, proposes triggers, and saves the choices.
+  watch, proposes triggers, and saves the choices. It confirms the project's name
+  with the developer before it creates anything.
 - Drops a ticket, with or without a word about it. The agent decides the step,
   asks when unclear, and starts `/review-task`, `/brainstorm-task`,
   `/develop-task`, or `/develop-draft`. In UI Bakery development always runs as

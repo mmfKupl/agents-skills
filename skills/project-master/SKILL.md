@@ -55,25 +55,34 @@ edit.
 
 On the first `$project-master` in a chat:
 
-1. Run `agent-projects init`.
-2. Find the project. If the developer named one that `project list` shows, read it with
-   `project show`. Otherwise create it, asking only what their message and the
-   repository do not answer:
+1. Look for the project with `agent-projects project list`. An error saying that the
+   folder does not exist means there are no projects yet. If the developer named a
+   project the list shows, read it with `project show` and go to step 4.
+2. Otherwise work out the new project from the developer's message and the
+   repository, asking only what neither answers:
    - a short name in lowercase with dashes, such as `billing`;
    - the repository folder, by default the root of the current repository;
    - the tracker, from Repository notes below;
    - what the project covers: a project in the tracker, or a list of tickets.
 
+   Then confirm the name before creating anything, even when everything is clear:
+   tell the developer in one or two lines the name you propose and what the project
+   will cover, and wait for a yes or for another name. Until then, create nothing: no
+   folder, no project.
+3. Create the folder and the project, and record this chat as the project's chat, so
+   that step chats know where to report:
+
    ```bash
+   agent-projects init
    agent-projects project create billing --repository /path/to/repo \
      --tracker linear --scope linear_project=Billing
+   agent-projects project chat billing --title "<the name of this chat>"
    ```
 
    `--ticket <id>`, repeatable, names single tickets instead of a tracker project.
-3. Record this chat as the project's chat, so that step chats know where to report:
-   `agent-projects project chat <name> --title "<the name of this chat>"`. Use the
-   name other chats see, which [`references/hosts.md`](references/hosts.md) says how
-   to read. A title this chat asked for may not have been applied.
+   For the chat's name use the one other chats see, which
+   [`references/hosts.md`](references/hosts.md) says how to read. A title this chat
+   asked for may not have been applied.
 4. Answer with three things and start nothing:
    - one line that names the project and what it covers;
    - the unfinished tickets the project covers that are assigned to the developer,

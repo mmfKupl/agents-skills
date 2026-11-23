@@ -203,6 +203,10 @@ conversation history, in parallel when the tool layer allows:
 - `P3` candidates get none: keep one only when you can point to the exact line
   and the wrong result yourself, and drop the rest.
 
+Rate a candidate by what it would break if it were true. Do not drop a `P0`,
+`P1`, or `P2` candidate yourself because you believe it is wrong, however small
+the diff: only a verifier rejects it.
+
 Give a verifier only this, for each of its candidates:
 
 - the claim in one or two sentences: the input or state, and what goes wrong;
@@ -245,6 +249,11 @@ Then place each candidate in the report:
 - `needs a decision`: Needs from you;
 - `did not hold up`: Details, as a dropped claim with the reason;
 - `could not check`: Checked and not checked, under Not checked.
+
+Behavior that the author already put to the developer as an open question, in
+the ticket, the PR, or a report, is the developer's decision even when a verifier
+confirms it: put it under Needs from you, not under Findings. Details lists only
+what was checked: leave out an older problem you only suspect.
 
 Do not overrule a verifier with your own opinion; when you disagree, give it new
 evidence once, and its second answer stands. A defect the visual-evidence
@@ -301,7 +310,7 @@ check that no heading or field is missing.
 
 ### Details
 - **Dropped claims:** <each claim that verification rejected and why, one line each>
-- **Older problems:** <each problem that was there before this PR and where, one line each; follow-ups only>
+- **Older problems:** <each confirmed problem that was there before this PR and where, one line each; follow-ups only>
 - **How the review ran:** <agents used with model and effort, or the manual fallback>
 ```
 

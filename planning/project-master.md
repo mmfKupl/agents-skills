@@ -333,7 +333,8 @@ runner already picks Claude or Codex by the model name.
 
 Where a chat shows up:
 
-- A run that a trigger started stays out of the sidebar.
+- A run that a trigger started stays out of the sidebar, until the developer
+  asks to open its chat.
 - A task the developer asked for by hand opens a chat in the sidebar.
 - Either kind shows in the project chat while it goes, as a background command
   under Background tasks. See "Work that is going shows in the project chat"
@@ -588,6 +589,22 @@ On 2026-11-24 the developer asked for four more things, all written the same day
   file; the project chat links the copy. `SendUserFile` delivers a file card
   from a Remote Control chat, but the developer's screenshot of that test showed
   the file pane failing on the path, so the card is not used.
+- The chat that did the work can be opened. The developer on 2026-11-24: "эти
+  файлы я не могу выделять и добавлять коментраии к каким-то частям. и не могу
+  перейти в чат которйы делал ревью". A run from a trigger is a hidden session,
+  so its report reached the developer only as a file. `agent-projects watch open
+  <id> --title "<title>"` continues that session as a chat in the sidebar: the
+  report is its last message, where the developer can select a part and answer
+  with a quote, and the agent that answers has the whole review in its context.
+  Asked whether the script should open such a chat after every review, the
+  developer chose "Только по просьбе": the project chat opens one only when
+  asked. Checked on the VM the same day with the UIB-6626 review and two
+  stand-in runs: the developer saw the earlier conversation in the opened chat;
+  a working copy that was gone could be put back with git; opening a chat that
+  runs starts a copy, so the command looks first; a stopped chat wakes with its
+  saved title when no options are passed. Not built, because nothing asked for
+  them: comments on a published page (an artifact), and comments on the lines of
+  a report through the application's view of changes.
 
 Left from the reviews:
 - About 22 lines that can be cut, and two commands nobody needs daily

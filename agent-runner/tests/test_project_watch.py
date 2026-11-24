@@ -1074,6 +1074,45 @@ run:
         self.assertTrue(Path(event["run_dir"], "chat.yaml").is_file())
         self.assertEqual(self.ok("status", "--project", "billing")["trigger_events"], [])
 
+    def test_finished_run_opens_as_a_chat_in_its_working_copy_and_only_once(self) -> None:
+        subprocess.run(["git", "init", "-q", str(self.repo)], check=True)
+        subprocess.run(["git", "-C", str(self.repo), "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q",
+                        "--allow-empty", "-m", "start"], check=True)
+        self.watched_project()
+        self.issues = [issue("UIB-1", minutes_ago=30)]
+        title = "R review: UIB-1 Limits"
+        with patch.object(project_watch, "_tell", return_value=None):
+            project_watch.cycle()
+            self.assertIn("event 1 has no finished run to open", self.command("watch", "open", "1", "--title", title)[2])
+            self.wait_for_runs()
+            project_watch.cycle(read_tracker=False)
+
+        def calls() -> list[dict]:
+            return [json.loads(line) for line in self.log.read_text().splitlines()]
+
+        self.assertIn("give the chat a title", self.command("watch", "open", "1")[2])
+        opened = self.ok("watch", "open", "1", "--title", title)
+
+        copy = self.repo / ".claude" / "worktrees" / "uib-1-review-1"      # the run left none; it is put back
+        self.assertEqual((opened["chat"], opened["working_copy"]), (title, str(copy)))
+        self.assertEqual((calls()[-1]["argv"], calls()[-1]["cwd"]),
+                         (["--bg", "--resume", "claude-session-1", "--remote-control", title, "--name", title], str(copy)))
+
+        self.live["claude-session-1"] = title                             # the chat runs: a second one would be a copy
+        started = len(calls())
+        self.assertEqual(self.ok("watch", "open", "1")["opened"], "it was open already")
+        self.assertEqual(len(calls()), started)
+
+        del self.live["claude-session-1"]                                 # it was stopped: it wakes with what it had
+        self.assertEqual(self.ok("watch", "open", "1", "--title", "another")["chat"], title)
+        self.assertEqual(calls()[-1]["argv"], ["--bg", "--resume", "claude-session-1"])
+
+        self.closed = {"UIB-1"}                                           # the ticket is over: the chat goes with the copy
+        with patch.object(project_watch, "_tell", return_value=None):
+            lines = project_watch.cycle()
+        self.assertIn(["stop", "claude-s"], [call["argv"] for call in calls()])
+        self.assertEqual((lines, copy.is_dir()), (["UIB-1: closed in the tracker, working copy removed"], False))
+
     def test_run_that_fails_is_recorded_and_the_project_chat_is_told(self) -> None:
         self.watched_project()
         self.issues = [issue("UIB-1", minutes_ago=30)]

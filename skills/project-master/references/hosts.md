@@ -87,6 +87,20 @@ as the work: `agent-projects ticket wait <ticket>` for a step in a chat of its o
   never the work.
 - **Otherwise.** Skip it. Results arrive as lines all the same.
 
+## Open the chat of a finished run
+
+`agent-projects watch open <id> --title "<title>"` continues the run's own session as
+a chat that the developer reaches through Remote Control.
+
+- **A run under Claude Code, on a machine with Remote Control.** Checked on
+  2026-11-24 on the VM: the chat appears in the developer's sidebar with the run's
+  earlier conversation, and no model is called until the developer writes. The
+  command puts the run's working copy back when it is gone, answers that the chat is
+  open already instead of starting a second one, and wakes a chat that was opened
+  before and then stopped.
+- **A run under Codex, or any other host.** The command refuses. Tell the developer
+  that this run has no chat to open, and give the report.
+
 ## Keep the project's chats in one sidebar section
 
 When `agent-projects project show <project>` has `section: true`, each chat of the

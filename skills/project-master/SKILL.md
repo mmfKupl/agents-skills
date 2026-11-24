@@ -44,6 +44,8 @@ agents-skills repository.
 - `project create | show | list | chat`: projects.
 - `ticket take | release | note | show`: who works on a ticket, and its history.
 - `ticket wait`, `watch wait`: last while work goes; see Showing work that is going.
+- `watch open`: put the chat of a finished run into the sidebar; see Opening the chat
+  that did the work.
 - `report add`: file a report into a project. `report copy`: put a filed report where
   the developer can open it; see Results.
 - `status [--project <name>]`: every ticket with who holds it, its last event, and its
@@ -197,6 +199,33 @@ look at `agent-projects status --project <project>` and treat what you find as R
 says. If you have passed that result on already, answer in one line that nothing is
 new.
 
+## Opening the chat that did the work
+
+The developer may want to talk to the agent that did a piece of work, or to quote
+parts of its report in an answer. Do this only when they ask, for example "open the
+review of UIB-123". Never open a chat on your own.
+
+- A step in a chat of its own is in the sidebar already: name its title.
+- A run from a trigger has no chat until it is opened:
+
+  ```bash
+  agent-projects watch open <id> --title "<title>"
+  ```
+
+  `<id>` is the event, from `agent-projects status --project <project>` or
+  `agent-projects watch list --all`. The title follows `chat-title`, with `R` when the
+  report needs an answer from the developer and `D` otherwise, such as
+  `R review: UIB-123 Billing limits`. The chat cannot rename itself later.
+
+Then tell the developer in one line the title to look for in the sidebar. The chat
+holds the run's whole conversation, with the full report as its last message, and
+works in the run's working copy. Say once that its first answer costs more than a
+usual one, because the chat reads that conversation again.
+[`references/hosts.md`](references/hosts.md) says where this works.
+
+When a report from a trigger run asks the developer something, offer in one line to
+open its chat.
+
 ## Results
 
 A step's chat files its report into the project and sends this chat one line. When
@@ -294,7 +323,8 @@ in one line with the reason and offer to start it again
 Results says. To send the developer's answer to that run, write the answer to a file
 and run this in the background, with `run_dir` from `agent-projects watch list --all`:
 `agent-run-manifest chat-resume <run_dir> --prompt-file <file>`. The command lives next
-to `agent-projects`.
+to `agent-projects`. Not for a run whose chat is open, which shows as `chat` in the
+event: the developer answers in that chat.
 
 ## When the watching script starts or wakes this chat
 

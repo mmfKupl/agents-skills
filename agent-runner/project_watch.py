@@ -1233,6 +1233,9 @@ def _remove_copy(run_dir: Path) -> str | None:
     except ProjectsError:
         record = {}
     workspace, copy = record.get("workspace"), record.get("cwd")
+    if record.get("vendor") == "claude" and workspace and record.get("worktree"):
+        # Where Claude Code keeps the copy, also one that `watch open` put back later.
+        copy = str(Path(workspace) / ".claude" / "worktrees" / record["worktree"])
     if not workspace or not copy or copy == workspace or not Path(copy).is_dir():
         return None
     if not record.get("worktree") or Path(copy).name != record["worktree"]:
@@ -1263,6 +1266,8 @@ def _clean(state: dict[str, Any], root: Path) -> list[str]:
     for event in ended:
         if event["ticket"] not in closed:
             continue
+        if event.get("chat"):
+            _close_chat(Path(event["run_dir"]))
         kept = [reason for reason in (_remove_copy(Path(folder)) for folder in (*event.get("earlier_runs", []), event["run_dir"]))
                 if reason]
         if kept:
@@ -1540,6 +1545,66 @@ def wait(number: int) -> str:
                "shows its report." if moved else ""))
 
 
+def open_run(number: int, title: str | None) -> dict[str, Any]:
+    """Continue the run of an event as a chat the developer finds in the sidebar: the
+    same session with its whole history, in the run's working copy, reached through
+    Remote Control. Nothing opens by itself: the developer asks for it."""
+    root = projects._require_home()
+    event = next((item for item in _read_state(root)["events"] if item["id"] == number), None)
+    if event is None:
+        raise ProjectsError(f"no event {number}; `agent-projects watch list --all` shows them")
+    if event["state"] in MOVING_STATES or not event.get("run_dir"):
+        raise ProjectsError(f"event {number} has no finished run to open")
+    record = projects._load_mapping(Path(event["run_dir"]) / "chat.yaml")
+    session, workspace, name = record.get("session"), record.get("workspace"), record.get("worktree")
+    # Where Claude Code keeps a working copy with this name. The run's record names the
+    # repository folder instead when the copy was gone by the time the run ended.
+    copy = str(Path(str(workspace)) / ".claude" / "worktrees" / str(name))
+    if record.get("vendor") != "claude" or not session or not workspace or not name:
+        raise ProjectsError(f"the run of event {number} cannot be opened: only a run under Claude Code keeps what it takes")
+    live = _live_chats()
+    if live is None:
+        raise ProjectsError("the chats on this machine cannot be listed, and opening a chat that runs would start a copy")
+    if session in live:
+        return {"event": number, "ticket": event["ticket"], "chat": live[session], "opened": "it was open already"}
+    if not event.get("chat") and not title:
+        raise ProjectsError("give the chat a title with --title")
+    if not Path(copy).is_dir():
+        # A run that left nothing in its working copy loses the copy and keeps the branch.
+        branch = f"worktree-{Path(copy).name}"
+        for arguments in (("worktree", "add", copy, branch), ("worktree", "add", "-b", branch, copy)):
+            added = subprocess.run(["git", "-C", workspace, *arguments], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                   text=True)
+            if added.returncode == 0:
+                break
+        else:
+            raise ProjectsError(f"the working copy {copy} could not be put back: "
+                                f"{(added.stdout.strip().splitlines() or ['git failed'])[-1]}")
+    # A chat that was opened before keeps its title and Remote Control; given again, they start a copy of it.
+    options = [] if event.get("chat") else ["--remote-control", title, "--name", title]
+    done = subprocess.run([run_chat._binary("claude"), "--bg", "--resume", session, *options], cwd=copy,
+                          stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=120)
+    if done.returncode != 0:
+        raise ProjectsError(f"the chat did not open: {(done.stdout.strip().splitlines() or ['claude failed'])[-1]}")
+    with _state() as state:
+        for item in state["events"]:
+            if item["id"] == number:
+                item.setdefault("chat", title)
+                title = item["chat"]
+    return {"event": number, "ticket": event["ticket"], "chat": title, "working_copy": copy}
+
+
+def _close_chat(run_dir: Path) -> None:
+    """Stop the chat that `watch open` started for a run, before its working copy goes."""
+    try:
+        session = str(projects._load_mapping(run_dir / "chat.yaml").get("session") or "")
+        if session:
+            subprocess.run([run_chat._binary("claude"), "stop", session[:8]], stdin=subprocess.DEVNULL,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=60)
+    except (ProjectsError, manifest.ManifestError, OSError, subprocess.TimeoutExpired):
+        pass
+
+
 def decide(ids: list[int], target: str) -> dict[str, Any]:
     """Move events to `waiting`, which the watching loop starts, or to `dismissed`."""
     # Dismissing also frees an event whose check or run can no longer be reached.
@@ -1660,6 +1725,9 @@ def add_commands(commands: Any, project: Any) -> None:
     watch.add_parser("dismiss", help="drop events without running them").add_argument("ids", nargs="+", type=int)
     watch.add_parser("wait", help="last while an event moves; a chat runs this in the background to show "
                                   "the run").add_argument("id", type=int)
+    opening = watch.add_parser("open", help="continue an event's finished run as a chat in the developer's sidebar")
+    opening.add_argument("id", type=int)
+    opening.add_argument("--title", help="the chat's title; needed the first time a run is opened")
     watch.add_parser("limit", help="show or set how many runs may go at once; the rest wait in the queue").add_argument(
         "number", nargs="?", type=int)
     summary_parser = watch.add_parser("digest", help="show, set, or turn off the daily summary for each project chat")
@@ -1689,6 +1757,8 @@ def run(args: argparse.Namespace) -> dict[str, Any] | str:
         return decide(args.ids, "waiting" if args.action == "start" else "dismissed")
     if args.action == "wait":
         return wait(args.id)
+    if args.action == "open":
+        return open_run(args.id, args.title)
     if args.action == "limit":
         return limit(args.number)
     if args.action == "digest":

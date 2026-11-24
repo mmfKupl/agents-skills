@@ -352,6 +352,9 @@ agent-projects project triggers billing --on "my review"
 agent-projects watch poll                            # read Linear once; starts nothing
 agent-projects watch list                            # events that are not over
 agent-projects watch start 3 4                       # let the loop start held events
+agent-projects watch add billing UIB-123 <<'EOF'     # queue a step the developer asked for
+$review-task UIB-123
+EOF
 agent-projects watch dismiss 5
 agent-projects watch limit 3                         # how many runs may go at once
 agent-projects watch digest --at 09:00 --timezone Europe/Warsaw   # daily summary; --off

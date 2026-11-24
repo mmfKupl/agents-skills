@@ -1,4 +1,4 @@
 interface:
   display_name: "Project Master"
   short_description: "Manage a project's tickets from one chat."
-  default_prompt: "Use $project-master to manage this project: take a ticket, start the right workflow for it in a chat of its own, keep its history, and tell me where each task stands."
+  default_prompt: "Use $project-master to manage this project: take a ticket, start the right workflow for it as a run of its own, keep its history, and tell me where each task stands."

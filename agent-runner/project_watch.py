@@ -40,6 +40,8 @@ READ_SECONDS = 600.0
 TICK_SECONDS = 60.0
 # Matches wait in a queue, and at most this many runs go at once; `watch limit` changes it.
 RUN_LIMIT = 3
+# What a step the developer asked for runs on, when no trigger says it for that skill.
+DEFAULT_RUN = ("opus", "high")
 # An event that is over, with its folders, is forgotten after this many days.
 KEEP_DAYS = 30
 # When the project chat is closed, a new one is started at most this often.
@@ -186,6 +188,14 @@ def _trigger(path: Path) -> dict[str, Any]:
         raise ProjectsError(f"{path}: a field has the wrong kind of value ({type(error).__name__}: {error})") from error
 
 
+def _model_problem(model: Any, effort: Any) -> str | None:
+    if manifest._model_id(str(model)) not in {*manifest.MODEL_ORDER, *manifest.CLAUDE_MODEL_PEERS}:
+        return f"unknown model {model!r}"
+    if effort not in run_chat.EFFORTS:
+        return f"`effort` must be one of {', '.join(run_chat.EFFORTS)}"
+    return None
+
+
 def _read_trigger(path: Path) -> dict[str, Any]:
     document = projects._load_mapping(path)
 
@@ -193,10 +203,9 @@ def _read_trigger(path: Path) -> dict[str, Any]:
         return ProjectsError(f"{path}: {text}")
 
     def model_and_effort(holder: dict[str, Any], label: str) -> None:
-        if manifest._model_id(str(holder.get("model"))) not in {*manifest.MODEL_ORDER, *manifest.CLAUDE_MODEL_PEERS}:
-            raise bad(f"{label}: unknown model {holder.get('model')!r}")
-        if holder.get("effort") not in run_chat.EFFORTS:
-            raise bad(f"{label}: `effort` must be one of {', '.join(run_chat.EFFORTS)}")
+        problem = _model_problem(holder.get("model"), holder.get("effort"))
+        if problem:
+            raise bad(f"{label}: {problem}")
 
     unknown = sorted(set(document) - {"name", "on_any", "check", "run"})
     if unknown:
@@ -876,6 +885,18 @@ def _fresh(path: Path) -> Path:
     return chosen
 
 
+def _run(event: dict[str, Any], triggers: dict[str, dict[str, Any]]) -> Any:
+    """What an event starts: what the developer asked for, or the run its trigger names."""
+    if "asked" in event:
+        return event["asked"]
+    return ((triggers.get(event["trigger"]) or {}).get("run") or {}).get(event.get("run"))
+
+
+def _by(event: dict[str, Any]) -> str:
+    """Who started an event, as words for a line."""
+    return "asked for by the developer" if "asked" in event else f"started by the trigger \"{event['trigger']}\""
+
+
 def _spawn_chat(repository: str, model: str, effort: str, prompt: str, run_dir: Path,
                 name: str | None = None, worktree: str | None = None) -> int:
     """Start a full chat that outlives this process, and return its process id."""
@@ -978,7 +999,7 @@ def _check(event: dict[str, Any], root: Path, triggers: dict[str, dict[str, Any]
 def _start(event: dict[str, Any], root: Path, triggers: dict[str, dict[str, Any]]) -> None:
     try:
         _, project = projects._load_project(root, event["project"])
-        run = (triggers.get(event["trigger"]) or {"run": {}})["run"].get(event["run"])
+        run = _run(event, triggers)
         if not isinstance(run, dict):
             raise ProjectsError(f"the trigger {event['trigger']!r} no longer has the run {event['run']!r}")
         vendor, _ = run_chat.chat_route(run["model"], "auto")
@@ -986,10 +1007,11 @@ def _start(event: dict[str, Any], root: Path, triggers: dict[str, dict[str, Any]
         text = (run.get("command") or run["prompt"]).strip().replace("{ticket}", event["ticket"])
         if "command" in run:
             text = sigil + text.lstrip("/$")
+        origin = ("Started from the project chat, where the developer asked for it.\n" if "asked" in event else
+                  f"Started by the trigger \"{event['trigger']}\": {event['ticket']} was {event['what']}.\n"
+                  + (f"A check sorted this event as `{event['run']}`.\n" if event.get("check_dir") else ""))
         prompt = (
-            f"{sigil}project-scope {event['project']} {text}\n\n"
-            f"Started by the trigger \"{event['trigger']}\": {event['ticket']} was {event['what']}.\n"
-            + (f"A check sorted this event as `{event['run']}`.\n" if event.get("check_dir") else "") +
+            f"{sigil}project-scope {event['project']} {text}\n\n{origin}"
             "The developer is not in this chat. Do not wait for an answer: put every question into the report.\n"
         )
         stem = re.sub(r"[^a-z0-9-]+", "-", f"{event['ticket']}-{event['run']}-{event['id']}".lower())
@@ -1009,7 +1031,7 @@ def _start(event: dict[str, Any], root: Path, triggers: dict[str, dict[str, Any]
 
 def _quiet(event: dict[str, Any], triggers: dict[str, dict[str, Any]]) -> bool:
     """Whether the event's run only keeps a record, so that the project chat is not told of it."""
-    run = ((triggers.get(event["trigger"]) or {}).get("run") or {}).get(event.get("run"))
+    run = _run(event, triggers)
     return isinstance(run, dict) and run.get("quiet") is True
 
 
@@ -1038,14 +1060,13 @@ def _finish(event: dict[str, Any], root: Path, quiet: bool) -> str | None:
                    if str(report.get("at", "")) >= event["started"]]
     except (ProjectsError, OSError, KeyError):
         reports = []
-    label = f"{event['ticket']}: the {event['run']} run that the trigger \"{event['trigger']}\" started"
+    label = f"{event['ticket']}: the {event['run']} run, {_by(event)},"
     if completed:
         event["state"] = "finished"
         if quiet:
             return None
         if reports:
-            return (f"{event['ticket']}: {reports[-1].get('kind')} report ready, started by the trigger "
-                    f"\"{event['trigger']}\". {reports[-1].get('path')}")
+            return f"{event['ticket']}: {reports[-1].get('kind')} report ready, {_by(event)}. {reports[-1].get('path')}"
         event["note"] = "the run ended without filing a report"
         return f"{label} ended without filing a report. Its last message: {last.get('result')}"
     event["state"] = "failed"
@@ -1054,7 +1075,7 @@ def _finish(event: dict[str, Any], root: Path, quiet: bool) -> str | None:
     # The reason may quote what the run printed, so it is kept short and on one line.
     event["note"] = " ".join(reason.split())[:200]
     try:
-        projects.ticket_note(event["ticket"], f"{event['run']} run from the trigger \"{event['trigger']}\" failed: {event['note']}")
+        projects.ticket_note(event["ticket"], f"{event['run']} run, {_by(event)}, failed: {event['note']}")
     except (ProjectsError, OSError):
         pass
     return f"{label} failed: {event['note']}. `agent-projects watch start {event['id']}` starts it again."
@@ -1669,6 +1690,55 @@ def digest(at: str | None, zone: str | None, off: bool) -> dict[str, Any]:
         return {"daily_summary": f"{chosen['at']} {chosen.get('timezone') or 'UTC'}" if chosen.get("at") else "off"}
 
 
+def add_run(project: str, ticket: str, text: str, model: str | None, effort: str | None, title: str | None,
+            url: str | None) -> dict[str, Any]:
+    """Queue a step that the developer asked for in the project chat. It runs the way a
+    trigger's run does: out of the sidebar, in a working copy of its own, and the line
+    about its end goes to the project chat. `text` is the skill call and, on the lines
+    below it, the developer's own words."""
+    root = projects._require_home()
+    _, document = projects._load_project(root, project)
+    ticket = projects._ticket_id(ticket)
+    text = text.strip()
+    skill = re.match(r"[/$]?([a-z][a-z0-9-]*)(\s|$)", text)
+    if not skill:
+        raise ProjectsError("the first line on standard input must be a skill call, such as `$review-task UIB-123`; "
+                            "in a here-document, quote the end word so that the shell keeps the `$`")
+    triggers, _ = load_triggers()
+    on = document.get("triggers") or []
+    # A step costs and reads the same whoever started it: what a trigger gives the same
+    # skill, a trigger of this project first.
+    usual = next(((run["model"], run["effort"]) for name in [*on, *sorted(set(triggers) - set(on))]
+                  for run in (triggers.get(name) or {"run": {}})["run"].values()
+                  if isinstance(run, dict) and run.get("command", "").lstrip("/$").split()[:1] == [skill.group(1)]),
+                 DEFAULT_RUN)
+    model, effort = model or usual[0], effort or usual[1]
+    problem = _model_problem(model, effort)
+    if problem:
+        raise ProjectsError(problem)
+    with _state() as state:
+        watching = _watching(state)
+        if watching != "running":
+            raise ProjectsError(f"watching is {watching}, and it is what starts a run; "
+                                + ("`agent-projects resume` lets it start runs again" if paused()
+                                   else "`agent-projects watch install` keeps it running"))
+        going = next((event for event in state["events"] if event["project"] == project and event["ticket"] == ticket
+                      and event["state"] in MOVING_STATES), None)
+        if going:
+            raise ProjectsError(f"{ticket} has event {going['id']} going already ({going.get('run') or 'a check'}, "
+                                f"{going['state']}); `agent-projects watch dismiss {going['id']}` drops it")
+        state["next_id"] = state.get("next_id", 0) + 1
+        event = {
+            "id": state["next_id"], "key": f"asked|{ticket}|{state['next_id']}", "project": project, "trigger": None,
+            "run": skill.group(1), "ticket": ticket, "title": title, "url": url, "what": "asked for by the developer",
+            "found": _stamp(), "state": "waiting", "asked": {"command": text, "model": model, "effort": effort},
+            # The chat that asked knows of the run, so its start is not told to it.
+            "known": True,
+        }
+        state["events"].append(event)
+        return {"events": [_public(event)], "queue": _queue(state), "watching": watching}
+
+
 def wait(number: int) -> str:
     """Last as long as an event moves, and then until its line has had time to reach the
     project chat. A chat runs this in the background only to show the run among its
@@ -1689,7 +1759,7 @@ def wait(number: int) -> str:
         event = find()
     if moved:
         time.sleep(projects.GRACE_SECONDS)
-    return (f"{event['ticket']}: event {number} of the trigger \"{event['trigger']}\" is {event['state']}"
+    return (f"{event['ticket']}: event {number}, {_by(event)}, is {event['state']}"
             + (f" ({event['note']})" if event.get("note") else "")
             + (f". If no line about it has reached this chat, `agent-projects status --project {event['project']}` "
                "shows its report." if moved else ""))
@@ -1769,7 +1839,7 @@ def decide(ids: list[int], target: str) -> dict[str, Any]:
             event = by_id[number]
             if event["state"] not in allowed:
                 raise ProjectsError(f"event {number} is {event['state']}; only {', '.join(allowed)} can change")
-            run = ((triggers.get(event["trigger"]) or {}).get("run") or {}).get(event.get("run"))
+            run = _run(event, triggers)
             if target == "waiting" and run == "skip":
                 raise ProjectsError(f"event {number} has nothing to start: its outcome `{event['run']}` only records a line")
             if target == "waiting" and not event.get("run") and not event.get("check_dir"):
@@ -1872,6 +1942,15 @@ def add_commands(commands: Any, project: Any) -> None:
     listing = watch.add_parser("list", help="print the events that are not over")
     listing.add_argument("--project")
     listing.add_argument("--all", action="store_true", help="also finished, skipped, and dismissed events")
+    adding = watch.add_parser("add", help="queue a step the developer asked for, to run out of the sidebar; the skill "
+                                          "call and the developer's words come on standard input")
+    adding.add_argument("project")
+    adding.add_argument("ticket")
+    adding.add_argument("--model", help="by default what a trigger gives the same skill, otherwise "
+                                        f"{DEFAULT_RUN[0]}")
+    adding.add_argument("--effort", help=f"by default what a trigger gives the same skill, otherwise {DEFAULT_RUN[1]}")
+    adding.add_argument("--title", help="the ticket's title, for the board")
+    adding.add_argument("--url", help="the ticket's address in the tracker, for the board")
     watch.add_parser("start", help="let the watching loop start held, failed, or skipped events").add_argument(
         "ids", nargs="+", type=int)
     watch.add_parser("dismiss", help="drop events without running them").add_argument("ids", nargs="+", type=int)
@@ -1907,6 +1986,8 @@ def run(args: argparse.Namespace) -> dict[str, Any] | str:
         run_loop(args.interval)
     if args.action == "list":
         return events(args.project, args.all)
+    if args.action == "add":
+        return add_run(args.project, args.ticket, sys.stdin.read(), args.model, args.effort, args.title, args.url)
     if args.action in ("start", "dismiss"):
         return decide(args.ids, "waiting" if args.action == "start" else "dismissed")
     if args.action == "wait":

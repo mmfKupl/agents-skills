@@ -333,15 +333,18 @@ runner already picks Claude or Codex by the model name.
 
 Where a chat shows up:
 
-- A run that a trigger started stays out of the sidebar, until the developer
-  asks to open its chat.
-- A task the developer asked for by hand opens a chat in the sidebar.
-- Either kind shows in the project chat while it goes, as a background command
-  under Background tasks. See "Work that is going shows in the project chat"
-  under the build plan.
+- A run stays out of the sidebar, whether a trigger started it or the developer
+  asked for it in the project chat, until the developer asks to open its chat.
+  Until 2026-11-24 a task asked for by hand opened a chat in the sidebar; see
+  "A step asked for by hand stays out of the sidebar" under the build plan.
+- A chat in the sidebar from the start is only for a developer who asks for one,
+  and for a machine where watching cannot run.
+- A run shows in the project chat while it goes, as a background command under
+  Background tasks. See "Work that is going shows in the project chat" under the
+  build plan.
 
-Under Claude Code on the VM that is a launch without Remote Control and a
-launch with it.
+Under Claude Code on the VM a run is a launch without Remote Control, and a chat
+in the sidebar is a launch with it.
 
 ## Results, questions, notifications
 
@@ -630,6 +633,33 @@ On 2026-11-24 the developer asked for four more things, all written the same day
   where each stands, and what else is not over. The project chat shows it as
   printed, in its first answer and for a question about status, and lists no
   other tickets.
+- A step asked for by hand stays out of the sidebar. The developer on
+  2026-11-24, after sending the project chat a ticket and seeing the review as a
+  row next to the project chat: "мне не нравится что оно вот так в сайдбаре
+  видно. я думал оно будет как нестед чат или не будет видно в целом". No
+  way was found for a chat on the VM to nest one chat under another: the
+  desktop documentation (code.claude.com/docs/en/desktop, read the same day
+  except for its last part) lists a started session under the current one only
+  for sessions that the desktop app starts itself, and a Remote Control chat
+  has no tool for sidebar sections. So such a step now runs the way a trigger's run does.
+  `agent-projects watch add <project> <ticket>` reads the skill call and the
+  developer's words on standard input and queues an event; the watching script
+  starts it out of the sidebar within a minute, shares the limit of three runs,
+  and sends the line when it ends. The project chat shows it with
+  `agent-projects watch wait`, and `agent-projects watch open` opens its chat
+  when the developer asks. The command refuses when watching does not run and
+  when the ticket has an event going already.
+- The model of a step asked for by hand. The developer asked the same day: "и
+  как мастер выбирает на какой модели ревью запускать?". Until then the project
+  chat did not choose: a chat it started in the sidebar ran on the default
+  model of Claude Code on the machine (the review of UIB-6674 ran on
+  `claude-opus-5-5`; `~/.claude/settings.json` on the VM names no model), while
+  a trigger's run took the model and effort from the trigger file. Now
+  `watch add` gives a step what a trigger on the machine gives the same skill,
+  a trigger of the project first: `opus` and `high` for `review-task` under `my
+  review`. With no such trigger it is `opus` and `high`. `--model` and
+  `--effort` are for a developer who names another, and the project chat says
+  the model in its line about the start.
 
 Left from the reviews:
 - About 22 lines that can be cut, and two commands nobody needs daily

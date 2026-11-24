@@ -1081,6 +1081,45 @@ run:
         self.assertTrue(Path(event["run_dir"], "chat.yaml").is_file())
         self.assertEqual(self.ok("status", "--project", "billing")["trigger_events"], [])
 
+    def test_step_the_developer_asked_for_runs_out_of_the_sidebar_like_a_trigger_run(self) -> None:
+        self.project()
+
+        def add(*options: str, text: str = "$review-task UIB-7\nlook at the limits first\n") -> tuple[int, str, str]:
+            with patch.object(sys, "stdin", io.StringIO(text)):
+                return self.command("watch", "add", "billing", "UIB-7", *options)
+
+        self.assertIn("watching is not running", add()[2])                    # nothing would start the run
+        project_watch.cycle(read_tracker=False)
+        self.assertIn("must be a skill call", add(text="-task UIB-7\n")[2])   # the shell ate the `$`
+        self.assertIn("unknown model 'nope'", add("--model", "nope")[2])
+
+        code, stdout, stderr = add("--title", "Limits", "--url", "https://linear.app/x/issue/UIB-7/limits")
+        self.assertEqual(code, 0, stderr)
+        event = yaml.safe_load(stdout)["events"][0]
+        # A review gets the model that the project's trigger gives a review.
+        self.assertEqual((event["id"], event["state"], event["run"], event["asked"]["model"], event["asked"]["effort"]),
+                         (1, "waiting", "review-task", "opus", "high"))
+        self.assertIn("UIB-7 has event 1 going already", add()[2])
+
+        with patch.object(project_watch, "_tell", return_value=None) as tell:
+            project_watch.cycle(read_tracker=False)
+            self.assertEqual(self.states(), {"UIB-7": "started"})
+            tell.assert_not_called()                                          # the chat that asked knows of the run
+            self.assertIn('- UIB-7 "Limits" https://linear.app/x/issue/UIB-7: review-task going, event 1',
+                          self.command("board", "billing")[1])
+            self.wait_for_runs()
+            call = next(item for item in map(json.loads, self.log.read_text().splitlines()) if "--worktree" in item["argv"])
+            self.assertTrue(call["prompt"].startswith(
+                "/project-scope billing /review-task UIB-7\nlook at the limits first\n\nStarted from the project chat"))
+            self.assertEqual(call["argv"][call["argv"].index("--model") + 1], "claude-opus-5-5")
+            with patch.object(sys, "stdin", io.StringIO("review report")):
+                self.ok("report", "add", "--project", "billing", "--ticket", "UIB-7", "--kind", "review")
+            project_watch.cycle(read_tracker=False)
+
+        report = self.home / "project-billing" / "reports" / f"{project_watch._stamp()[:10]}-UIB-7-review.md"
+        self.assertEqual(tell.call_args.args[3], f"UIB-7: review report ready, asked for by the developer. {report}")
+        self.assertEqual(self.states(), {"UIB-7": "finished"})
+
     def test_finished_run_opens_as_a_chat_in_its_working_copy_and_only_once(self) -> None:
         subprocess.run(["git", "init", "-q", str(self.repo)], check=True)
         subprocess.run(["git", "-C", str(self.repo), "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q",
@@ -1135,7 +1174,7 @@ run:
         self.assertIn("boom: no credentials", event["note"])
         self.assertIn("boom: no credentials", lines[0])
         self.assertIn("`agent-projects watch start 1` starts it again", tell.call_args.args[3])
-        self.assertIn("review run from the trigger", self.ok("status")["tickets"][0]["last_event"])
+        self.assertIn("review run, started by the trigger", self.ok("status")["tickets"][0]["last_event"])
 
         os.environ["FAKE_MODE"] = "ok"
         self.ok("watch", "start", "1")
@@ -1159,7 +1198,7 @@ run:
             project_watch.cycle(read_tracker=False)
             waiting.join(timeout=30)
 
-        self.assertEqual(said, ['UIB-1: event 1 of the trigger "my review" is finished (the run ended without filing a '
+        self.assertEqual(said, ['UIB-1: event 1, started by the trigger "my review", is finished (the run ended without filing a '
                                 "report). If no line about it has reached this chat, `agent-projects status --project "
                                 "billing` shows its report."])
         self.assertIn("ended without filing a report", tell.call_args.args[3])
@@ -1249,7 +1288,7 @@ run:
         self.issues = [issue("UIB-1")]
         project_watch.poll(NOW)
 
-        self.assertEqual(self.command("watch", "wait", "1")[1].strip(), 'UIB-1: event 1 of the trigger "my review" is held '
+        self.assertEqual(self.command("watch", "wait", "1")[1].strip(), 'UIB-1: event 1, started by the trigger "my review", is held '
                          "(matched before watching began or while it was paused)")
         self.assertIn("no event 9", self.command("watch", "wait", "9")[2])
 

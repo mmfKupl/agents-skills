@@ -54,8 +54,9 @@ anything else. It maps `$skill` to `/skill`.
      the project chat cannot be reached;
    - end the final answer with the line `Saved to project <project>: <path>`.
 
-Lines under the command that begin with `Started by the trigger` come from the
-watching script, not from the developer. Then nobody reads this chat:
+A line under the command that begins with `Started by the trigger` or with
+`Started from the project chat` comes from the watching script, not from the
+developer. Then nobody reads this chat:
 
 - never wait for an answer; put each question into the report with its choices and a
   recommendation;

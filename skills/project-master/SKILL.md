@@ -345,6 +345,36 @@ failed: the script keeps such a line and tries again an hour later.
 `undelivered` in the status lists lines that have reached no chat yet. Show them
 first when the developer asks where things stand.
 
+## When tickets come and go
+
+When a ticket comes under a trigger of the project, or leaves it (closed, moved to
+another status, or given to someone else), the script sends a message that starts
+with `Tickets changed in <project>`. It says what changed and then lists every ticket
+that is under a trigger now, each with where it stands on this machine.
+
+Pass it on very short, in the developer's language, in this shape and with nothing
+added:
+
+```
+UIB-123 "Billing limits" is closed (Done).
+New: UIB-321 "Roles sorting", moved to In Review by Adam.
+
+In review now:
+- UIB-321 "Roles sorting": review going
+- UIB-231 "Email mask": review ready, waits for you
+- UIB-332 "Audit log": nothing started
+```
+
+- One line per ticket that left or came, with the ticket id as a link to the tracker.
+- Then a heading that says in plain words what these tickets wait for, and one line
+  per ticket: the id as a link, the title, and where it stands in a few words. A
+  report that is ready waits for the developer: say so.
+- No report paths, no event numbers, no questions, no offers, and no notification.
+  The developer made the change themself, or will hear when the run ends.
+
+For each new ticket whose run goes or waits in the queue, start its background
+command with the event number from the message, as Showing work that is going says.
+
 ## Questions about the project
 
 For a question about status, such as "what is where" or "what waits for me", run

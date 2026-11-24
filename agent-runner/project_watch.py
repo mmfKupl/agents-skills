@@ -74,7 +74,7 @@ PULL_PEOPLE = ("OWNER", "MEMBER", "COLLABORATOR")
 CLOSED_QUERY = """
 query($filter: IssueFilter, $after: String) {
   issues(filter: $filter, first: 100, after: $after) {
-    nodes { identifier state { type } }
+    nodes { identifier title url state { name type } assignee { name } }
     pageInfo { hasNextPage endCursor }
   }
 }
@@ -143,6 +143,17 @@ def _name(value: Any, fallback: str = "someone") -> str:
     """A name from the tracker as plain words. It goes into a line that a run takes as
     the script's own, so it must not be able to carry a sentence of instructions."""
     return " ".join(re.sub(r"[^\w .'-]", " ", str(value or "")).split())[:40] or fallback
+
+
+def _title(value: Any) -> str:
+    """A ticket's title as plain words, for the same reason as `_name`."""
+    return " ".join(re.sub(r"[^\w .,'()/:+&-]", " ", str(value or "")).split())[:80] or "no title"
+
+
+def _link(url: Any, ticket: str) -> str:
+    """The ticket's address up to its number: the tracker adds words of the title after it."""
+    head, found, _ = str(url or "").partition(ticket)
+    return head + ticket if found and re.fullmatch(r"https://[\w./-]+", head) else ""
 
 
 def _mark(value: Any) -> str:
@@ -614,7 +625,7 @@ def _read_state(root: Path) -> dict[str, Any]:
     for key in ("events", "problems", "messages"):
         state.setdefault(key, [])
     for key in ("baseline", "since", "read_until", "closed_tickets", "seen", "undelivered", "takeover", "digest",
-                "unsent"):
+                "unsent", "board"):
         # `baseline` and `closed_tickets` were lists in the first version of this file.
         if not isinstance(state.get(key), dict):
             state[key] = {}
@@ -636,7 +647,7 @@ def _state() -> Iterator[dict[str, Any]]:
 
 
 def _public(event: dict[str, Any]) -> dict[str, Any]:
-    return {key: value for key, value in event.items() if key not in ("key", "pid", "check_pid", "hold", "asked")}
+    return {key: value for key, value in event.items() if key not in ("key", "pid", "check_pid", "hold", "known")}
 
 
 def poll(now: datetime | None = None) -> dict[str, Any]:
@@ -684,6 +695,7 @@ def poll(now: datetime | None = None) -> dict[str, Any]:
         for pair in pairs:
             state["since"].setdefault(pair, _stamp(now))
         unread: set[str] = set()
+        left: dict[str, list[dict[str, Any]]] = {}
 
         def add(name: str, trigger: dict[str, Any], index: int, unique: str, issue: dict[str, Any], what: str,
                 items: list[dict[str, Any]]) -> None:
@@ -715,6 +727,7 @@ def poll(now: datetime | None = None) -> dict[str, Any]:
                 "id": state["next_id"], "key": key, "project": name, "trigger": trigger["name"],
                 "run": entry.get("then"), "ticket": ticket, "title": issue.get("title"), "url": issue.get("url"),
                 "what": what, "found": _stamp(now), "state": verdict, **({"note": note} if note else {}),
+                "entry": entry["event"],
             }
             if "then" not in entry:
                 # Also for a skipped event: the developer may still send it to the check.
@@ -738,6 +751,7 @@ def poll(now: datetime | None = None) -> dict[str, Any]:
                 problems.append(f"project {name}: {error}")
                 unread.add(name)
                 continue
+            under: dict[str, dict[str, Any]] = {}
             for trigger in active:
                 first = f"{name}|{trigger['name']}" in hold
                 for issue in issues:
@@ -747,13 +761,41 @@ def poll(now: datetime | None = None) -> dict[str, Any]:
                     move = max(moves, key=lambda node: node["createdAt"])
                     index = next((number for number, entry in enumerate(trigger["on_any"])
                                   if entry["event"] == STATUS and _matches(entry, issue, move, me)), None)
+                    if index is None:
+                        continue
+                    ticket = issue["identifier"].upper()
+                    under.setdefault(ticket, {"ticket": ticket, "title": _title(issue.get("title")),
+                                              "url": _link(issue.get("url"), ticket),
+                                              "status": _name(issue["state"]["name"]), "trigger": trigger["name"]})
                     moved = _time(move["createdAt"])
-                    if index is None or (not first and (now - moved).total_seconds() < SETTLE_SECONDS):
+                    if not first and (now - moved).total_seconds() < SETTLE_SECONDS:
                         continue
                     actor = _name((move.get("actor") or move.get("botActor") or {}).get("name"), "an integration")
                     add(name, trigger, index, move["id"], issue,
                         f"moved from {_name((move.get('fromState') or {}).get('name'), 'no status')} "
                         f"to {_name(issue['state']['name'])} by {actor} at {_stamp(moved)}", [])
+            # A ticket that was under a trigger of the project at the last reading and is
+            # not now has left: it was closed, moved on, or given to someone else.
+            on = {trigger["name"] for trigger in active}
+            gone = sorted({item["ticket"] for item in state["board"].get(name, []) if item["trigger"] in on} - set(under))
+            try:
+                nodes = [node for ticket_filter in _ticket_filters(gone) for node in _pages(CLOSED_QUERY, ticket_filter)]
+            except ProjectsError as error:
+                problems.append(f"project {name}: {error}")
+                continue  # the list stays as it was, so the tickets that left are asked about again
+            left[name] = [{"ticket": node["identifier"].upper(), "title": _title(node.get("title")),
+                           "url": _link(node.get("url"), node["identifier"].upper()),
+                           "status": _name((node.get("state") or {}).get("name"), "another status"),
+                           "closed": (node.get("state") or {}).get("type") in CLOSED_TYPES,
+                           "assignee": _name((node.get("assignee") or {}).get("name"), "nobody")} for node in nodes]
+            state["board"][name] = [under[ticket] for ticket in sorted(under)]
+            for item in left[name]:
+                # A ticket with a history on this machine gets the day it was over written into it.
+                if item["closed"] and projects._ticket_path(root, item["ticket"]).is_file():
+                    try:
+                        projects.ticket_note(item["ticket"], f"closed in the tracker: {item['status']}")
+                    except (ProjectsError, OSError):
+                        pass
 
         commented = {trigger["name"]: trigger for active in plans.values() for trigger in active
                      if any(entry["event"] != STATUS for entry in trigger["on_any"])}
@@ -819,6 +861,7 @@ def poll(now: datetime | None = None) -> dict[str, Any]:
         state["polled"], state["problems"] = _stamp(now), problems
         held = [_public(event) for event in state["events"] if event["state"] == "held"]
     return {"polled": _stamp(now), "new": [_public(event) for event in new], "held": held,
+            **({"left": {name: items for name, items in left.items() if items}} if any(left.values()) else {}),
             **({"problems": problems} if problems else {})}
 
 
@@ -1168,6 +1211,47 @@ def _summary(state: dict[str, Any], project_name: str, since: str) -> str | None
     return "\n".join(lines)
 
 
+def _where(state: dict[str, Any], root: Path, name: str, ticket: str, triggers: dict[str, dict[str, Any]]) -> str:
+    """Where a ticket stands on this machine, in a few words."""
+    events = [event for event in state["events"] if event["project"] == name and event["ticket"] == ticket
+              and event["state"] not in ("skipped", "dismissed")
+              and not (event["state"] == "finished" and _quiet(event, triggers))]
+    if events:
+        event = max(events, key=lambda item: item["id"])
+        run = event.get("run") or "check"
+        words = {"held": "waits for the developer's word to start", "waiting": "in the queue",
+                 "checking": "a comment is being sorted", "started": f"{run} going", "failed": f"{run} failed",
+                 "finished": f"{run} ended without a report" if event.get("note") else f"{run} report ready"}[event["state"]]
+        return f"{words}, event {event['id']}" + (f", its chat is open: {event['chat']}" if event.get("chat") else "")
+    try:
+        holders = [projects._who(holder) for holder in projects._load_ticket(projects._ticket_path(root, ticket), ticket)[0]["taken"]]
+    except (ProjectsError, KeyError):
+        holders = []
+    return f"a chat works on it: {', '.join(holders)}" if holders else "nothing started here"
+
+
+def _board(state: dict[str, Any], root: Path, name: str, arrived: set[int], left: list[dict[str, Any]],
+           triggers: dict[str, dict[str, Any]]) -> str:
+    """The short news for a project chat when a ticket came under one of its triggers or
+    left it: what changed, then every ticket that is under a trigger now."""
+    lines = [f"Tickets changed in {name}."]
+    for item in left:
+        how = "closed" if item["closed"] else f"assigned to {item['assignee']}"
+        lines.append(f"Left: {item['ticket']} \"{item['title']}\" is now {item['status']}, {how}. {item['url']}")
+    for event in state["events"]:
+        if event["id"] in arrived and event["project"] == name:
+            lines.append(f"New: {event['ticket']} \"{_title(event.get('title'))}\" was {event['what']}, event {event['id']}. "
+                         f"{_link(event.get('url'), event['ticket'])}")
+    board = state["board"].get(name, [])
+    for trigger in sorted({item["trigger"] for item in board}):
+        lines.append(f"Under \"{trigger}\" now:")
+        lines += [f"- {item['ticket']} \"{item['title']}\" {item['url']}: "
+                  f"{_where(state, root, name, item['ticket'], triggers)}" for item in board if item["trigger"] == trigger]
+    if not board:
+        lines.append("No ticket is under a trigger of the project now.")
+    return "\n".join(lines)
+
+
 def _digests(state: dict[str, Any], now: datetime) -> list[tuple[str, str]]:
     """The daily summaries that are due: one per project, after the set time of day."""
     digest = state["digest"]
@@ -1320,6 +1404,12 @@ def cycle(read_tracker: bool = True) -> list[str]:
                 state["problems"].append(f"working copies were not cleaned: {error}")
         # The events that wait are the queue: the oldest starts first, while fewer
         # than the limit run. Checks have a queue of their own with the same limit.
+        # A ticket that came under a trigger is told to its project chat in one message
+        # with the tickets that left, and the start of its run needs no line of its own.
+        arrived = {event["id"] for event in found.get("new", []) if event.get("entry") == STATUS and event["state"] == "waiting"}
+        for event in state["events"]:
+            if event["id"] in arrived:
+                event["known"] = True
         running = sum(event["state"] == "started" for event in state["events"])
         checking = sum(event["state"] == "checking" and bool(event.get("check_pid")) for event in state["events"])
         for event in state["events"]:
@@ -1335,8 +1425,9 @@ def cycle(read_tracker: bool = True) -> list[str]:
                     _start(event, root, triggers)
                     running += event["state"] == "started"
                     # A run that started by itself is news to the project chat, which shows
-                    # it to the developer. One that a chat asked for is known there already.
-                    if event["state"] == "started" and not event.pop("asked", False) and not _quiet(event, triggers):
+                    # it to the developer. One that a chat asked for, or that the chat was
+                    # told of when its ticket came in, is known there already.
+                    if event["state"] == "started" and not event.pop("known", False) and not _quiet(event, triggers):
                         to_tell.append((event["project"], f"{event['ticket']}: the {event['run']} run of the trigger "
                                                           f"\"{event['trigger']}\" has started, as event {event['id']}."))
                 elif before == "started":
@@ -1350,6 +1441,9 @@ def cycle(read_tracker: bool = True) -> list[str]:
             if event["state"] != before:
                 did = f"check picked {event.get('run')}, now" if before == "checking" else f"{event['run']} run"
                 lines.append(f"{event['ticket']}: {did} {event['state']}" + (f" ({event['note']})" if event.get("note") else ""))
+        gone = found.get("left", {})
+        for name in sorted(set(gone) | {event["project"] for event in state["events"] if event["id"] in arrived}):
+            to_tell.append((name, _board(state, root, name, arrived, gone.get(name, []), triggers)))
         # A burst is worth a word at once: the developer may want to drop part of it.
         fresh: dict[str, int] = {}
         for event in found.get("new", []):
@@ -1632,7 +1726,7 @@ def decide(ids: list[int], target: str) -> dict[str, Any]:
                 by_id[number].pop(key, None)
             if target == "waiting":
                 # Whoever asked knows of the run, so its start is not told to the project chat.
-                by_id[number]["asked"] = True
+                by_id[number]["known"] = True
         changed = [_public(by_id[number]) for number in ids]
         watching = _watching(state)
     return {"events": changed, "watching": watching}

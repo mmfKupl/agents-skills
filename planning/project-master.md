@@ -605,6 +605,20 @@ On 2026-11-24 the developer asked for four more things, all written the same day
   saved title when no options are passed. Not built, because nothing asked for
   them: comments on a published page (an artifact), and comments on the lines of
   a report through the application's view of changes.
+- A short word when tickets come and go. The developer on 2026-11-24: "хочется
+  чтобы после того как я тикет закинул в done или мне пришел новый тикет по
+  тригеру то в основной чат писалось ОЧЕНЬ краткое сообщение с сылкой на тикет +
+  названием и статусом и кратко по всем тикетам что подподают сейчас под условия
+  тригера", with this example: "тикет 123 закрыт успешно / тикеты в ревью: / 321
+  бла бла - ревью готово ждет тут / 231 бла бла - ревью в процессе". Until then a
+  closed ticket only had its working copies removed, and the project chat heard
+  nothing. At each reading the script now keeps the list of tickets that are
+  under each trigger of a project. When a ticket comes under a trigger or leaves
+  it (closed, another status, another assignee), the project chat gets one
+  message, `Tickets changed in <project>`: what changed, then every ticket under
+  a trigger now with where it stands here. It replaces the line about the start
+  of the run for a ticket that has just come. A closed ticket that has a record
+  on the machine gets a line in its history.
 
 Left from the reviews:
 - About 22 lines that can be cut, and two commands nobody needs daily

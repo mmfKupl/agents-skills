@@ -133,7 +133,10 @@ class ProjectWatchTests(unittest.TestCase):
         if "history" not in query:
             numbers = variables["filter"]["number"]["in"]
             return {"issues": {"nodes": [
-                {"identifier": f"UIB-{number}", "state": {"type": "completed" if f"UIB-{number}" in self.closed else "started"}}
+                {"identifier": f"UIB-{number}", "title": f"Title of UIB-{number}", "url": f"https://linear.app/x/UIB-{number}/words",
+                 "assignee": {"name": "Other"},
+                 "state": {"type": "completed", "name": "Done"} if f"UIB-{number}" in self.closed
+                 else {"type": "started", "name": "In Progress"}}
                 for number in numbers], "pageInfo": {"hasNextPage": False, "endCursor": None}}}
         self.queries.append(variables or {})
         statuses = variables["filter"]["state"]["name"]["in"]
@@ -500,6 +503,9 @@ class ProjectWatchTests(unittest.TestCase):
         self.wait_for_runs()
         call = next(item for item in map(json.loads, self.log.read_text().splitlines()) if "--worktree" in item["argv"])
         self.assertTrue(call["prompt"].startswith("/project-scope billing Report which review points the author closed"))
+        # No ticket came under the trigger, so the project chat hears of this run by a line of its own.
+        self.assertTrue(any('UIB-1: the author_answered run of the trigger "my review" has started, as event 1.' in item["prompt"]
+                            for item in map(json.loads, self.log.read_text().splitlines())))
         self.assertIn("A check sorted this event as `author_answered`.", call["prompt"])
         self.assertEqual(call["argv"][call["argv"].index("--model") + 1], "claude-sonnet-5-5")
 
@@ -922,10 +928,11 @@ run:
             lines = project_watch.cycle(read_tracker=False)
             project_watch.cycle(read_tracker=False)
 
-        start = 'UIB-1: the review run of the trigger "my review" has started, as event 1.'
+        start = "Tickets changed in billing."                   # the first thing told: a ticket came under the trigger
         self.assertIn("problem: a line did not reach the project chat of billing and is kept: answer to: Send one", lines[-1])
-        self.assertEqual([item["text"] for item in self.ok("status", "--project", "billing")["undelivered"]["billing"]][0], start)
-        self.assertNotIn(start, [call.args[3] for call in tell.call_args_list])       # not tried again at once
+        kept = [item["text"] for item in self.ok("status", "--project", "billing")["undelivered"]["billing"]]
+        self.assertTrue(kept[0].startswith(start))
+        self.assertEqual(self.boards(tell), [])                                       # not tried again at once
 
         with project_watch._state() as state:
             state["unsent"]["billing"] = project_watch._stamp(NOW - timedelta(hours=2))
@@ -1157,20 +1164,59 @@ run:
                                 "billing` shows its report."])
         self.assertIn("ended without filing a report", tell.call_args.args[3])
 
-    def test_project_chat_is_told_of_a_run_that_started_by_itself_but_not_of_one_it_asked_for(self) -> None:
+    def boards(self, tell) -> list[str]:
+        return [call.args[3] for call in tell.call_args_list if call.args[3].startswith("Tickets changed in billing.")]
+
+    def test_new_ticket_under_a_trigger_is_told_with_every_ticket_under_it(self) -> None:
         self.project()
         self.issues = [issue("UIB-1")]
         project_watch.poll(NOW)                                      # held: it matched before watching began
         self.ok("watch", "start", "1")
         with patch.object(project_watch, "_tell", return_value=None) as tell:
             project_watch.cycle(read_tracker=False)
-            tell.assert_not_called()
+            tell.assert_not_called()                                 # the chat asked for this run itself
 
             self.issues.append(issue("UIB-2", minutes_ago=30))
             project_watch.cycle()
+            project_watch.cycle()                                    # nothing changed: nothing is said
 
-        self.assertEqual(tell.call_args.args[3], 'UIB-2: the review run of the trigger "my review" has started, as event 2.')
-        self.assertNotIn("asked", project_watch.events(None, True)["events"][0])
+        self.assertEqual(len(tell.call_args_list), 1)                # and the start of the run got no line of its own
+        said = tell.call_args.args[3].splitlines()
+        self.assertEqual(said[0], "Tickets changed in billing.")
+        self.assertRegex(said[1], r'^New: UIB-2 "Title of UIB-2" was moved from In Progress to In Review by Other at \S+, '
+                                  r"event 2\. https://linear\.app/x/UIB-2$")
+        self.assertEqual(said[2:], ['Under "my review" now:',
+                                    '- UIB-1 "Title of UIB-1" https://linear.app/x/UIB-1: review going, event 1',
+                                    '- UIB-2 "Title of UIB-2" https://linear.app/x/UIB-2: review going, event 2'])
+        self.assertNotIn("known", project_watch.events(None, True)["events"][0])
+
+    def test_ticket_that_leaves_a_trigger_is_told_once_with_what_stays_under_it(self) -> None:
+        self.watched_project()
+        self.issues = [issue(f"UIB-{number}", minutes_ago=30) for number in (1, 2, 3)]
+        with patch.object(project_watch, "_tell", return_value=None) as tell:
+            project_watch.cycle()
+            self.wait_for_runs()
+            self.reviewed("UIB-1")                                   # it has a history on this machine
+            self.issues, self.closed = [issue("UIB-2", minutes_ago=30)], {"UIB-1"}     # one closed, one moved on
+            project_watch.cycle()
+            project_watch.cycle()
+            self.issues, self.closed = [], {"UIB-1", "UIB-2"}
+            project_watch.cycle()
+
+        arrived, left, last = self.boards(tell)
+        self.assertEqual(len(arrived.splitlines()), 8)               # three new tickets, then the three under the trigger
+        self.assertEqual(left.splitlines(), [
+            "Tickets changed in billing.",
+            'Left: UIB-1 "Title of UIB-1" is now Done, closed. https://linear.app/x/UIB-1',
+            'Left: UIB-3 "Title of UIB-3" is now In Progress, assigned to Other. https://linear.app/x/UIB-3',
+            'Under "my review" now:',
+            '- UIB-2 "Title of UIB-2" https://linear.app/x/UIB-2: review ended without a report, event 2',
+        ])
+        self.assertEqual(last.splitlines()[1:], ['Left: UIB-2 "Title of UIB-2" is now Done, closed. https://linear.app/x/UIB-2',
+                                                 "No ticket is under a trigger of the project now."])
+        history = {item["ticket"]: item["last_event"] for item in self.ok("status")["tickets"]}
+        self.assertTrue(history["UIB-1"].endswith("closed in the tracker: Done"))
+        self.assertNotIn("UIB-2", history)                           # no record here: none is made for a note
 
     def test_wait_ends_at_once_for_an_event_that_does_not_move(self) -> None:
         self.project()

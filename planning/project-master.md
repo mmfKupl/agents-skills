@@ -521,11 +521,20 @@ found four real holes; the reduction review found the code close to lean. All ar
 fixed in commit `a02fb33` except the two below, and the fixed code read real Linear
 and GitHub once on the VM. The service runs there since that day.
 
-Left from the reviews:
+On 2026-11-24 the developer asked for four more things, all written the same day:
 
-- Nothing limits how many runs one reading starts. If someone moves thirty of the
-  developer's tickets to In Review at once, thirty reviews start. The developer
-  asked for no limit on tasks, so this is their call.
+- A queue: "все задания попадают в очередь а какая-то другая джоба или та же
+  самая их берет и запускает смотря сколько сейчас запущено и можно ли запустить
+  ещё". The events that wait are the queue, and the loop starts them while fewer
+  than the limit run (three; `agent-projects watch limit`). This replaces "no limit
+  on the number of tasks" for runs that triggers start.
+- A notification when the project chat is closed: the line is kept and a new chat
+  takes the project over, then gets the line and notifies.
+- A summary once a day per project (`agent-projects watch digest`).
+- Cleanup: events that are long over are forgotten with their folders, and working
+  copies of chats that recorded a ticket are removed once the ticket is closed.
+
+Left from the reviews:
 - About 22 lines that can be cut, and two commands nobody needs daily
   (`watch uninstall`, `watch run --interval`).
 - The chat that only passes one line to the project chat still runs with approvals
@@ -533,8 +542,6 @@ Left from the reviews:
 
 ## Open points
 
-- Notification when the project chat is closed or dead: the report stays in
-  the folder, but nothing reaches the phone.
 - Whether a notification always arrives. On 2026-11-23 three of four reached the
   developer's phone, among them the one the project chat sent after a report came
   in, which is the designed path. The one that did not arrive came from the review

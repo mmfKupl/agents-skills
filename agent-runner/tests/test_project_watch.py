@@ -113,6 +113,11 @@ class ProjectWatchTests(unittest.TestCase):
         patcher.start()
         self.addCleanup(patcher.stop)
         self.addCleanup(self.wait_for_runs)
+        # The project chat on record ("project-chat") runs, unless a test closes it.
+        self.live: set[str] | None = {"project-chat"}
+        patcher = patch.object(project_watch, "_live_chats", lambda: self.live)
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def fake_linear(self, query: str, variables: dict | None = None, timeout: float = 30) -> dict:
         if "viewer" in query:
@@ -807,6 +812,127 @@ run:
             with self.assertRaises(agent_projects.ProjectsError):
                 project_watch._unit(Path("/x/agent-projects"))
 
+    def test_matches_wait_in_a_queue_and_only_so_many_run_at_once(self) -> None:
+        self.watched_project()
+        self.issues = [issue(f"UIB-{number}", minutes_ago=30) for number in range(1, 6)]
+        os.environ["FAKE_MODE"] = "slow"
+
+        with patch.object(project_watch, "_tell") as tell:
+            project_watch.cycle()
+
+        self.assertEqual(sorted(self.states().values()), ["started"] * 3 + ["waiting"] * 2)
+        self.assertEqual(self.ok("watch", "list")["queue"], {"running": 3, "waiting": 2, "limit": 3})
+        self.assertIn("5 new events are in the queue for billing; at most 3 runs go at once", tell.call_args.args[3])
+
+        self.assertEqual(self.ok("watch", "limit", "4")["queue"]["limit"], 4)
+        project_watch.cycle(read_tracker=False)
+        self.assertEqual(sorted(self.states().values()), ["started"] * 4 + ["waiting"])
+        self.assertIn("must be 1 or more", self.command("watch", "limit", "0")[2])
+        for child in project_watch._children.values():
+            child.kill()
+
+    def test_line_for_a_closed_project_chat_is_kept_and_a_new_chat_takes_over(self) -> None:
+        self.watched_project()
+        self.issues = [issue("UIB-1", minutes_ago=30)]
+        os.environ["FAKE_MODE"] = "crash"
+        project_watch.cycle()
+        self.wait_for_runs()
+        self.live = set()                                      # the project chat is closed
+
+        with patch.object(project_watch, "_takeover") as takeover, patch.object(project_watch, "_tell") as tell:
+            project_watch.cycle(read_tracker=False)
+            project_watch.cycle(read_tracker=False)
+
+        tell.assert_not_called()
+        takeover.assert_called_once()
+        kept = self.ok("status", "--project", "billing")["undelivered"]["billing"]
+        self.assertIn("UIB-1: the review run", kept[0]["text"])
+
+        self.live = {"project-chat"}                           # a chat is up again, started long enough ago
+        with project_watch._state() as state:
+            state["takeover"]["billing"] = project_watch._stamp(NOW - timedelta(minutes=30))
+        with patch.object(project_watch, "_tell") as tell:
+            project_watch.cycle(read_tracker=False)
+
+        self.assertIn("1 lines waited while the project chat was closed:", tell.call_args.args[3])
+        self.assertNotIn("undelivered", self.ok("status", "--project", "billing"))
+
+    def test_new_project_chat_is_started_with_a_fixed_text(self) -> None:
+        self.project()
+        project_watch._takeover(self.home, "billing", agent_projects.project_show("billing"))
+
+        call = json.loads(self.log.read_text().splitlines()[0])
+        self.assertEqual(call["argv"][:5], ["--bg", "--remote-control", "R project: billing", "--name", "R project: billing"])
+        self.assertTrue(call["argv"][5].startswith("/project-master billing\n\nStarted by the watching script"))
+        self.assertEqual(call["cwd"], str(self.repo))
+
+    def test_daily_summary_goes_out_once_a_day_and_only_with_something_to_say(self) -> None:
+        self.watched_project()
+        self.assertEqual(self.ok("watch", "digest", "--at", "00:00", "--timezone", "Europe/Warsaw"),
+                         {"daily_summary": "00:00 Europe/Warsaw"})
+        with patch.object(project_watch, "_tell") as tell:
+            project_watch.cycle()
+        tell.assert_not_called()                               # nothing happened yet
+
+        self.issues = [issue("UIB-1", minutes_ago=30)]
+        project_watch.cycle()
+        self.wait_for_runs()
+        with project_watch._state() as state:
+            state["digest"]["last"] = {}
+        with patch.object(project_watch, "_tell") as tell:
+            project_watch.cycle(read_tracker=False)
+            project_watch.cycle(read_tracker=False)
+
+        texts = [call.args[3] for call in tell.call_args_list]
+        summaries = [text for text in texts if text.startswith("Daily summary for billing:")]
+        self.assertEqual(len(summaries), 1)
+        self.assertIn("- finished: UIB-1 (review)", summaries[0])
+        self.assertIn("- cost of the runs that ended: $0.25", summaries[0])
+        self.assertEqual(self.ok("watch", "digest", "--off"), {"daily_summary": "off"})
+        self.assertIn("must look like 09:00", self.command("watch", "digest", "--at", "9")[2])
+
+    def test_old_events_are_forgotten_with_their_folders_but_do_not_come_back(self) -> None:
+        self.watched_project()
+        self.issues = [issue("UIB-1", minutes_ago=30)]
+        project_watch.cycle()
+        self.wait_for_runs()
+        with patch.object(project_watch, "_tell"):
+            project_watch.cycle(read_tracker=False)
+        run_dir = Path(self.by_id()[1]["run_dir"])
+        long_ago = project_watch._stamp(NOW - timedelta(days=40))
+        self.closed = {"UIB-1"}
+        with project_watch._state() as state:
+            state["events"][0].update(found=long_ago, finished=long_ago)
+
+        project_watch.cycle()
+
+        self.assertEqual(self.by_id(), {})
+        self.assertFalse(run_dir.exists())
+        self.assertEqual(project_watch.poll(NOW)["new"], [])   # the same move is still known
+
+    def test_working_copy_of_a_chat_goes_when_its_ticket_is_closed_and_the_chat_is_gone(self) -> None:
+        def git(*arguments: str) -> None:
+            subprocess.run(["git", "-C", str(self.repo), *arguments], check=True, capture_output=True)
+        git("init", "-q")
+        git("-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "--allow-empty", "-m", "start")
+        copies = {name: self.repo / ".claude" / "worktrees" / name for name in ("uib-1-review", "bridge-cse_1", "uib-3-dev")}
+        for name, folder in copies.items():
+            git("worktree", "add", "-q", "-b", f"worktree-{name}", str(folder))
+        self.watched_project()
+        for ticket, name, chat in (("UIB-1", "uib-1-review", "gone"), ("UIB-2", "bridge-cse_1", "gone"), ("UIB-3", "uib-3-dev", "alive")):
+            self.ok("ticket", "take", ticket, "--workflow", "review", "--cwd", str(copies[name]), "--chat", chat)
+            self.ok("ticket", "release", ticket, "--chat", chat)
+        self.live = {"project-chat", "alive"}
+        self.closed = {"UIB-1", "UIB-2", "UIB-3"}
+
+        lines = project_watch.cycle()
+
+        self.assertEqual(lines, [f"UIB-1: closed in the tracker, {copies['uib-1-review']} removed"])
+        self.assertEqual([folder.is_dir() for folder in copies.values()], [False, True, True])
+        record = (self.home / "tickets" / "UIB-2.md").read_text()
+        self.assertIn("the application that made this copy removes it", record)
+        self.assertEqual(project_watch.cycle(), [])
+
     def test_pause_stops_polling_and_resume_holds_what_came_in(self) -> None:
         self.watched_project()
 
@@ -861,7 +987,7 @@ run:
             project_watch.cycle()
 
         report = self.home / "project-billing" / "reports" / f"{project_watch._stamp()[:10]}-UIB-1-review.md"
-        self.assertEqual(tell.call_args.args[1:], (
+        self.assertEqual((tell.call_args.args[1], tell.call_args.args[3]), (
             "billing", f'UIB-1: review report ready, started by the trigger "my review". {report}'))
         event = project_watch.events(None, True)["events"][0]
         self.assertEqual(event["state"], "finished")
@@ -882,7 +1008,7 @@ run:
         self.assertEqual(event["state"], "failed")
         self.assertIn("boom: no credentials", event["note"])
         self.assertIn("boom: no credentials", lines[0])
-        self.assertIn("`agent-projects watch start 1` starts it again", tell.call_args.args[2])
+        self.assertIn("`agent-projects watch start 1` starts it again", tell.call_args.args[3])
         self.assertIn("review run from the trigger", self.ok("status")["tickets"][0]["last_event"])
 
         os.environ["FAKE_MODE"] = "ok"

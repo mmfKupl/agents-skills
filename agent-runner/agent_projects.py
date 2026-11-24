@@ -237,6 +237,11 @@ def ticket_take(
             meta["taken"].append(mine)
         changed = mine.get("workflow") != workflow
         mine.update({"workflow": workflow, "cwd": cwd or os.getcwd(), **({"title": title} if title else {})})
+        # A working copy that Claude Code made for the chat is remembered after the
+        # release too, so that it can be removed once the ticket is closed.
+        copies = meta.setdefault("copies", [])
+        if "/.claude/worktrees/" in f"{mine['cwd']}/" and all(copy.get("cwd") != mine["cwd"] for copy in copies):
+            copies.append({"cwd": mine["cwd"], "chat": chat["id"]})
         if project and project not in meta["projects"]:
             meta["projects"].append(project)
         if changed:
@@ -359,7 +364,9 @@ def status(project: str | None) -> dict[str, Any]:
 
     waiting = project_watch.events(project, False)
     return {"home": str(root), **({"project": project} if project else {"projects": _project_names(root)}),
-            "tickets": tickets, "trigger_events": waiting["events"], "watching": waiting["watching"]}
+            "tickets": tickets, "trigger_events": waiting["events"], "queue": waiting["queue"],
+            **({"undelivered": waiting["undelivered"]} if waiting.get("undelivered") else {}),
+            "watching": waiting["watching"]}
 
 
 def _argument_parser() -> argparse.ArgumentParser:

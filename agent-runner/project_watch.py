@@ -23,6 +23,7 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterator
+from zoneinfo import ZoneInfo
 
 import agent_projects as projects
 import run_chat
@@ -37,6 +38,12 @@ SERVICE = "agent-projects-watch.service"
 # local files, so the loop does them every tick.
 READ_SECONDS = 600.0
 TICK_SECONDS = 60.0
+# Matches wait in a queue, and at most this many runs go at once; `watch limit` changes it.
+RUN_LIMIT = 3
+# An event that is over, with its folders, is forgotten after this many days.
+KEEP_DAYS = 30
+# When the project chat is closed, a new one is started at most this often.
+TAKEOVER_HOURS = 6
 # Status types that mean a ticket is over: Done, Canceled, Won't do, Duplicate.
 CLOSED_TYPES = ("completed", "canceled", "duplicate")
 # `develop-please` moves a ticket under the developer's account as soon as an agent takes
@@ -590,7 +597,7 @@ def _read_state(root: Path) -> dict[str, Any]:
     state = projects._load_mapping(path) if path.is_file() else {}
     for key in ("events", "problems"):
         state.setdefault(key, [])
-    for key in ("baseline", "since", "read_until", "closed_tickets"):
+    for key in ("baseline", "since", "read_until", "closed_tickets", "seen", "undelivered", "takeover", "digest"):
         # `baseline` and `closed_tickets` were lists in the first version of this file.
         if not isinstance(state.get(key), dict):
             state[key] = {}
@@ -647,7 +654,7 @@ def poll(now: datetime | None = None) -> dict[str, Any]:
             for item in project["triggers"]:
                 named.setdefault((str(ticket).upper(), item), name)
     with _state() as state:
-        known = {event["key"] for event in state["events"]}
+        known = {event["key"] for event in state["events"]} | set(state["seen"])
         pairs = [f"{name}|{trigger['name']}" for name, active in plans.items() for trigger in active]
         # What already matched when a trigger was turned on, or what came in during a
         # pause, is the developer's call, not an automatic start.
@@ -986,22 +993,172 @@ def _finish(event: dict[str, Any], root: Path, quiet: bool) -> str | None:
     return f"{label} failed: {event['note']}. `agent-projects watch start {event['id']}` starts it again."
 
 
-def _tell(root: Path, project_name: str, text: str) -> None:
+def _tell(root: Path, project_name: str, project: dict[str, Any], text: str) -> None:
     """Pass a line to the project chat. Only a chat can message a chat, so a small one does it."""
-    _, project = projects._load_project(root, project_name)
-    chat = project.get("chat") or {}
-    if chat.get("host") != "claude" or not chat.get("title"):
-        return
     prompt = (
         "Send one message to another chat on this machine, then stop.\n\n"
         "1. The tool is SendMessage. If it is not loaded, load it with ToolSearch: `select:SendMessage,ListAgents`.\n"
-        f"2. Send the text between the two lines of dashes, unchanged, to the chat named \"{chat['title']}\".\n"
+        f"2. Send the text between the two lines of dashes, unchanged, to the chat named \"{project['chat']['title']}\".\n"
         "3. If the tool refuses or finds no such chat, run ListAgents once and answer with what it showed. "
         "Try nothing else.\n\n"
         f"---\n{text}\n---\n"
     )
     run_dir = _fresh(projects._project_dir(root, project_name) / "runs" / f"{_stamp()[:10]}-message")
     _spawn_chat(project["repository"], "haiku", "low", prompt, run_dir)
+
+
+def _live_chats() -> set[str] | None:
+    """The Claude Code chats that run on this machine, by session id; None when they
+    cannot be listed."""
+    try:
+        listed = subprocess.run([run_chat._binary("claude"), "agents", "--json"], stdin=subprocess.DEVNULL,
+                                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, timeout=30)
+        return {str(row.get("sessionId")) for row in json.loads(listed.stdout)}
+    except (manifest.ManifestError, OSError, ValueError, AttributeError, TypeError, subprocess.TimeoutExpired):
+        return None
+
+
+def _takeover(root: Path, project_name: str, project: dict[str, Any]) -> None:
+    """Start a visible chat that becomes the project's chat, because the one on record
+    is closed and nothing can be told to it. The text is fixed: news is not put into it."""
+    title = f"R project: {project_name}"
+    prompt = (
+        f"/project-master {project_name}\n\n"
+        "Started by the watching script, not by the developer: the chat on record for this project is closed. "
+        "Take the project over: record this chat as the project's chat, as Setting up says, and answer in one line. "
+        "News that reached nobody will arrive here as a message in a few minutes."
+    )
+    folder = _fresh(projects._project_dir(root, project_name) / "runs" / f"{_stamp()[:10]}-new-project-chat")
+    folder.mkdir(parents=True)
+    with (folder / "claude.log").open("ab") as log:
+        subprocess.run([run_chat._binary("claude"), "--bg", "--remote-control", title, "--name", title, prompt],
+                       cwd=project["repository"], stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT, timeout=120)
+
+
+def _deliver(root: Path, state: dict[str, Any], project_name: str, text: str, live: set[str] | None) -> str | None:
+    """Send a line to the project chat. When that chat is closed, keep the line and
+    start a chat that takes the project over; the line follows once that chat is up.
+    Return a problem to report, if any."""
+    try:
+        _, project = projects._load_project(root, project_name)
+        chat = project.get("chat") or {}
+        if chat.get("host") == "claude" and chat.get("title") and (live is None or chat.get("id") in live):
+            _tell(root, project_name, project, text)
+            return None
+        state["undelivered"].setdefault(project_name, []).append({"at": _stamp(), "text": text})
+        recently = _stamp(datetime.now(timezone.utc) - timedelta(hours=TAKEOVER_HOURS))
+        if live is not None and state["takeover"].get(project_name, "") < recently:
+            state["takeover"][project_name] = _stamp()
+            _takeover(root, project_name, project)
+        return None
+    except (ProjectsError, manifest.ManifestError, OSError, KeyError, subprocess.TimeoutExpired) as error:
+        return f"could not tell the project chat of {project_name}: {error}"
+
+
+def _flush(root: Path, state: dict[str, Any], live: set[str] | None) -> None:
+    """Send the lines that waited for a project chat, once its chat runs again. A chat
+    that has just been started gets five minutes first: until then it cannot notify."""
+    settled = _stamp(datetime.now(timezone.utc) - timedelta(minutes=5))
+    for project_name, waiting in list(state["undelivered"].items()):
+        try:
+            _, project = projects._load_project(root, project_name)
+        except ProjectsError:
+            continue
+        chat = project.get("chat") or {}
+        if not waiting or live is None or chat.get("id") not in live or state["takeover"].get(project_name, "") > settled:
+            continue
+        lines = "\n".join(f"- {item['at']} {item['text']}" for item in waiting)
+        _tell(root, project_name, project, f"{len(waiting)} lines waited while the project chat was closed:\n{lines}")
+        del state["undelivered"][project_name]
+
+
+def _summary(state: dict[str, Any], project_name: str, since: str) -> str | None:
+    """What happened in a project since `since`, as text for its chat; None when nothing did."""
+    mine = [event for event in state["events"] if event["project"] == project_name]
+    finished = [event for event in mine if event["state"] == "finished" and event.get("finished", "") >= since]
+    failed = [event for event in mine if event["state"] == "failed" and event.get("finished", event["found"]) >= since]
+    held = [event for event in mine if event["state"] == "held"]
+    queued = [event for event in mine if event["state"] in ("waiting", "checking")]
+    running = [event for event in mine if event["state"] == "started"]
+    quiet = [event for event in mine if event["state"] == "skipped" and event["found"] >= since]
+    if not (finished or failed or held or queued or running or state["undelivered"].get(project_name)):
+        return None
+    cost = 0.0
+    for event in finished + failed:
+        try:
+            record = projects._load_mapping(Path(event.get("run_dir", "")) / "chat.yaml")
+            cost += sum(float(turn.get("cost_usd") or 0) for turn in record.get("turns") or [])
+        except (ProjectsError, OSError, TypeError, ValueError):
+            continue
+    lines = [f"Daily summary for {project_name}:"]
+    lines += [f"- finished: {event['ticket']} ({event['run']})" for event in finished]
+    lines += [f"- failed: {event['ticket']} ({event['run']}): {event.get('note')}; event {event['id']}" for event in failed]
+    if held:
+        lines.append(f"- waiting for the developer's word: {', '.join(sorted({event['ticket'] for event in held}))}")
+    if queued or running:
+        lines.append(f"- running now: {len(running)}; in the queue: {len(queued)}")
+    if quiet:
+        lines.append(f"- skipped or sorted as noise: {len(quiet)}")
+    if cost:
+        lines.append(f"- cost of the runs that ended: ${cost:.2f}")
+    return "\n".join(lines)
+
+
+def _digests(state: dict[str, Any], now: datetime) -> list[tuple[str, str]]:
+    """The daily summaries that are due: one per project, after the set time of day."""
+    digest = state["digest"]
+    if not digest.get("at"):
+        return []
+    local = now.astimezone(ZoneInfo(digest.get("timezone") or "UTC"))
+    if local.strftime("%H:%M") < digest["at"]:
+        return []
+    due = []
+    for project_name in sorted({event["project"] for event in state["events"]} | set(state["undelivered"])):
+        last = digest.setdefault("last", {}).get(project_name, {})
+        if last.get("day") == local.strftime("%Y-%m-%d"):
+            continue
+        text = _summary(state, project_name, last.get("at") or _stamp(now - timedelta(days=1)))
+        digest["last"][project_name] = {"day": local.strftime("%Y-%m-%d"), "at": _stamp(now)}
+        if text:
+            due.append((project_name, text))
+    return due
+
+
+def _prune(state: dict[str, Any], root: Path, now: datetime) -> None:
+    """Forget events that have been over for a long time, with their folders. Their keys
+    stay, so that the same move or comment is not taken for news again."""
+    old = _stamp(now - timedelta(days=KEEP_DAYS))
+    kept = []
+    for event in state["events"]:
+        over = event["state"] in ("finished", "failed", "skipped", "dismissed")
+        cleaned = not event.get("run_dir") or event.get("copy_removed") or event.get("copy_kept")
+        if not (over and cleaned and event.get("finished", event["found"]) < old):
+            kept.append(event)
+            continue
+        state["seen"][event["key"]] = event["found"]
+        for folder in (event.get("check_dir"), event.get("run_dir"), *event.get("earlier_runs", [])):
+            # Only folders of runs, inside the project files.
+            if folder and Path(folder).parent.name == "runs" and root in Path(folder).parents:
+                shutil.rmtree(folder, ignore_errors=True)
+    state["events"] = kept
+    for folder in root.glob("project-*/runs/*-message*"):
+        if _stamp(datetime.fromtimestamp(folder.stat().st_mtime, timezone.utc)) < old:
+            shutil.rmtree(folder, ignore_errors=True)
+
+
+def _git_remove(workspace: str, copy: str, branch: str | None) -> str | None:
+    """Remove one working copy of a repository. Return why it stays, when it does."""
+    def git(*arguments: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(["git", "-C", workspace, *arguments], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+
+    git("worktree", "unlock", copy)  # Claude Code leaves its working copy locked
+    # No --force: a copy with changes that are not committed stays for the developer.
+    removed = git("worktree", "remove", copy)
+    if removed.returncode != 0:
+        return f"{copy}: {(removed.stdout.strip().splitlines() or ['not removed'])[-1]}"
+    if branch:
+        git("branch", "-d", branch)
+    return None
 
 
 def _remove_copy(run_dir: Path) -> str | None:
@@ -1018,28 +1175,26 @@ def _remove_copy(run_dir: Path) -> str | None:
         # Only a copy named after the run is certainly the run's own. Codex names its
         # copies itself, and the one on record may belong to another run.
         return f"{copy}: not removed, because its name does not tie it to this run"
-
-    def git(*arguments: str) -> subprocess.CompletedProcess[str]:
-        return subprocess.run(["git", "-C", workspace, *arguments], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-
-    git("worktree", "unlock", copy)  # Claude Code leaves its working copy locked
-    # No --force: a copy with changes that are not committed stays for the developer.
-    removed = git("worktree", "remove", copy)
-    if removed.returncode != 0:
-        return f"{copy}: {(removed.stdout.strip().splitlines() or ['not removed'])[-1]}"
-    if record.get("worktree"):
-        git("branch", "-d", f"worktree-{record['worktree']}")
-    return None
+    return _git_remove(workspace, copy, f"worktree-{record['worktree']}")
 
 
-def _clean(state: dict[str, Any]) -> list[str]:
-    """Remove the working copies of ended runs whose tickets are over in the tracker.
-    Until then a copy stays, because the run may be continued with an answer."""
+def _clean(state: dict[str, Any], root: Path) -> list[str]:
+    """Remove working copies whose tickets are over in the tracker: those of trigger
+    runs, and those of chats that recorded the ticket. Until then a copy stays, because
+    the work may be continued."""
     ended = [event for event in state["events"] if event.get("run_dir") and event["state"] not in ("started", "waiting")
              and not event.get("copy_removed") and not event.get("copy_kept")]
-    if not ended:
+    recorded: dict[str, Path] = {}
+    for path in sorted((root / "tickets").glob("*.md")):
+        try:
+            meta = projects._load_ticket(path, path.stem)[0]
+        except ProjectsError:
+            continue
+        if any(not copy.get("removed") and not copy.get("kept") for copy in meta.get("copies") or []):
+            recorded[str(meta.get("ticket", path.stem)).upper()] = path
+    if not ended and not recorded:
         return []
-    closed = _closed(sorted({event["ticket"] for event in ended}))
+    closed = _closed(sorted({event["ticket"] for event in ended} | set(recorded)))
     lines = []
     for event in ended:
         if event["ticket"] not in closed:
@@ -1052,14 +1207,34 @@ def _clean(state: dict[str, Any]) -> list[str]:
         else:
             event["copy_removed"] = _stamp()
             lines.append(f"{event['ticket']}: closed in the tracker, working copy removed")
+    live = _live_chats() if any(ticket in closed for ticket in recorded) else None
+    for ticket, path in recorded.items():
+        if ticket not in closed or live is None:
+            continue  # with no list of running chats, a chat's copy is never touched
+        with projects._locked(path):
+            meta, body = projects._load_ticket(path, path.stem)
+            for copy in meta.get("copies") or []:
+                folder = Path(str(copy.get("cwd")))
+                if copy.get("removed") or copy.get("kept") or copy.get("chat") in live or meta["taken"]:
+                    continue
+                if folder.name.startswith("bridge-") or folder.parent.name != "worktrees" or folder.parent.parent.name != ".claude":
+                    copy["kept"] = "the application that made this copy removes it"
+                elif not folder.is_dir():
+                    copy["removed"] = _stamp()
+                else:
+                    reason = _git_remove(str(folder.parents[2]), str(folder), f"worktree-{folder.name}")
+                    copy.update({"kept": reason} if reason else {"removed": _stamp()})
+                    lines.append(f"{ticket}: " + (f"working copy kept ({reason})" if reason else f"closed in the tracker, {folder} removed"))
+            projects._save_ticket(path, meta, body)
     return lines
 
 
 def cycle(read_tracker: bool = True) -> list[str]:
-    """One round of the loop: read the tracker when it is time, start what waits, close
-    what ended."""
+    """One round of the loop: read the tracker when it is time, start what waits while
+    there is room, close what ended, and tell the project chats."""
     root = projects._require_home()
     since = paused()
+    now = datetime.now(timezone.utc)
     found = poll() if read_tracker else {"paused": since} if since else {}
     lines = [f"{event['ticket']}: {event['state']} for {event['trigger']} ({event['what']})"
              for event in found.get("new", [])]
@@ -1067,21 +1242,33 @@ def cycle(read_tracker: bool = True) -> list[str]:
     to_tell: list[tuple[str, str]] = []
     with _state() as state:
         state["loop"] = _stamp()
+        limit = int(state.get("limit") or RUN_LIMIT)
         if read_tracker and not since:
             try:
-                lines += _clean(state)
+                lines += _clean(state, root)
+                _prune(state, root, now)
             except ProjectsError as error:
                 state["problems"].append(f"working copies were not cleaned: {error}")
+        # The events that wait are the queue: the oldest starts first, while fewer
+        # than the limit run. Checks have a queue of their own with the same limit.
+        running = sum(event["state"] == "started" for event in state["events"])
+        checking = sum(event["state"] == "checking" and bool(event.get("check_pid")) for event in state["events"])
         for event in state["events"]:
             before = event["state"]
             try:
-                if before == "checking" and (event.get("check_pid") or not paused()):
+                if before == "checking" and event.get("check_pid"):
                     _check(event, root, triggers)
-                elif before == "waiting" and not paused():
+                    checking -= not event.get("check_pid")
+                elif before == "checking" and checking < limit and not paused():
+                    _check(event, root, triggers)
+                    checking += bool(event.get("check_pid"))
+                elif before == "waiting" and running < limit and not paused():
                     _start(event, root, triggers)
+                    running += event["state"] == "started"
                 elif before == "started":
                     run = ((triggers.get(event["trigger"]) or {}).get("run") or {}).get(event["run"])
                     line = _finish(event, root, isinstance(run, dict) and run.get("quiet") is True)
+                    running -= event["state"] != "started"
                     if line:
                         to_tell.append((event["project"], line))
             except Exception as error:  # noqa: BLE001 - one broken event must not stop the rest
@@ -1090,12 +1277,24 @@ def cycle(read_tracker: bool = True) -> list[str]:
             if event["state"] != before:
                 did = f"check picked {event.get('run')}, now" if before == "checking" else f"{event['run']} run"
                 lines.append(f"{event['ticket']}: {did} {event['state']}" + (f" ({event['note']})" if event.get("note") else ""))
+        # A burst is worth a word at once: the developer may want to drop part of it.
+        fresh: dict[str, int] = {}
+        for event in found.get("new", []):
+            fresh[event["project"]] = fresh.get(event["project"], 0) + (event["state"] in ("waiting", "checking"))
+        to_tell += [(name, f"{count} new events are in the queue for {name}; at most {limit} runs go at once. "
+                           f"`agent-projects watch list --project {name}` shows them, and `watch dismiss` drops any.")
+                    for name, count in fresh.items() if count > limit]
+        to_tell += _digests(state, now)
         problems = list(state["problems"])
-    for project_name, line in to_tell:
-        try:
-            _tell(root, project_name, line)
-        except (ProjectsError, OSError) as error:
-            problems.append(f"could not tell the project chat of {project_name}: {error}")
+        if to_tell or state["undelivered"]:
+            live = _live_chats()
+            for project_name, line in to_tell:
+                problem = _deliver(root, state, project_name, line, live)
+                problems += [problem] if problem else []
+            try:
+                _flush(root, state, live)
+            except (ProjectsError, manifest.ManifestError, OSError) as error:
+                problems.append(f"lines that waited could not be sent: {error}")
     for pid in list(_children):
         _alive(pid)
     return lines + [f"problem: {problem}" for problem in problems]
@@ -1205,8 +1404,46 @@ def events(project: str | None, everything: bool) -> dict[str, Any]:
     state = _read_state(projects._require_home())
     chosen = [_public(event) for event in state["events"]
               if (everything or event["state"] in OPEN_STATES) and project in (None, event["project"])]
-    return {"events": chosen, "polled": state.get("polled"), "watching": _watching(state),
+    waiting = {name: lines for name, lines in state["undelivered"].items() if lines and project in (None, name)}
+    return {"events": chosen, "queue": _queue(state), "polled": state.get("polled"), "watching": _watching(state),
+            **({"undelivered": waiting} if waiting else {}),
             **({"problems": state["problems"]} if state["problems"] else {})}
+
+
+def _queue(state: dict[str, Any]) -> dict[str, int]:
+    count = {name: sum(event["state"] == name for event in state["events"]) for name in ("started", "waiting", "checking")}
+    return {"running": count["started"], "waiting": count["waiting"] + count["checking"],
+            "limit": int(state.get("limit") or RUN_LIMIT)}
+
+
+def limit(number: int | None) -> dict[str, Any]:
+    """Show, or set, how many runs may go at once on this machine."""
+    if number is not None and number < 1:
+        raise ProjectsError("the limit must be 1 or more; `agent-projects pause` stops everything")
+    with _state() as state:
+        if number is not None:
+            state["limit"] = number
+        return {"queue": _queue(state)}
+
+
+def digest(at: str | None, zone: str | None, off: bool) -> dict[str, Any]:
+    """Show, set, or turn off the daily summary that each project chat gets."""
+    if at is not None and not re.fullmatch(r"([01][0-9]|2[0-3]):[0-5][0-9]", at):
+        raise ProjectsError("the time must look like 09:00")
+    if zone is not None:
+        try:
+            ZoneInfo(zone)
+        except (KeyError, ValueError) as error:
+            raise ProjectsError(f"unknown time zone {zone!r}; use a name such as Europe/Warsaw") from error
+    with _state() as state:
+        if off:
+            state["digest"].pop("at", None)
+        if at is not None:
+            state["digest"]["at"] = at
+        if zone is not None:
+            state["digest"]["timezone"] = zone
+        chosen = state["digest"]
+        return {"daily_summary": f"{chosen['at']} {chosen.get('timezone') or 'UTC'}" if chosen.get("at") else "off"}
 
 
 def decide(ids: list[int], target: str) -> dict[str, Any]:
@@ -1324,6 +1561,12 @@ def add_commands(commands: Any, project: Any) -> None:
     watch.add_parser("start", help="let the watching loop start held, failed, or skipped events").add_argument(
         "ids", nargs="+", type=int)
     watch.add_parser("dismiss", help="drop events without running them").add_argument("ids", nargs="+", type=int)
+    watch.add_parser("limit", help="show or set how many runs may go at once; the rest wait in the queue").add_argument(
+        "number", nargs="?", type=int)
+    summary_parser = watch.add_parser("digest", help="show, set, or turn off the daily summary for each project chat")
+    summary_parser.add_argument("--at", help="time of day, such as 09:00")
+    summary_parser.add_argument("--timezone", help="such as Europe/Warsaw; UTC when not given")
+    summary_parser.add_argument("--off", action="store_true")
     watch.add_parser("install", help="keep `watch run` running as a systemd user service")
     watch.add_parser("uninstall", help="stop and remove that service")
 
@@ -1345,4 +1588,8 @@ def run(args: argparse.Namespace) -> dict[str, Any] | str:
         return events(args.project, args.all)
     if args.action in ("start", "dismiss"):
         return decide(args.ids, "waiting" if args.action == "start" else "dismissed")
+    if args.action == "limit":
+        return limit(args.number)
+    if args.action == "digest":
+        return digest(args.at, args.timezone, args.off)
     return install() if args.action == "install" else uninstall()

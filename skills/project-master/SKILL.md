@@ -59,7 +59,9 @@ On the first `$project-master` in a chat:
 
 1. Look for the project with `agent-projects project list`. An error saying that the
    folder does not exist means there are no projects yet. If the developer named a
-   project the list shows, read it with `project show` and go to step 4.
+   project the list shows, read it with `project show`, record this chat as the
+   project's chat with the `project chat` command of step 3, and go to step 4. A
+   project has one chat: the latest that opened it.
 2. Otherwise work out the new project from the developer's message and the
    repository, asking only what neither answers:
    - a short name in lowercase with dashes, such as `billing`;
@@ -212,6 +214,19 @@ When the developer asks which triggers there are, or which are on, run
 the developer": first the triggers that are on in this project, then the others this
 machine has.
 
+Matches wait in a queue, and at most three runs go at once on the machine, so that a
+burst, such as thirty tickets moved at one time, does not start thirty reviews.
+`agent-projects watch limit <n>` changes the number, and `queue` in the status shows
+how many run and how many wait. When a line says that many new events are in the
+queue, tell the developer in one line how many and for which trigger, and offer to
+drop some with `agent-projects watch dismiss <id>...`.
+
+Once a day each project chat can get a summary: what finished, what failed, what
+waits for the developer, and what the runs cost.
+`agent-projects watch digest --at 09:00 --timezone Europe/Warsaw` turns it on for the
+machine, and `--off` turns it off. When a message starts with `Daily summary`, pass
+it on in a few lines, starting with what needs the developer, and notify them.
+
 Some events go through a check first: a cheap model reads a comment and sorts it,
 for example into "the author answered" or "noise", and only then something starts.
 Such an event shows as `checking`, then with the outcome the check picked as its
@@ -229,6 +244,22 @@ Results says. To send the developer's answer to that run, write the answer to a 
 and run this in the background, with `run_dir` from `agent-projects watch list --all`:
 `agent-run-manifest chat-resume <run_dir> --prompt-file <file>`. The command lives next
 to `agent-projects`.
+
+## When the watching script starts or wakes this chat
+
+The script tells a project's chat about runs. When that chat is closed, it keeps the
+lines, starts a new chat with `$project-master <project>`, and says so in the first
+message: "Started by the watching script". Then:
+
+- record this chat as the project's chat, as step 1 of Setting up says, and answer in
+  one line that this chat now manages the project. Skip the list of tickets and the
+  question about triggers: nobody is here to read them;
+- a few minutes later a message arrives that starts with "lines waited while the
+  project chat was closed". Treat each line as Results says, in one answer, and
+  notify the developer once.
+
+`undelivered` in the status lists lines that have reached no chat yet. Show them
+first when the developer asks where things stand.
 
 ## Questions about the project
 

@@ -353,6 +353,8 @@ agent-projects watch poll                            # read Linear once; starts 
 agent-projects watch list                            # events that are not over
 agent-projects watch start 3 4                       # let the loop start held events
 agent-projects watch dismiss 5
+agent-projects watch limit 3                         # how many runs may go at once
+agent-projects watch digest --at 09:00 --timezone Europe/Warsaw   # daily summary; --off
 agent-projects watch install                         # keep the loop running (systemd)
 agent-projects pause                                 # and: agent-projects resume
 ```
@@ -426,6 +428,29 @@ agent-projects pause                                 # and: agent-projects resum
   they go into a prompt, and the text of a ticket or comment reaches only the check,
   between fences that hold a random word. Working copies are removed only when they
   are named after the run, which is true for Claude Code and not for Codex.
+- The events that wait are a queue. The loop starts the oldest first, and only while
+  fewer than the limit run: three unless `watch limit <n>` says otherwise. Checks
+  have a queue of their own with the same limit. A reading that adds more events
+  than the limit also sends the project chat one line, so that the developer can
+  drop part of a burst.
+- Before a line goes to a project chat, the loop lists the chats that run on the
+  machine (`claude agents --json`). When the project's chat is not among them, the
+  line is kept (`undelivered` in `agent-projects status`), and the loop starts a
+  visible chat with Remote Control and the fixed text `/project-master <project>`,
+  at most once in six hours per project. That chat records itself as the project's
+  chat; five minutes later the loop sends it the lines that waited, and it notifies
+  the developer. News is never put into the text that starts a chat.
+- `watch digest --at <HH:MM> [--timezone <name>]` turns on a daily summary: after
+  that time of day, each project whose runs did something gets one message with
+  what finished, what failed, what waits for the developer, and what the runs cost.
+- An event that has been over for thirty days is forgotten with its folders; its key
+  stays, so the same move or comment is not taken for news again. Old message
+  folders go the same way.
+- `ticket take` remembers a working copy that Claude Code made for the chat
+  (`.claude/worktrees/<name>`). Once the ticket is closed, nobody holds it, and the
+  chat that made the copy no longer runs, the loop removes the copy, without force.
+  A copy named `bridge-...` belongs to a chat made from the Claude app and is left
+  to the app.
 - `pause` creates `agent-projects/paused`. While it is there, nothing is read from
   the tracker and nothing starts; runs already going finish.
 - The Linear key is read from `~/.config/agent-projects/linear-api-key`

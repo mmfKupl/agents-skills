@@ -31,7 +31,12 @@ LINEAR_URL = "https://api.linear.app/graphql"
 KEY_VARIABLE = "AGENT_PROJECTS_LINEAR_KEY_FILE"
 TRIGGERS_VARIABLE = "AGENT_PROJECTS_TRIGGERS"
 SERVICE = "agent-projects-watch.service"
-INTERVAL_SECONDS = 60.0
+# The tracker is read this often. Starting what waits and closing what ended need only
+# local files, so the loop does them every tick.
+READ_SECONDS = 600.0
+TICK_SECONDS = 60.0
+# Status types that mean a ticket is over: Done, Canceled, Won't do, Duplicate.
+CLOSED_TYPES = ("completed", "canceled", "duplicate")
 # `develop-please` moves a ticket under the developer's account as soon as an agent takes
 # it. A status change is acted on only after this long, so that the chat that took the
 # ticket has written its record.
@@ -206,17 +211,32 @@ def _current_user(state: dict[str, Any]) -> str:
     return user["id"]
 
 
+def _ticket_filters(tickets: list[Any]) -> list[dict[str, Any]]:
+    """Linear filters that pick tickets by number, one per team."""
+    numbers: dict[str, list[int]] = {}
+    for ticket in tickets:
+        parts = re.fullmatch(r"([A-Za-z][A-Za-z0-9]*)-([0-9]+)", str(ticket))
+        if parts:
+            numbers.setdefault(parts[1].upper(), []).append(int(parts[2]))
+    return [{"team": {"key": {"eq": team}}, "number": {"in": chosen}} for team, chosen in sorted(numbers.items())]
+
+
+def _closed(tickets: list[str]) -> set[str]:
+    """Which of the tickets are over in the tracker."""
+    found: set[str] = set()
+    query = "query($filter: IssueFilter) { issues(filter: $filter, first: 100) { nodes { identifier state { type } } } }"
+    for ticket_filter in _ticket_filters(tickets):
+        nodes = linear(query, {"filter": ticket_filter})["issues"]["nodes"]
+        found.update(node["identifier"] for node in nodes if node["state"]["type"] in CLOSED_TYPES)
+    return found
+
+
 def _issues(scope: dict[str, Any], statuses: list[str]) -> list[dict[str, Any]]:
     """Every ticket the project covers that is now in one of the statuses."""
     filters: list[dict[str, Any]] = []
     if scope.get("linear_project"):
         filters.append({"project": {"name": {"eq": str(scope["linear_project"])}}})
-    numbers: dict[str, list[int]] = {}
-    for ticket in scope.get("tickets") or []:
-        parts = re.fullmatch(r"([A-Za-z][A-Za-z0-9]*)-([0-9]+)", str(ticket))
-        if parts:
-            numbers.setdefault(parts[1].upper(), []).append(int(parts[2]))
-    filters += [{"team": {"key": {"eq": team}}, "number": {"in": chosen}} for team, chosen in sorted(numbers.items())]
+    filters += _ticket_filters(scope.get("tickets") or [])
     if not filters:
         raise ProjectsError("its scope names no Linear project and no tickets")
     found: dict[str, dict[str, Any]] = {}
@@ -291,13 +311,19 @@ def poll(now: datetime | None = None) -> dict[str, Any]:
     now = now or datetime.now(timezone.utc)
     triggers, problems = load_triggers()
     new: list[dict[str, Any]] = []
+    watched = {name: projects._load_project(root, name)[1] for name in projects._project_names(root)}
+    watched = {name: project for name, project in watched.items() if project.get("triggers")}
+    # A ticket goes to one project per trigger. The project that names it by number wins
+    # over one that covers a whole tracker project; otherwise the first by name gets it.
+    named: dict[tuple[str, str], str] = {}
+    for name, project in watched.items():
+        for ticket in (project.get("scope") or {}).get("tickets") or []:
+            for item in project["triggers"]:
+                named.setdefault((str(ticket).upper(), item), name)
     with _state() as state:
         known = {event["key"] for event in state["events"]}
-        for name in projects._project_names(root):
-            _, project = projects._load_project(root, name)
-            wanted = project.get("triggers") or []
-            if not wanted:
-                continue
+        for name, project in watched.items():
+            wanted = project["triggers"]
             active = [triggers[item] for item in wanted if item in triggers]
             problems += [f"project {name}: no trigger named {item!r}" for item in wanted if item not in triggers]
             if not active:
@@ -318,7 +344,7 @@ def poll(now: datetime | None = None) -> dict[str, Any]:
                 first = pair not in state["baseline"]
                 for issue in issues:
                     moves = [node for node in issue["history"]["nodes"] if node.get("toState")]
-                    if not moves:
+                    if not moves or named.get((issue["identifier"].upper(), trigger["name"]), name) != name:
                         continue
                     move = max(moves, key=lambda node: node["createdAt"])
                     hit = next(((index, entry) for index, entry in enumerate(trigger["on_any"])
@@ -437,6 +463,8 @@ def _start(event: dict[str, Any], root: Path, triggers: dict[str, dict[str, Any]
     except (ProjectsError, manifest.ManifestError, OSError, KeyError) as error:
         event.update(state="failed", note=f"could not start: {error}")
         return
+    if event.get("run_dir"):
+        event.setdefault("earlier_runs", []).append(event["run_dir"])
     event.update(state="started", started=_stamp(), run_dir=str(run_dir), pid=pid)
     event.pop("note", None)
 
@@ -490,16 +518,70 @@ def _tell(root: Path, project_name: str, text: str) -> None:
     _spawn_chat(project["repository"], "haiku", "low", prompt, run_dir)
 
 
-def cycle() -> list[str]:
-    """One round of the loop: read the tracker, start what waits, close what ended."""
+def _remove_copy(run_dir: Path) -> str | None:
+    """Remove the working copy a run worked in. Return why it stays, when it does."""
+    record_path = run_dir / "chat.yaml"
+    try:
+        record = projects._load_mapping(record_path) if record_path.is_file() else {}
+    except ProjectsError:
+        record = {}
+    workspace, copy = record.get("workspace"), record.get("cwd")
+    if not workspace or not copy or copy == workspace or not Path(copy).is_dir():
+        return None
+
+    def git(*arguments: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(["git", "-C", workspace, *arguments], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+
+    git("worktree", "unlock", copy)  # Claude Code leaves its working copy locked
+    # No --force: a copy with changes that are not committed stays for the developer.
+    removed = git("worktree", "remove", copy)
+    if removed.returncode != 0:
+        return f"{copy}: {(removed.stdout.strip().splitlines() or ['not removed'])[-1]}"
+    if record.get("worktree"):
+        git("branch", "-d", f"worktree-{record['worktree']}")
+    return None
+
+
+def _clean(state: dict[str, Any]) -> list[str]:
+    """Remove the working copies of ended runs whose tickets are over in the tracker.
+    Until then a copy stays, because the run may be continued with an answer."""
+    ended = [event for event in state["events"] if event.get("run_dir") and event["state"] not in ("started", "waiting")
+             and not event.get("copy_removed") and not event.get("copy_kept")]
+    if not ended:
+        return []
+    closed = _closed(sorted({event["ticket"] for event in ended}))
+    lines = []
+    for event in ended:
+        if event["ticket"] not in closed:
+            continue
+        kept = [reason for reason in (_remove_copy(Path(folder)) for folder in (*event.get("earlier_runs", []), event["run_dir"]))
+                if reason]
+        if kept:
+            event["copy_kept"] = "; ".join(kept)
+            lines.append(f"{event['ticket']}: working copy kept ({event['copy_kept']})")
+        else:
+            event["copy_removed"] = _stamp()
+            lines.append(f"{event['ticket']}: closed in the tracker, working copy removed")
+    return lines
+
+
+def cycle(read_tracker: bool = True) -> list[str]:
+    """One round of the loop: read the tracker when it is time, start what waits, close
+    what ended."""
     root = projects._require_home()
-    found = poll()
+    since = paused()
+    found = poll() if read_tracker else {"paused": since} if since else {}
     lines = [f"{event['ticket']}: {event['state']} for {event['trigger']} ({event['what']})"
              for event in found.get("new", [])]
     triggers, _ = load_triggers()
     to_tell: list[tuple[str, str]] = []
     with _state() as state:
         state["loop"] = _stamp()
+        if read_tracker and not since:
+            try:
+                lines += _clean(state)
+            except ProjectsError as error:
+                state["problems"].append(f"working copies were not cleaned: {error}")
         for event in state["events"]:
             before = event["state"]
             if before == "waiting" and not found.get("paused"):
@@ -524,9 +606,13 @@ def cycle() -> list[str]:
 
 def run_loop(interval: float) -> None:
     said: list[str] = []
+    read_at: float | None = None
     while True:
+        read = read_at is None or time.monotonic() - read_at >= interval
+        if read:
+            read_at = time.monotonic()
         try:
-            lines = cycle()
+            lines = cycle(read)
         except ProjectsError as error:
             lines = [f"problem: {error}"]
         # A problem that stays is said once, not every round.
@@ -534,7 +620,7 @@ def run_loop(interval: float) -> None:
         said = [line for line in lines if line.startswith("problem: ")]
         for line in fresh:
             print(f"{_stamp()} {line}", file=sys.stderr, flush=True)
-        time.sleep(interval)
+        time.sleep(min(TICK_SECONDS, interval))
 
 
 # Commands
@@ -545,7 +631,7 @@ def _watching(state: dict[str, Any]) -> str:
     if since:
         return f"paused since {since}"
     loop = state.get("loop")
-    running = bool(loop) and (datetime.now(timezone.utc) - _time(loop)).total_seconds() < 5 * INTERVAL_SECONDS
+    running = bool(loop) and (datetime.now(timezone.utc) - _time(loop)).total_seconds() < 5 * TICK_SECONDS
     return "running" if running else "not running"
 
 
@@ -708,8 +794,9 @@ def add_commands(commands: Any, project: Any) -> None:
     watch = commands.add_parser("watch", help="read the tracker for triggers and start their runs").add_subparsers(
         dest="action", required=True)
     watch.add_parser("poll", help="read the tracker once and record what matched; starts nothing")
-    loop = watch.add_parser("run", help="keep watching: poll, start what waits, close what ended")
-    loop.add_argument("--interval", type=float, default=INTERVAL_SECONDS, help="seconds between rounds")
+    loop = watch.add_parser("run", help="keep watching: read the tracker, start what waits, close what ended")
+    loop.add_argument("--interval", type=float, default=READ_SECONDS,
+                      help="seconds between readings of the tracker; local work is done every minute")
     listing = watch.add_parser("list", help="print the events that are not over")
     listing.add_argument("--project")
     listing.add_argument("--all", action="store_true", help="also finished, skipped, and dismissed events")

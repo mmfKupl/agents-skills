@@ -276,7 +276,11 @@ writes the record.
 ## Watching script
 
 - One script per machine collects fresh changes for every project at once. It
-  uses no model.
+  uses no model. It runs as one service, which the first project chat that
+  turns a trigger on installs; later chats find it running.
+- It reads the tracker every ten minutes (the developer's choice on
+  2026-11-24). Starting what waits and noticing that a run ended need no
+  tracker and happen every minute.
 - Sources: Linear (status changes with who made them and from which status,
   assignee changes, comments) and GitHub pull requests of watched tickets
   (reviews and comments).
@@ -293,8 +297,15 @@ writes the record.
   under the developer's account. The script therefore acts on a status change
   only after a short delay, so that the chat that took the ticket has time to
   write its record.
-- A ticket goes to one project. A second project with the same scope gets a
-  warning at start.
+- A ticket goes to one project per trigger. The project that names the ticket
+  by number wins over one that covers a whole tracker project; otherwise the
+  first project by name gets it. A second project with the same scope gets a
+  warning when a trigger is turned on.
+- The working copy of a run that a trigger started is removed once its ticket
+  is closed in the tracker (Done, Canceled, Won't do, Duplicate). The developer
+  asked for this on 2026-11-24. Until then it stays, because the run may be
+  continued with an answer. A copy with changes that are not committed is
+  kept.
 - At project start the agent shows the tickets that already match and asks
   which to run. The script holds them: the first reading after a trigger is
   turned on, and the first after `resume`, starts nothing.
@@ -490,11 +501,12 @@ prompt); a run that fails; an answer sent to a run with `chat-resume`.
 - Opening a visible chat and sending a notification under Codex: not checked.
 - The length of the delay before the script acts on a status change. It is two
   minutes now, a guess.
-- Time from a status change to the notification: the delay, then up to a minute
-  to start, up to a minute to notice the end, and the small chat. About four
-  minutes on top of the run itself.
-- Working copies of finished trigger runs stay in the repository. Nothing removes
-  them yet, because a run may still be continued with an answer.
+- Time from a status change to the start of a run: up to ten minutes until the
+  next reading, then up to a minute. After the run, up to a minute to notice the
+  end, and the small chat that passes the line on.
+- Removing working copies of closed tickets is written and unit-tested, not yet
+  tried on the VM. Working copies of chats the developer started by hand are not
+  covered: the application removes those with the chat.
 - A trigger run works with approvals off, on text that anyone who can edit the
   ticket wrote. That is the same exposure as a review the developer starts by
   hand on the VM, but nobody watches it start.

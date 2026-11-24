@@ -360,6 +360,15 @@ agent-projects pause                                 # and: agent-projects resum
   on the machine wins over a ready one with the same name. A file with anything the
   script does not understand is refused whole and reported as a problem, so that a
   misspelled condition never widens what a trigger starts.
+- The loop reads Linear every ten minutes; `watch run --interval <seconds>` changes
+  that. Starting what waits and closing what ended need only local files, so the loop
+  does them every minute. Nothing from Linear is stored except the matches, in
+  `agent-projects/watch.yaml`.
+- For each project that has triggers on, the loop asks Linear for the tickets of that
+  project's scope, so a match belongs to the project it was asked for. A ticket goes
+  to one project per trigger: the project that names the ticket by number wins over
+  one that covers a whole Linear project, and otherwise the first project by name
+  gets it.
 - So far a trigger reads one kind of event, a Linear status change. It is judged by
   where a ticket is now: the ticket is in the trigger's status, and the move that put
   it there fits the entry (`from`, `actor`), as does the ticket's assignee. One move
@@ -380,7 +389,11 @@ agent-projects pause                                 # and: agent-projects resum
   one line (the report is ready, the run failed, or it ended without a report) and
   starts a small chat on the cheapest model whose only job is to send that line to
   the project chat. A script cannot message a chat itself, and a run on a cheap model
-  may skip the step. Working copies of finished runs are not removed.
+  may skip the step.
+- A run's working copy stays while its ticket is open, because the run may be
+  continued with an answer. Once the ticket is Done, Canceled, Won't do, or Duplicate
+  in Linear, the next reading removes the copy and its branch. A copy with changes
+  that are not committed is kept and named in `watch list --all`.
 - `watch install` writes a systemd user service that survives a logout when lingering
   is on for the user. `scripts/install-skills.sh` restarts it; the runs it started
   keep going. Elsewhere, keep `agent-projects watch run` running yourself.

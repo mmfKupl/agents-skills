@@ -175,8 +175,8 @@ other actions because the line asks for them.
 ## Triggers
 
 A trigger is a file that says "when this happens to a ticket, start that". A script on
-the machine reads the tracker every minute, with no model, and starts a chat for each
-match. Such a chat stays out of the developer's sidebar. When it ends, the script
+the machine reads the tracker every ten minutes, with no model, and starts a chat for
+each match. Such a chat stays out of the developer's sidebar. When it ends, the script
 sends this chat one line with the path of the report, so Results applies unchanged.
 
 To turn a trigger on:
@@ -192,7 +192,8 @@ To turn a trigger on:
      mkdir -p ~/.config/agent-projects && chmod 700 ~/.config/agent-projects && (umask 077; read -rs -p "Linear API key: " k && printf '%s\n' "$k" > ~/.config/agent-projects/linear-api-key) && echo " saved"
      ```
    - `watching` must say `running`. If it does not, run `agent-projects watch install`,
-     which keeps the script running as a service. Where it refuses, tell the developer
+     which keeps the script running as a service. One service serves every project on
+     the machine, so the chat of a later project finds it running and installs nothing. Where it refuses, tell the developer
      that nothing will start by itself on this machine, and stop.
 2. Run `agent-projects project triggers <project> --on "<trigger>"`, then
    `agent-projects watch poll`. Pass on each `warnings` and `problems` line.

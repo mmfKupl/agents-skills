@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -68,6 +69,7 @@ class ProjectWatchTests(unittest.TestCase):
         self.addCleanup(patcher.stop)
 
         self.issues: list[dict] = []
+        self.closed: set[str] = set()
         self.queries: list[dict] = []
         patcher = patch.object(project_watch, "linear", self.fake_linear)
         patcher.start()
@@ -77,6 +79,11 @@ class ProjectWatchTests(unittest.TestCase):
     def fake_linear(self, query: str, variables: dict | None = None, timeout: float = 30) -> dict:
         if "viewer" in query:
             return {"viewer": {"id": "me", "name": "Ivan"}}
+        if "history" not in query:
+            numbers = variables["filter"]["number"]["in"]
+            return {"issues": {"nodes": [
+                {"identifier": f"UIB-{number}", "state": {"type": "completed" if f"UIB-{number}" in self.closed else "started"}}
+                for number in numbers]}}
         self.queries.append(variables or {})
         statuses = variables["filter"]["state"]["name"]["in"]
         nodes = [item for item in self.issues if item["state"]["name"] in statuses]
@@ -253,6 +260,94 @@ class ProjectWatchTests(unittest.TestCase):
 
         self.assertEqual([item["identifier"] for item in found], ["UIB-1", "UIB-2"])
         self.assertEqual(linear.call_args_list[1].args[1]["after"], "next")
+
+    def test_ticket_named_by_number_goes_to_the_project_that_names_it(self) -> None:
+        self.watched_project()                                   # billing covers the whole Linear project
+        self.ok("project", "create", "hotfix", "--repository", str(self.repo), "--tracker", "linear",
+                "--ticket", "UIB-1")
+        self.ok("project", "triggers", "hotfix", "--on", "my review")
+        project_watch.poll(NOW)
+        self.issues = [issue("UIB-1", minutes_ago=30), issue("UIB-2", minutes_ago=30)]
+
+        found = project_watch.poll(NOW)["new"]
+
+        self.assertEqual([(event["ticket"], event["project"]) for event in found],
+                         [("UIB-2", "billing"), ("UIB-1", "hotfix")])
+
+    def test_naming_a_ticket_claims_it_only_for_the_triggers_that_project_has(self) -> None:
+        mine = self.root / "mine"
+        self.write_trigger(mine, (READY_TRIGGERS / "my-review.yaml").read_text().replace("name: my review", "name: other"))
+        os.environ[project_watch.TRIGGERS_VARIABLE] = os.pathsep.join((str(mine), str(READY_TRIGGERS)))
+        self.watched_project()
+        self.ok("project", "create", "hotfix", "--repository", str(self.repo), "--tracker", "linear",
+                "--ticket", "UIB-1")
+        self.ok("project", "triggers", "hotfix", "--on", "other")
+        project_watch.poll(NOW)
+        self.issues = [issue("UIB-1", minutes_ago=30)]
+
+        found = project_watch.poll(NOW)["new"]
+
+        self.assertEqual(sorted((event["project"], event["trigger"]) for event in found),
+                         [("billing", "my review"), ("hotfix", "other")])
+
+    def test_tracker_is_not_read_between_readings_but_waiting_events_start(self) -> None:
+        self.watched_project()
+        self.issues = [issue("UIB-1", minutes_ago=30)]
+        project_watch.poll(NOW)
+        self.queries.clear()
+
+        lines = project_watch.cycle(read_tracker=False)
+
+        self.assertEqual(self.queries, [])
+        self.assertEqual(lines, ["UIB-1: review run started"])
+
+    def run_with_working_copy(self) -> Path:
+        """An ended run whose chat worked in a working copy of the repository."""
+        def git(*arguments: str) -> None:
+            subprocess.run(["git", "-C", str(self.repo), *arguments], check=True, capture_output=True)
+        git("init", "-q")
+        git("-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "--allow-empty", "-m", "start")
+        copy = self.repo / ".claude" / "worktrees" / "uib-1-review-1"
+        git("worktree", "add", "-q", "-b", "worktree-uib-1-review-1", str(copy))
+        git("worktree", "lock", str(copy))
+        self.watched_project()
+        self.issues = [issue("UIB-1", minutes_ago=30)]
+        project_watch.poll(NOW)
+        run_dir = self.home / "project-billing" / "runs" / "one"
+        run_dir.mkdir(parents=True)
+        (run_dir / "chat.yaml").write_text(yaml.safe_dump(
+            {"workspace": str(self.repo), "cwd": str(copy), "worktree": "uib-1-review-1", "status": "completed"}))
+        with project_watch._state() as state:
+            state["events"][0].update(state="finished", run_dir=str(run_dir))
+        return copy
+
+    def test_working_copy_is_removed_once_the_ticket_is_closed(self) -> None:
+        copy = self.run_with_working_copy()
+
+        self.assertEqual(project_watch.cycle(), [])
+        self.assertTrue(copy.is_dir())                       # the ticket is still open
+
+        self.closed = {"UIB-1"}
+        self.assertEqual(project_watch.cycle(), ["UIB-1: closed in the tracker, working copy removed"])
+
+        self.assertFalse(copy.exists())
+        branches = subprocess.run(["git", "-C", str(self.repo), "branch", "--list", "worktree-*"],
+                                  capture_output=True, text=True).stdout
+        self.assertEqual(branches, "")
+        self.assertIn("copy_removed", project_watch.events(None, True)["events"][0])
+        self.assertEqual(project_watch.cycle(), [])
+
+    def test_working_copy_with_changes_is_kept(self) -> None:
+        copy = self.run_with_working_copy()
+        (copy / "notes.txt").write_text("not committed")
+        self.closed = {"UIB-1"}
+
+        lines = project_watch.cycle()
+
+        self.assertTrue(copy.is_dir())
+        self.assertIn("UIB-1: working copy kept", lines[0])
+        self.assertIn(str(copy), project_watch.events(None, True)["events"][0]["copy_kept"])
+        self.assertEqual(project_watch.cycle(), [])
 
     def test_pause_stops_polling_and_resume_holds_what_came_in(self) -> None:
         self.watched_project()

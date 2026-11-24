@@ -335,6 +335,9 @@ Where a chat shows up:
 
 - A run that a trigger started stays out of the sidebar.
 - A task the developer asked for by hand opens a chat in the sidebar.
+- Either kind shows in the project chat while it goes, as a background command
+  under Background tasks. See "Work that is going shows in the project chat"
+  under the build plan.
 
 Under Claude Code on the VM that is a launch without Remote Control and a
 launch with it.
@@ -551,6 +554,23 @@ On 2026-11-24 the developer asked for four more things, all written the same day
   filed report carries the section, the project chat says in one line how many
   suggestions it holds, and the project chat adds a `Suggestions:` line of its own
   only in an answer where friction showed.
+
+- Work that is going shows in the project chat. The developer asked on
+  2026-11-24, after a project chat had started two reviews and showed nothing
+  while they ran: "можно ли сделать чтобы была какая-то внутри чата карточка с
+  анимацией", "или чтобы было видно background tasks", "это нужно не только для
+  ревью а для вообще всех запусков работы", and "мы вот сейчас запускаем агента
+  через скрипт и потом тот агент пинает основного агента. и это ок. просто визуала
+  не хватает". So the delivery of results stays as it was, and the project chat
+  keeps one background command per piece of work: `agent-projects ticket wait`
+  for a step in a chat of its own, `agent-projects watch wait` for a run from a
+  trigger. The command lasts while the work goes and five minutes more; the chat
+  stops it when the line about the work arrives. For a run that starts by itself
+  the script now sends the project chat a line at the start, so that the chat can
+  show it: one more turn of the project chat per such run. Checked the same day
+  on the VM: the desktop app lists a background command of a Remote Control chat
+  under Background tasks with a timer and a stop button, the chat is woken when
+  the command ends by itself, and it is not woken when it stops the command.
 
 Left from the reviews:
 - About 22 lines that can be cut, and two commands nobody needs daily

@@ -4,6 +4,8 @@ import io
 import os
 import sys
 import tempfile
+import threading
+import time
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
@@ -105,6 +107,26 @@ class AgentProjectsTests(unittest.TestCase):
         created = self.ok("project", "create", "mine", "--repository", "/repo", "--tracker", "linear",
                           "--scope", "assignee=current_user")
         self.assertEqual(created["scope"], {"assignee": "current_user"})
+
+    def test_ticket_wait_lasts_while_a_chat_holds_the_ticket(self) -> None:
+        self.create_project()
+        said: list[str] = []
+        waiting = threading.Thread(target=lambda: said.append(agent_projects.ticket_wait("uib-1")))
+
+        with patch.object(agent_projects, "WAIT_SECONDS", 0.01), patch.object(agent_projects, "GRACE_SECONDS", 0.01):
+            waiting.start()
+            time.sleep(0.2)
+            self.assertTrue(waiting.is_alive())                      # the new chat has not recorded it yet
+            self.ok("ticket", "take", "UIB-1", "--workflow", "review")
+            time.sleep(0.2)
+            self.assertTrue(waiting.is_alive())                      # the step goes on
+            self.ok("ticket", "release", "UIB-1")
+            waiting.join(timeout=30)
+            with patch.object(agent_projects, "TAKE_SECONDS", 0):
+                self.assertEqual(agent_projects.ticket_wait("UIB-2"), "UIB-2: no chat has recorded it within 0 minutes.")
+
+        self.assertEqual(said, ["UIB-1: no chat holds it now. If no line about it has reached this chat, "
+                                "`agent-projects ticket show UIB-1` shows its last report."])
 
     def test_project_chat_records_the_calling_chat(self) -> None:
         self.create_project()

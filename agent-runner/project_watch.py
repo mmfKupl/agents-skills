@@ -52,6 +52,8 @@ CLOSED_TYPES = ("completed", "canceled", "duplicate")
 SETTLE_SECONDS = 120
 # What `watch list` shows without --all: everything that is not over.
 OPEN_STATES = ("held", "checking", "waiting", "started", "failed")
+# An event in one of these still moves by itself; `watch wait` lasts while it does.
+MOVING_STATES = ("checking", "waiting", "started")
 WHO = ("current_user", "not_current_user")
 STATUS, COMMENT, PULL = "status_changed", "comment_added", "pr_review_or_comment"
 # The fields an entry of each kind may hold, besides `source` and `event`.
@@ -632,7 +634,7 @@ def _state() -> Iterator[dict[str, Any]]:
 
 
 def _public(event: dict[str, Any]) -> dict[str, Any]:
-    return {key: value for key, value in event.items() if key not in ("key", "pid", "check_pid", "hold")}
+    return {key: value for key, value in event.items() if key not in ("key", "pid", "check_pid", "hold", "asked")}
 
 
 def poll(now: datetime | None = None) -> dict[str, Any]:
@@ -960,6 +962,12 @@ def _start(event: dict[str, Any], root: Path, triggers: dict[str, dict[str, Any]
         event.pop(key, None)
 
 
+def _quiet(event: dict[str, Any], triggers: dict[str, dict[str, Any]]) -> bool:
+    """Whether the event's run only keeps a record, so that the project chat is not told of it."""
+    run = ((triggers.get(event["trigger"]) or {}).get("run") or {}).get(event.get("run"))
+    return isinstance(run, dict) and run.get("quiet") is True
+
+
 def _finish(event: dict[str, Any], root: Path, quiet: bool) -> str | None:
     """Close a started event once its run has ended, and return the line for the project
     chat. The script sends it, because a run on a cheap model may skip that step. A
@@ -1279,9 +1287,13 @@ def cycle(read_tracker: bool = True) -> list[str]:
                 elif before == "waiting" and running < limit and not paused():
                     _start(event, root, triggers)
                     running += event["state"] == "started"
+                    # A run that started by itself is news to the project chat, which shows
+                    # it to the developer. One that a chat asked for is known there already.
+                    if event["state"] == "started" and not event.pop("asked", False) and not _quiet(event, triggers):
+                        to_tell.append((event["project"], f"{event['ticket']}: the {event['run']} run of the trigger "
+                                                          f"\"{event['trigger']}\" has started, as event {event['id']}."))
                 elif before == "started":
-                    run = ((triggers.get(event["trigger"]) or {}).get("run") or {}).get(event["run"])
-                    line = _finish(event, root, isinstance(run, dict) and run.get("quiet") is True)
+                    line = _finish(event, root, _quiet(event, triggers))
                     running -= event["state"] != "started"
                     if line:
                         to_tell.append((event["project"], line))
@@ -1460,6 +1472,32 @@ def digest(at: str | None, zone: str | None, off: bool) -> dict[str, Any]:
         return {"daily_summary": f"{chosen['at']} {chosen.get('timezone') or 'UTC'}" if chosen.get("at") else "off"}
 
 
+def wait(number: int) -> str:
+    """Last as long as an event moves, and then until its line has had time to reach the
+    project chat. A chat runs this in the background only to show the run among its
+    background tasks: the line still arrives as a message, and the chat then stops this
+    command. When it ends by itself, it says where the event stands."""
+    root = projects._require_home()
+
+    def find() -> dict[str, Any]:
+        event = next((item for item in _read_state(root)["events"] if item["id"] == number), None)
+        if event is None:
+            raise ProjectsError(f"no event {number}; `agent-projects watch list` shows them")
+        return event
+
+    event = find()
+    moved = event["state"] in MOVING_STATES
+    while event["state"] in MOVING_STATES:
+        time.sleep(projects.WAIT_SECONDS)
+        event = find()
+    if moved:
+        time.sleep(projects.GRACE_SECONDS)
+    return (f"{event['ticket']}: event {number} of the trigger \"{event['trigger']}\" is {event['state']}"
+            + (f" ({event['note']})" if event.get("note") else "")
+            + (f". If no line about it has reached this chat, `agent-projects status --project {event['project']}` "
+               "shows its report." if moved else ""))
+
+
 def decide(ids: list[int], target: str) -> dict[str, Any]:
     """Move events to `waiting`, which the watching loop starts, or to `dismissed`."""
     # Dismissing also frees an event whose check or run can no longer be reached.
@@ -1485,6 +1523,9 @@ def decide(ids: list[int], target: str) -> dict[str, Any]:
             # The developer has decided, so nothing holds the event after its check either.
             for key in ("note", "hold", "check_pid", "pid") if target == "dismissed" else ("note", "hold"):
                 by_id[number].pop(key, None)
+            if target == "waiting":
+                # Whoever asked knows of the run, so its start is not told to the project chat.
+                by_id[number]["asked"] = True
         changed = [_public(by_id[number]) for number in ids]
         watching = _watching(state)
     return {"events": changed, "watching": watching}
@@ -1575,6 +1616,8 @@ def add_commands(commands: Any, project: Any) -> None:
     watch.add_parser("start", help="let the watching loop start held, failed, or skipped events").add_argument(
         "ids", nargs="+", type=int)
     watch.add_parser("dismiss", help="drop events without running them").add_argument("ids", nargs="+", type=int)
+    watch.add_parser("wait", help="last while an event moves; a chat runs this in the background to show "
+                                  "the run").add_argument("id", type=int)
     watch.add_parser("limit", help="show or set how many runs may go at once; the rest wait in the queue").add_argument(
         "number", nargs="?", type=int)
     summary_parser = watch.add_parser("digest", help="show, set, or turn off the daily summary for each project chat")
@@ -1602,6 +1645,8 @@ def run(args: argparse.Namespace) -> dict[str, Any] | str:
         return events(args.project, args.all)
     if args.action in ("start", "dismiss"):
         return decide(args.ids, "waiting" if args.action == "start" else "dismissed")
+    if args.action == "wait":
+        return wait(args.id)
     if args.action == "limit":
         return limit(args.number)
     if args.action == "digest":

@@ -43,6 +43,7 @@ agents-skills repository.
 - `init`: create the folder; safe to repeat.
 - `project create | show | list | chat`: projects.
 - `ticket take | release | note | show`: who works on a ticket, and its history.
+- `ticket wait`, `watch wait`: last while work goes; see Showing work that is going.
 - `report add`: file a report into a project.
 - `status [--project <name>]`: every ticket with who holds it, its last event, and its
   last report; the trigger events that are not over; whether watching runs.
@@ -142,7 +143,8 @@ The developer may send only a ticket. Then:
 4. If two steps fit, or it is unclear what is wanted, ask one question. Otherwise
    start without asking.
 5. Start the step in a chat of its own, as the next section says.
-6. Tell the developer in two lines at most: the step, the title of its chat, and the
+6. Start the background command for the step, as Showing work that is going says.
+7. Tell the developer in two lines at most: the step, the title of its chat, and the
    reason for the step in a few words. For example: "Started a review of UIB-123 in
    the chat `W review: UIB-123 Billing limits`: PR #456 waits for your review. I will
    pass the outcome on here." Do not explain how to open the chat or what it is doing.
@@ -172,6 +174,27 @@ it to. Do not move it from here: moving another chat asks the developer for appr
 
 Start one chat per step. Never run the step inside this chat or in a subagent: the
 developer must be able to open it, and this chat must stay short.
+
+## Showing work that is going
+
+The developer wants to see in this chat what is going. So each piece of work gets one
+background command that lasts as long as the work does. It only shows the work:
+results still arrive as lines, as Results says.
+
+- A step in a chat of its own: `agent-projects ticket wait <ticket>`, right after
+  starting the chat.
+- A run from a trigger: `agent-projects watch wait <id>`. Start it right after
+  `agent-projects watch start`, when a line says that a run has started, and when a
+  turn of yours finds an event that is `checking`, `waiting`, or `started` and has no
+  such command in this chat yet.
+
+[`references/hosts.md`](references/hosts.md) says under "Show work that is going" how
+to start the command and how to stop it. When the line about that work arrives, stop
+its command first, so that its end does not wake this chat a second time. A command
+that ends by itself means that the work is over and no line came for five minutes:
+look at `agent-projects status --project <project>` and treat what you find as Results
+says. If you have passed that result on already, answer in one line that nothing is
+new.
 
 ## Results
 
@@ -224,6 +247,10 @@ To turn a trigger on:
    `agent-projects watch start <id>...` for the chosen ones and
    `agent-projects watch dismiss <id>...` for the rest. With none held, say that the
    trigger is on, in one line.
+
+When a line says that a run has started by itself, start its background command as
+Showing work that is going says, and tell the developer in one line which run started
+and why. Send no notification for it: nothing is needed from them.
 
 `--off "<trigger>"` turns a trigger off. For a new trigger, or a change to one, use
 `$project-trigger`.

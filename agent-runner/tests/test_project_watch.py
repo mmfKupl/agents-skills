@@ -6,6 +6,8 @@ import os
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from datetime import datetime, timedelta, timezone
@@ -496,7 +498,7 @@ class ProjectWatchTests(unittest.TestCase):
 
         project_watch.cycle(read_tracker=False)
         self.wait_for_runs()
-        call = json.loads(self.log.read_text().splitlines()[0])
+        call = next(item for item in map(json.loads, self.log.read_text().splitlines()) if "--worktree" in item["argv"])
         self.assertTrue(call["prompt"].startswith("/project-scope billing Report which review points the author closed"))
         self.assertIn("A check sorted this event as `author_answered`.", call["prompt"])
         self.assertEqual(call["argv"][call["argv"].index("--model") + 1], "claude-sonnet-5-5")
@@ -1015,10 +1017,10 @@ run:
         self.assertEqual(self.states(), {"UIB-1": "started"})
         self.assertIn("UIB-1: review run started", lines)
         self.wait_for_runs()
-        call = json.loads(self.log.read_text().splitlines()[0])
+        # The run, and the small chat that told the project chat of its start.
+        call = next(item for item in map(json.loads, self.log.read_text().splitlines()) if "--worktree" in item["argv"])
         self.assertTrue(call["prompt"].startswith("/project-scope billing /review-task UIB-1\n"))
         self.assertIn('Started by the trigger "my review": UIB-1 was moved from In Progress to In Review', call["prompt"])
-        self.assertIn("--worktree", call["argv"])
         self.assertIn("bypassPermissions", call["argv"])
         self.assertEqual(call["argv"][call["argv"].index("--model") + 1], "claude-opus-5-5")
 
@@ -1058,6 +1060,51 @@ run:
         self.assertEqual(self.states(), {"UIB-1": "started"})
         self.assertTrue(project_watch.events(None, True)["events"][0]["run_dir"].endswith("-2"))
 
+    def test_wait_lasts_while_the_run_goes_and_the_line_still_comes_as_a_message(self) -> None:
+        self.watched_project()
+        self.issues = [issue("UIB-1", minutes_ago=30)]
+        said: list[str] = []
+        waiting = threading.Thread(target=lambda: said.append(project_watch.wait(1)))
+
+        with patch.object(agent_projects, "WAIT_SECONDS", 0.01), patch.object(agent_projects, "GRACE_SECONDS", 0.01), \
+                patch.object(project_watch, "_tell") as tell:
+            project_watch.cycle()
+            waiting.start()
+            time.sleep(0.2)
+            self.assertTrue(waiting.is_alive())                      # the run goes on
+            self.wait_for_runs()
+            project_watch.cycle(read_tracker=False)
+            waiting.join(timeout=30)
+
+        self.assertEqual(said, ['UIB-1: event 1 of the trigger "my review" is finished (the run ended without filing a '
+                                "report). If no line about it has reached this chat, `agent-projects status --project "
+                                "billing` shows its report."])
+        self.assertIn("ended without filing a report", tell.call_args.args[3])
+
+    def test_project_chat_is_told_of_a_run_that_started_by_itself_but_not_of_one_it_asked_for(self) -> None:
+        self.project()
+        self.issues = [issue("UIB-1")]
+        project_watch.poll(NOW)                                      # held: it matched before watching began
+        self.ok("watch", "start", "1")
+        with patch.object(project_watch, "_tell") as tell:
+            project_watch.cycle(read_tracker=False)
+            tell.assert_not_called()
+
+            self.issues.append(issue("UIB-2", minutes_ago=30))
+            project_watch.cycle()
+
+        self.assertEqual(tell.call_args.args[3], 'UIB-2: the review run of the trigger "my review" has started, as event 2.')
+        self.assertNotIn("asked", project_watch.events(None, True)["events"][0])
+
+    def test_wait_ends_at_once_for_an_event_that_does_not_move(self) -> None:
+        self.project()
+        self.issues = [issue("UIB-1")]
+        project_watch.poll(NOW)
+
+        self.assertEqual(self.command("watch", "wait", "1")[1].strip(), 'UIB-1: event 1 of the trigger "my review" is held '
+                         "(matched before watching began or while it was paused)")
+        self.assertIn("no event 9", self.command("watch", "wait", "9")[2])
+
     def test_run_without_a_report_is_passed_on_through_a_small_chat(self) -> None:
         self.watched_project()
         self.issues = [issue("UIB-1", minutes_ago=30)]
@@ -1068,10 +1115,10 @@ run:
         self.wait_for_runs()
 
         self.assertEqual(project_watch.events(None, True)["events"][0]["note"], "the run ended without filing a report")
-        message = json.loads(self.log.read_text().splitlines()[1])
+        message = next(item for item in map(json.loads, self.log.read_text().splitlines())
+                       if "ended without filing a report" in item["prompt"])
         self.assertIn('to the chat named "project: Billing"', message["prompt"])
         self.assertIn("select:SendMessage,ListAgents", message["prompt"])
-        self.assertIn("ended without filing a report", message["prompt"])
         self.assertEqual(message["argv"][message["argv"].index("--model") + 1], "claude-haiku-5-5")
 
     def test_run_that_cannot_start_fails_with_the_reason(self) -> None:

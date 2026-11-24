@@ -10,6 +10,7 @@ import os
 import re
 import sys
 import tempfile
+import time
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -24,6 +25,11 @@ SKIPPED = "skipped: the agent-projects folder does not exist"
 PROJECT_NAME = re.compile(r"[a-z0-9][a-z0-9-]*")
 TICKET_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
 REPORT_KIND = re.compile(r"[a-z][a-z0-9-]*")
+# For `ticket wait` and `watch wait`: how often they look, how long a new chat may take
+# to record its ticket, and how long a line may take to reach the project chat.
+WAIT_SECONDS = 5.0
+TAKE_SECONDS = 900.0
+GRACE_SECONDS = 300.0
 
 
 class ProjectsError(ValueError):
@@ -315,6 +321,30 @@ def ticket_show(ticket: str) -> str:
     return f"file: {path}\n{path.read_text(encoding='utf-8')}"
 
 
+def ticket_wait(ticket: str) -> str:
+    """Last while a chat holds the ticket, and then until its line has had time to reach
+    the project chat. A chat runs this in the background, right after it started a chat
+    for a step, only to show the step among its background tasks: the result still
+    arrives as a message, and the chat then stops this command."""
+    ticket = _ticket_id(ticket)
+    path = _ticket_path(_require_home(), ticket)
+
+    def held() -> bool:
+        return bool(_load_ticket(path, ticket)[0]["taken"])
+
+    # The new chat reads its skills before it records the ticket.
+    deadline = time.monotonic() + TAKE_SECONDS
+    while not held():
+        if time.monotonic() > deadline:
+            return f"{ticket}: no chat has recorded it within {int(TAKE_SECONDS // 60)} minutes."
+        time.sleep(WAIT_SECONDS)
+    while held():
+        time.sleep(WAIT_SECONDS)
+    time.sleep(GRACE_SECONDS)
+    return (f"{ticket}: no chat holds it now. If no line about it has reached this chat, "
+            f"`agent-projects ticket show {ticket}` shows its last report.")
+
+
 def report_add(project: str, ticket: str, kind: str, source: str | None) -> dict[str, Any]:
     root = _require_home()
     _load_project(root, project)
@@ -433,6 +463,8 @@ def _argument_parser() -> argparse.ArgumentParser:
     note.add_argument("ticket")
     note.add_argument("text", nargs="+")
     ticket.add_parser("show", help="print a ticket's record and history").add_argument("ticket")
+    ticket.add_parser("wait", help="last while a chat holds the ticket; a chat runs this in the background "
+                                   "to show a step it started").add_argument("ticket")
 
     report = commands.add_parser("report", help="file a report into a project").add_subparsers(
         dest="action", required=True)
@@ -477,6 +509,8 @@ def run(args: argparse.Namespace) -> dict[str, Any] | str:
             return ticket_release(args.ticket, args.result, args.pr, args.chat)
         if args.action == "note":
             return ticket_note(args.ticket, " ".join(args.text))
+        if args.action == "wait":
+            return ticket_wait(args.ticket)
         return ticket_show(args.ticket)
     return report_add(args.project, args.ticket, args.kind, args.file)
 

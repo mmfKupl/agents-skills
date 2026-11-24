@@ -494,6 +494,26 @@ in `skills/project-master/references/hosts.md`. The developer also asked on
 2026-11-24 for the triggers of a project and of the whole machine to be shown clearly;
 the form is in the format reference.
 
+Tried on the VM on 2026-11-24, from the repository checkout, because the installed
+runner was busy with the developer's own job. A record of a review of UIB-6602 was
+made by hand, and its three real comments of 2026-11-23, written by the developer
+within two minutes, were made to count as new:
+
+- The check on Haiku sorted them as `own_review`. They were held, because it was the
+  first reading. One was started: the run on Haiku added the remarks to the ticket's
+  history, filed a note, and released the ticket, for under two cents.
+- Two defects found and fixed. Three comments were three events with a check and a
+  run each; the comments of one reading are one event now. And a run that only
+  records would still wake the project chat; a run can be `quiet: true`, and
+  `own_review` is.
+- Nothing was written to Linear or to a pull request, and the trial's files were
+  removed.
+
+Not tried: a review or comment on a real pull request through the script (the query
+was run by hand on a real pull request, and the rest is unit-tested with `gh`
+replaced); `my progress` on real tickets; an `author_answered` run; `project-trigger`
+and the listing of triggers in a real chat; Codex as the host of a project chat.
+
 ## Open points
 
 - Notification when the project chat is closed or dead: the report stays in
@@ -506,7 +526,13 @@ the form is in the format reference.
 - Whether the project chat's messages are short enough. After the first trial the
   developer found them long, and the skill now fixes what each of its three
   messages holds. A second short trial showed the shorter messages.
-- Opening a visible chat and sending a notification under Codex: not checked.
+- Under Codex a project chat cannot open a visible chat, be messaged, or notify:
+  `codex exec` 0.171 has only tools for its own sub-agents. The Codex app was not
+  checked. Runs on Codex models work.
+- A check that answers something that is not an outcome fails the event; the
+  developer sees it as failed and can send it to the check again.
+- One check reads up to 30 comments of a ticket and 30 reviews of a pull request per
+  reading. A busier discussion between two readings loses the oldest.
 - The length of the delay before the script acts on a status change. It is two
   minutes now, a guess.
 - Time from a status change to the start of a run: up to ten minutes until the

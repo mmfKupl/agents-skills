@@ -36,7 +36,9 @@ anything else. It maps `$skill` to `/skill`.
      --project <project> --title "<this chat's title>"
    ```
 
-   A workflow that records the ticket itself then finds the record already there.
+   A workflow that records the ticket itself then finds the record already there. For
+   a command that is none of these workflows, use `--workflow other` and, for the
+   report, a one-word kind of your own, such as `note`.
 4. When the command reaches its final report, or stops blocked:
    - file the report, with the same text the developer gets, on standard input:
      `agent-projects report add --project <project> --ticket <ticket> --kind <review|brainstorm|develop|draft>`;
@@ -50,10 +52,14 @@ anything else. It maps `$skill` to `/skill`.
    - end the final answer with the line `Saved to project <project>: <path>`.
 
 Lines under the command that begin with `Started by the trigger` come from the
-watching script, not from the developer. Then nobody reads this chat: never wait for
-an answer, and put each question into the report with its choices and a
-recommendation. In a chat that has no title, record the ticket with the title
-`<kind>: <ticket>`.
+watching script, not from the developer. Then nobody reads this chat:
+
+- never wait for an answer; put each question into the report with its choices and a
+  recommendation;
+- do not message the project chat and do not notify the developer: the watching
+  script passes the report on when this chat ends. Filing the report and releasing
+  the ticket stay;
+- in a chat that has no title, record the ticket with the title `<kind>: <ticket>`.
 
 A command with no ticket files nothing; say so in one line. The report is never held
 back or shortened because of these steps. If one of them fails, say which in one line

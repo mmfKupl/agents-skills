@@ -307,7 +307,9 @@ class ProjectWatchTests(unittest.TestCase):
         with patch.object(project_watch, "_tell") as tell:
             project_watch.cycle()
 
-        tell.assert_not_called()
+        report = self.home / "project-billing" / "reports" / f"{project_watch._stamp()[:10]}-UIB-1-review.md"
+        self.assertEqual(tell.call_args.args[1:], (
+            "billing", f'UIB-1: review report ready, started by the trigger "my review". {report}'))
         event = project_watch.events(None, True)["events"][0]
         self.assertEqual(event["state"], "finished")
         self.assertTrue(Path(event["run_dir"], "chat.yaml").is_file())
@@ -348,6 +350,7 @@ class ProjectWatchTests(unittest.TestCase):
         self.assertEqual(project_watch.events(None, True)["events"][0]["note"], "the run ended without filing a report")
         message = json.loads(self.log.read_text().splitlines()[1])
         self.assertIn('to the chat named "project: Billing"', message["prompt"])
+        self.assertIn("select:SendMessage,ListAgents", message["prompt"])
         self.assertIn("ended without filing a report", message["prompt"])
         self.assertEqual(message["argv"][message["argv"].index("--model") + 1], "claude-haiku-5-5")
 

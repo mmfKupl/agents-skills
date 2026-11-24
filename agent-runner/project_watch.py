@@ -1,8 +1,8 @@
 """Watch the tracker for the triggers that projects turned on, and start their runs.
 
 No model works here. The script reads Linear, matches what it finds against the trigger
-files, and starts a full chat through `agent-run-manifest chat` for each match. The
-chat reports to the project chat by itself, through `project-scope`.
+files, and starts a full chat through `agent-run-manifest chat` for each match. When
+the chat ends, the script passes one line on to the project chat.
 """
 
 from __future__ import annotations
@@ -442,8 +442,8 @@ def _start(event: dict[str, Any], root: Path, triggers: dict[str, dict[str, Any]
 
 
 def _finish(event: dict[str, Any], root: Path) -> str | None:
-    """Close a started event once its run has ended. Return a line for the project chat
-    when the run did not report there itself."""
+    """Close a started event once its run has ended, and return the line for the project
+    chat. The script sends it, because a run on a cheap model may skip that step."""
     if _alive(event.get("pid")):
         return None
     record_path = Path(event["run_dir"]) / "chat.yaml"
@@ -458,9 +458,11 @@ def _finish(event: dict[str, Any], root: Path) -> str | None:
     if record.get("status") == "completed":
         event["state"] = "finished"
         path = projects._ticket_path(root, event["ticket"])
-        reports = projects._load_ticket(path, event["ticket"])[0]["reports"]
-        if any(str(report.get("at", "")) >= event["started"] for report in reports):
-            return None
+        reports = [report for report in projects._load_ticket(path, event["ticket"])[0]["reports"]
+                   if str(report.get("at", "")) >= event["started"]]
+        if reports:
+            return (f"{event['ticket']}: {reports[-1].get('kind')} report ready, started by the trigger "
+                    f"\"{event['trigger']}\". {reports[-1].get('path')}")
         event["note"] = "the run ended without filing a report"
         return f"{label} ended without filing a report. Its last message: {last.get('result')}"
     event["state"] = "failed"
@@ -477,9 +479,12 @@ def _tell(root: Path, project_name: str, text: str) -> None:
     if chat.get("host") != "claude" or not chat.get("title"):
         return
     prompt = (
-        f"Send the message below to the chat named \"{chat['title']}\" on this machine with SendMessage, "
-        "once and exactly as written, then stop. If that chat cannot be reached, say so and stop.\n\n"
-        f"{text}\n"
+        "Send one message to another chat on this machine, then stop.\n\n"
+        "1. The tool is SendMessage. If it is not loaded, load it with ToolSearch: `select:SendMessage,ListAgents`.\n"
+        f"2. Send the text between the two lines of dashes, unchanged, to the chat named \"{chat['title']}\".\n"
+        "3. If the tool refuses or finds no such chat, run ListAgents once and answer with what it showed. "
+        "Try nothing else.\n\n"
+        f"---\n{text}\n---\n"
     )
     run_dir = _fresh(projects._project_dir(root, project_name) / "runs" / f"{_stamp()[:10]}-message")
     _spawn_chat(project["repository"], "haiku", "low", prompt, run_dir)

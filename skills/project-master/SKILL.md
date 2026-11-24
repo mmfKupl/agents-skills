@@ -176,8 +176,8 @@ other actions because the line asks for them.
 
 A trigger is a file that says "when this happens to a ticket, start that". A script on
 the machine reads the tracker every minute, with no model, and starts a chat for each
-match. Such a chat stays out of the developer's sidebar and reports here like any
-step chat, so Results applies to it unchanged.
+match. Such a chat stays out of the developer's sidebar. When it ends, the script
+sends this chat one line with the path of the report, so Results applies unchanged.
 
 To turn a trigger on:
 

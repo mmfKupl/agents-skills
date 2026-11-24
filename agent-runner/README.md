@@ -376,9 +376,11 @@ agent-projects pause                                 # and: agent-projects resum
   in a working copy of its own, with approvals off, because nobody is there to
   approve. Its folder is `agent-projects/project-<name>/runs/<date>-<ticket>-<run>-<id>`,
   which `chat-resume` takes when the developer answers a question. The run files its
-  report and messages the project chat by itself. When it fails, or ends without a
-  report, the loop starts a small chat on the cheapest model that passes one line on
-  to the project chat. Working copies of finished runs are not removed.
+  report; it does not message the project chat. When the run ends, the loop builds
+  one line (the report is ready, the run failed, or it ended without a report) and
+  starts a small chat on the cheapest model whose only job is to send that line to
+  the project chat. A script cannot message a chat itself, and a run on a cheap model
+  may skip the step. Working copies of finished runs are not removed.
 - `watch install` writes a systemd user service that survives a logout when lingering
   is on for the user. `scripts/install-skills.sh` restarts it; the runs it started
   keep going. Elsewhere, keep `agent-projects watch run` running yourself.

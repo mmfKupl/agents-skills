@@ -26,9 +26,11 @@ from typing import Any, Iterator
 from zoneinfo import ZoneInfo
 
 import agent_projects as projects
+import project_messages as messages
 import run_chat
 import run_manifest as manifest
 from agent_projects import ProjectsError
+from project_messages import say
 
 LINEAR_URL = "https://api.linear.app/graphql"
 KEY_VARIABLE = "AGENT_PROJECTS_LINEAR_KEY_FILE"
@@ -57,6 +59,12 @@ SETTLE_SECONDS = 120
 OPEN_STATES = ("held", "checking", "waiting", "started", "failed")
 # An event in one of these still moves by itself; `watch wait` lasts while it does.
 MOVING_STATES = ("checking", "waiting", "started")
+# In text that a chat shows the developer, what follows this line is for the chat only.
+CHAT_PART = "=== for the chat, not for the developer ==="
+# Headings that reports of the workflows share. A section ends where the next one begins.
+SECTIONS = {"what this pr does", "why it is needed", "how it works", "verdict", "needs from you", "findings",
+            "simpler code and tests", "checked and not checked", "accepted risks", "state", "details", "suggestions",
+            "what changed", "how to see it", "what works", "limits"}
 WHO = ("current_user", "not_current_user")
 STATUS, COMMENT, PULL = "status_changed", "comment_added", "pr_review_or_comment"
 # The fields an entry of each kind may hold, besides `source` and `event`.
@@ -66,7 +74,10 @@ ENTRY_FIELDS = {
     ("github", PULL): {"ticket", "skip", "then"},
 }
 TICKET_RULES = {"reviewed_in_current_env": "was reviewed", "worked_on_in_current_env": "was worked on"}
-RUN_FIELDS = {"command", "prompt", "model", "effort", "quiet"}
+RUN_FIELDS = {"command", "prompt", "model", "effort", "quiet", "label"}
+# A trigger's own words for the developer: what it does in one line, and the heading over
+# the tickets that are under it. A run's `label` is how its step is called.
+TRIGGER_WORDS = ("about", "heading")
 # Text no person wrote for a reviewer: an agent's report, which starts with the name of
 # its skill (`$develop-please:`), or a command for a bot (`/e2e-preview ...`).
 AGENT_COMMENT = re.compile(r"\s*(\$[a-z][a-z0-9-]*:|/[a-z][a-z0-9-]*(\s|$))")
@@ -207,9 +218,12 @@ def _read_trigger(path: Path) -> dict[str, Any]:
         if problem:
             raise bad(f"{label}: {problem}")
 
-    unknown = sorted(set(document) - {"name", "on_any", "check", "run"})
+    unknown = sorted(set(document) - {"name", "on_any", "check", "run", *TRIGGER_WORDS})
     if unknown:
         raise bad(f"unknown field `{unknown[0]}`")
+    for key in TRIGGER_WORDS:
+        if not isinstance(document.get(key, ""), str):
+            raise bad(f"`{key}` must be text")
     name, entries, runs, check = (document.get(key) for key in ("name", "on_any", "run", "check"))
     if not isinstance(name, str) or not name.strip():
         raise bad("`name` must be text")
@@ -224,6 +238,8 @@ def _read_trigger(path: Path) -> dict[str, Any]:
             raise bad(f"run `{key}`: the command or prompt must be text")
         if not isinstance(run.get("quiet", False), bool):
             raise bad(f"run `{key}`: `quiet` must be true or false")
+        if not isinstance(run.get("label", ""), str):
+            raise bad(f"run `{key}`: `label` must be text")
         model_and_effort(run, f"run `{key}`")
     if check is not None:
         if not isinstance(check, dict) or set(check) != {"model", "effort", "prompt"} or not isinstance(check["prompt"], str):
@@ -257,7 +273,8 @@ def _read_trigger(path: Path) -> dict[str, Any]:
             raise bad("`then` must name an entry of `run`")
         if "then" not in entry and check is None:
             raise bad("an entry with no `then` needs a `check` in the trigger")
-    return {"name": name.strip(), "on_any": entries, "check": check, "run": runs, "file": str(path)}
+    return {"name": name.strip(), "on_any": entries, "check": check, "run": runs, "file": str(path),
+            **{key: document[key].strip() for key in TRIGGER_WORDS if document.get(key)}}
 
 
 def _when(entry: dict[str, Any]) -> str:
@@ -869,7 +886,13 @@ def poll(now: datetime | None = None) -> dict[str, Any]:
         state["baseline"].update({pair: conditions[pair] for pair in hold if pair.split("|", 1)[0] not in unread})
         state["polled"], state["problems"] = _stamp(now), problems
         held = [_public(event) for event in state["events"] if event["state"] == "held"]
+    waiting = [event for event in state["events"] if event["state"] == "held"]
+    asked = ([say("held_head"),
+              *(say("item", line=_line(event["ticket"], event.get("title"), event.get("url"),
+                                       say("where_held", step=_step(event, triggers)))) for event in waiting),
+              say("held_ask")] if waiting else [])
     return {"polled": _stamp(now), "new": [_public(event) for event in new], "held": held,
+            **({"say": "\n".join(asked)} if asked else {}),
             **({"left": {name: items for name, items in left.items() if items}} if any(left.values()) else {}),
             **({"problems": problems} if problems else {})}
 
@@ -1091,7 +1114,8 @@ def _tell(root: Path, project_name: str, project: dict[str, Any], text: str) -> 
         "3. If the tool refuses or finds no such chat, run ListAgents once. Try nothing else.\n"
         "4. Answer with one line: `sent` when the tool accepted the message, otherwise `not sent:` and what the "
         "tool and ListAgents said.\n\n"
-        f"---\n{text}\n---\n"
+        f"---\n{text}\n(For the project chat: run `agent-projects news {project_name}` and show the developer "
+        f"what it prints.)\n---\n"
     )
     run_dir = _fresh(projects._project_dir(root, project_name) / "runs" / f"{_stamp()[:10]}-message")
     return {"pid": _spawn_chat(project["repository"], "haiku", "low", prompt, run_dir), "run_dir": str(run_dir)}
@@ -1200,8 +1224,8 @@ def _flush(root: Path, state: dict[str, Any], live: dict[str, str] | None) -> No
         del state["undelivered"][project_name]
 
 
-def _summary(state: dict[str, Any], project_name: str, since: str) -> str | None:
-    """What happened in a project since `since`, as text for its chat; None when nothing did."""
+def _summary(state: dict[str, Any], project_name: str, since: str, triggers: dict[str, dict[str, Any]]) -> str | None:
+    """What happened in a project since `since`, as text for the developer; None when nothing did."""
     mine = [event for event in state["events"] if event["project"] == project_name]
     finished = [event for event in mine if event["state"] == "finished" and event.get("finished", "") >= since]
     failed = [event for event in mine if event["state"] == "failed" and event.get("finished", event["found"]) >= since]
@@ -1218,69 +1242,112 @@ def _summary(state: dict[str, Any], project_name: str, since: str) -> str | None
             cost += sum(float(turn.get("cost_usd") or 0) for turn in record.get("turns") or [])
         except (ProjectsError, OSError, TypeError, ValueError):
             continue
-    lines = [f"Daily summary for {project_name}:"]
-    lines += [f"- finished: {event['ticket']} ({event['run']})" for event in finished]
-    lines += [f"- failed: {event['ticket']} ({event['run']}): {event.get('note')}; event {event['id']}" for event in failed]
+    lines = [say("summary_head", project=project_name)]
+    lines += [say("summary_finished", ticket=event["ticket"], step=_step(event, triggers)) for event in finished]
+    lines += [say("summary_failed", ticket=event["ticket"], step=_step(event, triggers), note=event.get("note"))
+              for event in failed]
     if held:
-        lines.append(f"- waiting for the developer's word: {', '.join(sorted({event['ticket'] for event in held}))}")
+        lines.append(say("summary_held", tickets=", ".join(sorted({event["ticket"] for event in held}))))
     if queued or running:
-        lines.append(f"- running now: {len(running)}; in the queue: {len(queued)}")
+        lines.append(say("summary_going", running=len(running), queued=len(queued)))
     if quiet:
-        lines.append(f"- skipped or sorted as noise: {len(quiet)}")
+        lines.append(say("summary_skipped", count=len(quiet)))
     if cost:
-        lines.append(f"- cost of the runs that ended: ${cost:.2f}")
+        lines.append(say("summary_cost", cost=f"{cost:.2f}"))
     return "\n".join(lines)
 
 
-def _where(state: dict[str, Any], root: Path, name: str, ticket: str, triggers: dict[str, dict[str, Any]]) -> str:
-    """Where a ticket stands on this machine, in a few words."""
+# Text for the developer. A project chat shows it as it is, so it holds no event numbers
+# and no bare addresses: what the chat needs for its own steps comes after `CHAT_PART`.
+
+
+def _for_chat(lines: list[str]) -> str:
+    return ("\n\n" + CHAT_PART + "\n" + "\n".join(f"- {line}" for line in dict.fromkeys(lines))) if lines else ""
+
+
+def _showing(events: list[dict[str, Any]]) -> list[str]:
+    return [f"show {event['ticket']} while it goes, unless this chat does already: run "
+            f"`agent-projects watch wait {event['id']}` in the background"
+            for event in events if event["state"] in MOVING_STATES]
+
+
+def _clock(stamp: str) -> str:
+    return _time(stamp).strftime("%Y-%m-%d %H:%M UTC")
+
+
+def _tick(ticket: str, url: Any) -> str:
+    """A ticket's number, as a link when its address is known."""
+    link = _link(url, ticket)
+    return f"[{ticket}]({link})" if link else ticket
+
+
+def _line(ticket: str, title: Any, url: Any, where: str) -> str:
+    """One ticket in one line: the same in every message."""
+    if not title:
+        return say("ticket_untitled", ticket=_tick(ticket, url), where=where)
+    return say("ticket", ticket=_tick(ticket, url), title=_title(title), where=where)
+
+
+def _step(event: dict[str, Any], triggers: dict[str, dict[str, Any]]) -> str:
+    """How the step of an event is called in a message: the words its trigger gives the run,
+    else the words for its skill, else the name of the run."""
+    run, names = _run(event, triggers), messages.texts()["steps"]
+    skill = str(run.get("command") or "").lstrip("/$").split()[:1] if isinstance(run, dict) else []
+    return ((run.get("label") if isinstance(run, dict) else None) or names.get(skill[0] if skill else "")
+            or names.get(str(event.get("run")))
+            or (str(event["run"]).replace("_", " ") if event.get("run") else say("step_unknown")))
+
+
+def _where(state: dict[str, Any], root: Path, name: str, ticket: str,
+           triggers: dict[str, dict[str, Any]]) -> tuple[str, dict[str, Any] | None]:
+    """Where a ticket stands on this machine, in a few words, and the event that says so."""
     events = [event for event in state["events"] if event["project"] == name and event["ticket"] == ticket
               and event["state"] not in ("skipped", "dismissed")
               and not (event["state"] == "finished" and _quiet(event, triggers))]
     if events:
         event = max(events, key=lambda item: item["id"])
-        run = event.get("run") or "check"
-        words = {"held": "waits for the developer's word to start", "waiting": "in the queue",
-                 "checking": "a comment is being sorted", "started": f"{run} going", "failed": f"{run} failed",
-                 "finished": f"{run} ended without a report" if event.get("note") else f"{run} report ready"}[event["state"]]
-        return f"{words}, event {event['id']}" + (f", its chat is open: {event['chat']}" if event.get("chat") else "")
+        key = {"held": "where_held", "waiting": "where_waiting", "checking": "where_checking", "started": "where_started",
+               "failed": "where_failed", "finished": "where_no_report" if event.get("note") else "where_ready"}[event["state"]]
+        words = say(key, step=_step(event, triggers))
+        return (say("where_open", where=words, chat=event["chat"]) if event.get("chat") else words), event
     try:
         holders = [projects._who(holder) for holder in projects._load_ticket(projects._ticket_path(root, ticket), ticket)[0]["taken"]]
     except (ProjectsError, KeyError):
         holders = []
-    return f"a chat works on it: {', '.join(holders)}" if holders else "nothing started here"
+    return (say("where_chat", chats=", ".join(holders)) if holders else say("where_nothing")), None
 
 
-def _under(state: dict[str, Any], root: Path, name: str, triggers: dict[str, dict[str, Any]]) -> list[str]:
-    """Every ticket that is under a trigger of the project now, with where it stands."""
+def _under(state: dict[str, Any], root: Path, name: str,
+           triggers: dict[str, dict[str, Any]]) -> tuple[list[str], list[dict[str, Any]]]:
+    """Every ticket that is under a trigger of the project now, with where it stands, and
+    the events those lines speak of."""
     try:
         on = projects._load_project(root, name)[1].get("triggers") or []
     except ProjectsError:
         on = []
-    board = state["board"].get(name, [])
-    lines = []
+    lines, events = [], []
     for trigger in on:
-        if not any(entry["event"] == STATUS for entry in (triggers.get(trigger) or {}).get("on_any", [])):
+        document = triggers.get(trigger) or {}
+        if not any(entry["event"] == STATUS for entry in document.get("on_any", [])):
             continue
-        under = [f"- {item['ticket']} \"{item['title']}\" {item['url']}: {_where(state, root, name, item['ticket'], triggers)}"
-                 for item in board if item["trigger"] == trigger]
-        lines += [f"Under \"{trigger}\" now:", *(under or ["- none"])]
-    return lines
+        lines.append(say("under_heading", heading=document["heading"]) if document.get("heading")
+                     else say("under", trigger=trigger))
+        items = [item for item in state["board"].get(name, []) if item["trigger"] == trigger]
+        for item in items:
+            words, event = _where(state, root, name, item["ticket"], triggers)
+            lines.append(say("item", line=_line(item["ticket"], item["title"], item["url"], words)))
+            events += [event] if event else []
+        lines += [] if items else [say("none")]
+    return lines, events
 
 
-def _board(state: dict[str, Any], root: Path, name: str, arrived: set[int], left: list[dict[str, Any]],
-           triggers: dict[str, dict[str, Any]]) -> str:
-    """The short news for a project chat when a ticket came under one of its triggers or
-    left it: what changed, then every ticket that is under a trigger now."""
-    lines = [f"Tickets changed in {name}."]
-    for item in left:
-        how = "closed" if item["closed"] else f"assigned to {item['assignee']}"
-        lines.append(f"Left: {item['ticket']} \"{item['title']}\" is now {item['status']}, {how}. {item['url']}")
-    for event in state["events"]:
-        if event["id"] in arrived and event["project"] == name:
-            lines.append(f"New: {event['ticket']} \"{_title(event.get('title'))}\" was {event['what']}, event {event['id']}. "
-                         f"{_link(event.get('url'), event['ticket'])}")
-    return "\n".join(lines + _under(state, root, name, triggers))
+def _board(state: dict[str, Any], name: str, arrived: set[int], left: list[dict[str, Any]]) -> str:
+    """The line that wakes a project chat when a ticket came under one of its triggers or
+    left it. What the developer reads about it is in the news."""
+    came = [event["ticket"] for event in state["events"] if event["id"] in arrived and event["project"] == name]
+    return " ".join([f"Tickets changed in {name}.",
+                     *([f"Left: {', '.join(item['ticket'] for item in left)}."] if left else []),
+                     *([f"New: {', '.join(came)}."] if came else [])])
 
 
 def _brief(trigger: dict[str, Any]) -> str:
@@ -1300,36 +1367,224 @@ def _brief(trigger: dict[str, Any]) -> str:
     return "; ".join(parts) or "reacts to comments only"
 
 
-def board(project: str) -> str:
-    """The state of a project as text that its chat shows as it is: what the project
-    covers, its triggers, the tickets under them now, and what else is not over. It is
-    made here, with no model, so that it reads the same every time."""
+def _watching_words(state: dict[str, Any]) -> str:
+    plain = _watching(state)
+    if plain in ("running", "not running"):
+        return say("watching_running" if plain == "running" else "watching_stopped")
+    since = paused() or ""
+    try:
+        since = _clock(since)
+    except ValueError:
+        pass
+    return say("watching_paused", time=since)
+
+
+def _heading(line: str) -> tuple[int, str] | None:
+    """A heading of a report as its level and its name in lowercase: a markdown heading,
+    or the name of a section alone on a line, bold or plain."""
+    stripped = line.strip()
+    found = re.fullmatch(r"(#{1,6})\s+(.+?)[\s#]*", stripped)
+    if found:
+        return len(found.group(1)), found.group(2).strip(" *:").lower()
+    name = stripped.strip("*").rstrip(":").strip("*").strip().lower()
+    return (6, name) if name in SECTIONS else None
+
+
+def _section(text: str, name: str) -> str:
+    """The text under a heading of a report, as it is written there."""
+    lines = text.splitlines()
+    for index, line in enumerate(lines):
+        head = _heading(line)
+        if not head or head[1] != name.lower():
+            continue
+        body = []
+        for later in lines[index + 1:]:
+            found = _heading(later)
+            if found and (found[1] in SECTIONS or found[0] <= head[0]):
+                break
+            body.append(later)
+        return "\n".join(body).strip()
+    return ""
+
+
+def _says_something(body: str) -> bool:
+    return body.strip().strip(".").lower() not in ("", "none", "nothing", "n/a", "-", "нет", "ничего")
+
+
+def _copy(path: str) -> str:
+    """Where the developer can open a file of the project: a copy in the working directory
+    of the chat that asks, as a path from that directory."""
+    try:
+        return f"{projects.COPIES}/{Path(projects.report_copy(path, None)['copy']).name}"
+    except (ProjectsError, OSError, subprocess.SubprocessError):
+        return path
+
+
+def _card(state: dict[str, Any], root: Path, project: str, ticket: str, triggers: dict[str, dict[str, Any]],
+          report: str | None = None) -> tuple[str, list[str]]:
+    """One ticket in full, as text for the developer, and what the chat does about it.
+    With `report`, the text is the news that this report was filed."""
+    words, event = _where(state, root, project, ticket, triggers)
+    try:
+        meta, history = projects._load_ticket(projects._ticket_path(root, ticket), ticket)
+    except ProjectsError:
+        meta, history = {"reports": []}, ""
+    filed = [item for item in meta.get("reports") or [] if item.get("project") == project]
+    path = report or (str(filed[-1]["path"]) if filed else None)
+    if event is None and path is None and words == say("where_nothing"):
+        return say("card_none", ticket=ticket), []
+    known = next((item for item in state["board"].get(project, []) if item["ticket"] == ticket), None) or event or {}
+    kind = next((str(item.get("kind")) for item in filed if str(item.get("path")) == path), None)
+    step = _step(event, triggers) if event else messages.texts()["steps"].get(kind or "", kind or say("step_unknown"))
+    if report:
+        words = say("where_ready", step=step)
+    lines, chat = [_line(ticket, known.get("title"), known.get("url"), words)], []
+    over = event is not None and event["state"] not in MOVING_STATES
+    if over and event["state"] == "failed" and not report:
+        lines += [say("card_failed", note=event.get("note") or "?"), say("card_again", ticket=ticket)]
+        chat.append(f"to run {ticket} again when the developer says so: agent-projects watch start {event['id']}")
+    elif over and event["state"] == "finished" and event.get("note") and not report:
+        try:
+            last = (projects._load_mapping(Path(event["run_dir"]) / "chat.yaml").get("turns") or [{}])[-1].get("result")
+        except (ProjectsError, OSError, KeyError):
+            last = None
+        if last and Path(str(last)).is_file():
+            lines.append(say("card_last", name=Path(str(last)).name, link=_copy(str(last))))
+    elif path and Path(path).is_file() and (report or event is None or event["state"] == "finished"):
+        # Not while a later step goes or after it failed: an earlier report would read as its outcome.
+        text = Path(path).read_text(encoding="utf-8")
+        outcome = next((body for body in (_section(text, name) for name in messages.texts()["outcome_sections"])
+                        if _says_something(body)), "")
+        if not outcome:
+            # The one line with which the step gave the ticket back.
+            given = re.findall(r"released by .*? \((?:claude|codex)\): (.+)", history)
+            outcome = given[-1].strip() if given else ""
+        lines += [outcome] if outcome else []
+        needs = _section(text, "Needs from you")
+        lines += ["", say("card_needs"), needs] if _says_something(needs) else ["", say("card_no_needs")]
+        suggestions = _section(text, "Suggestions")
+        count = max(1, len(re.findall(r"(?m)^\s*(?:[-*]|\d+[.)])\s+\S", suggestions))) if _says_something(suggestions) else 0
+        lines += ["", say("card_report", name=Path(path).name, link=_copy(path))
+                  + (" " + say("card_suggestions", count=count) if count else "")]
+        if report:
+            line = say("ticket_untitled", ticket=ticket, where=words)
+            chat += [f"stop the background command that shows {ticket}, if this chat runs one",
+                     "notify: " + (say("notify_needs", line=line) if _says_something(needs) else line)]
+    if over and event.get("run_dir") and not event.get("chat"):
+        try:
+            record = projects._load_mapping(Path(event["run_dir"]) / "chat.yaml")
+        except (ProjectsError, OSError):
+            record = {}
+        if record.get("vendor") == "claude" and record.get("session"):
+            lines.append(say("card_open", ticket=ticket))
+            chat.append(f"to open the chat of {ticket} when the developer asks: "
+                        f"agent-projects watch open {event['id']} --title \"<title>\"")
+    return "\n".join(lines), chat
+
+
+def board(project: str, ticket: str | None = None, first: bool = False) -> str:
+    """The state of a project, or of one of its tickets, as text that its chat shows as it
+    is. It is made here, with no model, so that it reads the same every time."""
     root = projects._require_home()
     _, document = projects._load_project(root, project)
     triggers, _ = load_triggers()
     state = _read_state(root)
+    if ticket:
+        text, chat = _card(state, root, project, projects._ticket_id(ticket), triggers)
+        return text + _for_chat(chat)
     scope, on = document.get("scope") or {}, document.get("triggers") or []
-    covers = [f"the Linear project {scope['linear_project']}"] if scope.get("linear_project") else []
-    covers += [f"the tickets {', '.join(str(item) for item in scope['tickets'])}"] if scope.get("tickets") else []
-    covers += ["every ticket assigned to the developer"] if scope.get("assignee") == WHO[0] else []
-    lines = [f"Project {project}: {' and '.join(covers) or 'no tickets named yet'}.", "", "Triggers:"]
-    lines += [f"- {name}: {'ON' if name in on else 'off'}. {_brief(trigger)}." for name, trigger in sorted(triggers.items())]
-    lines += ["", *(_under(state, root, project, triggers) or ["No trigger is on, so nothing is watched."])]
+    covers = [say("covers_linear", name=scope["linear_project"])] if scope.get("linear_project") else []
+    covers += [say("covers_tickets", tickets=", ".join(str(item) for item in scope["tickets"]))] if scope.get("tickets") else []
+    covers += [say("covers_assignee")] if scope.get("assignee") == WHO[0] else []
+    lines = [say("board_project", project=project, covers=say("covers_and").join(covers) or say("covers_none")),
+             "", say("board_triggers")]
+    lines += [say("trigger_on" if name in on else "trigger_off", trigger=name,
+                  about=str(trigger.get("about") or _brief(trigger)).rstrip(".") + ".")
+              for name, trigger in sorted(triggers.items())]
+    under, events = _under(state, root, project, triggers)
+    lines += ["", *(under or [say("board_unwatched")])]
     listed = {item["ticket"] for item in state["board"].get(project, [])}
-    other = [event for event in state["events"]
-             if event["project"] == project and event["state"] in OPEN_STATES and event["ticket"] not in listed]
+    other = {event["ticket"]: event for event in state["events"]
+             if event["project"] == project and event["state"] in OPEN_STATES and event["ticket"] not in listed}
     if other:
-        lines += ["", "Also not over:"]
-        lines += [f"- {event['ticket']} \"{_title(event.get('title'))}\" {_link(event.get('url'), event['ticket'])}: "
-                  f"{_where(state, root, project, event['ticket'], triggers)}"
-                  for event in {event["ticket"]: event for event in other}.values()]
-    if state["undelivered"].get(project):
-        lines += ["", f"{len(state['undelivered'][project])} lines have not reached the project chat yet."]
-    lines += ["", f"The tracker was read at {state.get('polled') or 'no time yet'}; watching is {_watching(state)}."]
-    return "\n".join(lines)
+        lines += ["", say("board_other")]
+        for event in other.values():
+            words, newest = _where(state, root, project, event["ticket"], triggers)
+            lines.append(say("item", line=_line(event["ticket"], event.get("title"), event.get("url"), words)))
+            events += [newest] if newest else []
+    lines += ["", say("board_read", time=_clock(state["polled"]), watching=_watching_words(state)) if state.get("polled")
+              else say("board_never", watching=_watching_words(state))]
+    lines += ["", say("board_next")] if first else []
+    return "\n".join(lines) + _for_chat(_showing(events))
 
 
-def _digests(state: dict[str, Any], now: datetime) -> list[tuple[str, str]]:
+def _news_item(item: dict[str, Any], state: dict[str, Any], root: Path, project: str,
+               triggers: dict[str, dict[str, Any]]) -> tuple[str | None, list[str]]:
+    kind = item.get("kind")
+    by_id = {event["id"]: event for event in state["events"]}
+    event = by_id.get(item.get("event"))
+    if kind == "started":
+        if event is None or event["state"] not in MOVING_STATES:
+            return None, []  # it is over by now, and its end is news of its own
+        line = _line(event["ticket"], event.get("title"), event.get("url"), say("where_started", step=_step(event, triggers)))
+        return (say("news_started", line=line, trigger=event["trigger"]) if event.get("trigger") else line), _showing([event])
+    if kind == "ready":
+        # The run that filed it. A run that only keeps a record is no news.
+        run = next((other for other in reversed(state["events"])
+                    if other["project"] == project and other["ticket"] == item["ticket"]
+                    and other.get("started", "~") <= item["at"] <= other.get("finished", "~")), None)
+        if run is not None and _quiet(run, triggers):
+            return None, []
+        return _card(state, root, project, item["ticket"], triggers, report=item["report"])
+    if kind in ("failed", "no_report"):
+        if event is None:
+            return None, []
+        text, chat = _card(state, root, project, event["ticket"], triggers)
+        return text, [*chat, f"stop the background command that shows {event['ticket']}, if this chat runs one",
+                      "notify: " + text.splitlines()[0].replace(_tick(event["ticket"], event.get("url")), event["ticket"])]
+    if kind == "changed":
+        lines = [say("left_closed" if left["closed"] else "left_moved", ticket=_tick(left["ticket"], left.get("url")),
+                     title=left["title"], status=left["status"], assignee=left["assignee"]) for left in item.get("left") or []]
+        lines += [say("arrived", ticket=_tick(by_id[number]["ticket"], by_id[number].get("url")),
+                      title=_title(by_id[number].get("title"))) for number in item.get("arrived") or [] if number in by_id]
+        under, events = _under(state, root, project, triggers)
+        return "\n".join([*lines, "", *under] if under else lines), _showing(events)
+    if kind == "burst":
+        return say("burst", count=item["count"], limit=item["limit"]), []
+    if kind == "text":
+        return str(item["text"]), ([f"notify: {item['notify']}"] if item.get("notify") else [])
+    return None, []
+
+
+def news(project: str) -> str:
+    """What happened in a project since its chat last asked, as text that the chat shows as
+    it is, and then what the chat does about it. Reading empties the list: one ticket
+    is shown again with `agent-projects board <project> <ticket>`."""
+    root = projects._require_home()
+    projects._load_project(root, project)
+    items = projects.news_take(root, project)
+    changed = [item for item in items if item.get("kind") == "changed"]
+    if len(changed) > 1:
+        # Changes read together are one piece of news: the tickets under the triggers are
+        # listed once, as they stand now.
+        items = [item for item in items if item.get("kind") != "changed"] + [{
+            "kind": "changed", "left": [left for item in changed for left in item.get("left") or []],
+            "arrived": [number for item in changed for number in item.get("arrived") or []]}]
+    triggers, _ = load_triggers()
+    state = _read_state(root)
+    blocks, chat = [], []
+    for item in items:
+        try:
+            text, todo = _news_item(item, state, root, project, triggers)
+        except Exception as error:  # noqa: BLE001 - one broken piece must not hide the rest
+            text, todo = f"{item.get('kind')} {item.get('ticket') or ''}: {type(error).__name__}: {error}", []
+        if text and text not in blocks:
+            blocks.append(text)
+            chat += todo
+    return ("\n\n".join(blocks) or say("news_none")) + _for_chat(chat)
+
+
+def _digests(state: dict[str, Any], now: datetime, triggers: dict[str, dict[str, Any]]) -> list[tuple[str, str]]:
     """The daily summaries that are due: one per project, after the set time of day."""
     digest = state["digest"]
     if not digest.get("at"):
@@ -1342,7 +1597,7 @@ def _digests(state: dict[str, Any], now: datetime) -> list[tuple[str, str]]:
         last = digest.setdefault("last", {}).get(project_name, {})
         if last.get("day") == local.strftime("%Y-%m-%d"):
             continue
-        text = _summary(state, project_name, last.get("at") or _stamp(now - timedelta(days=1)))
+        text = _summary(state, project_name, last.get("at") or _stamp(now - timedelta(days=1)), triggers)
         digest["last"][project_name] = {"day": local.strftime("%Y-%m-%d"), "at": _stamp(now)}
         if text:
             due.append((project_name, text))
@@ -1470,6 +1725,9 @@ def cycle(read_tracker: bool = True) -> list[str]:
              for event in found.get("new", [])]
     triggers, _ = load_triggers()
     to_tell: list[tuple[str, str]] = []
+    # What the developer reads about each of these lines: the project chat takes it with
+    # `agent-projects news`, so that the text does not pass through the small chat.
+    fresh_news: list[tuple[str, dict[str, Any]]] = []
     with _state() as state:
         state["loop"] = _stamp()
         limit = int(state.get("limit") or RUN_LIMIT)
@@ -1507,11 +1765,15 @@ def cycle(read_tracker: bool = True) -> list[str]:
                     if event["state"] == "started" and not event.pop("known", False) and not _quiet(event, triggers):
                         to_tell.append((event["project"], f"{event['ticket']}: the {event['run']} run of the trigger "
                                                           f"\"{event['trigger']}\" has started, as event {event['id']}."))
+                        fresh_news.append((event["project"], {"kind": "started", "event": event["id"]}))
                 elif before == "started":
                     line = _finish(event, root, _quiet(event, triggers))
                     running -= event["state"] != "started"
                     if line:
                         to_tell.append((event["project"], line))
+                        # A report that was filed is news already, from the moment it was filed.
+                        ended = "failed" if event["state"] == "failed" else "no_report" if event.get("note") else None
+                        fresh_news += [(event["project"], {"kind": ended, "event": event["id"]})] if ended else []
             except Exception as error:  # noqa: BLE001 - one broken event must not stop the rest
                 event.update(state="failed", note=f"the watching script failed on this event: "
                                                   f"{type(error).__name__}: {error}"[:300])
@@ -1520,7 +1782,9 @@ def cycle(read_tracker: bool = True) -> list[str]:
                 lines.append(f"{event['ticket']}: {did} {event['state']}" + (f" ({event['note']})" if event.get("note") else ""))
         gone = found.get("left", {})
         for name in sorted(set(gone) | {event["project"] for event in state["events"] if event["id"] in arrived}):
-            to_tell.append((name, _board(state, root, name, arrived, gone.get(name, []), triggers)))
+            to_tell.append((name, _board(state, name, arrived, gone.get(name, []))))
+            fresh_news.append((name, {"kind": "changed", "left": gone.get(name, []), "arrived": sorted(
+                event["id"] for event in state["events"] if event["id"] in arrived and event["project"] == name)}))
         # A burst is worth a word at once: the developer may want to drop part of it.
         fresh: dict[str, int] = {}
         for event in found.get("new", []):
@@ -1528,7 +1792,16 @@ def cycle(read_tracker: bool = True) -> list[str]:
         to_tell += [(name, f"{count} new events are in the queue for {name}; at most {limit} runs go at once. "
                            f"`agent-projects watch list --project {name}` shows them, and `watch dismiss` drops any.")
                     for name, count in fresh.items() if count > limit]
-        to_tell += _digests(state, now)
+        fresh_news += [(name, {"kind": "burst", "count": count, "limit": limit}) for name, count in fresh.items() if count > limit]
+        summaries = _digests(state, now, triggers)
+        to_tell += summaries
+        fresh_news += [(name, {"kind": "text", "text": text, "notify": say("notify_summary", project=name)})
+                       for name, text in summaries]
+        for name, item in fresh_news:
+            try:
+                projects.news_add(root, name, item)
+            except (ProjectsError, OSError) as error:
+                state["problems"].append(f"news for {name} was not kept: {error}")
         problems = list(state["problems"]) + _unsent(state)
         if to_tell or state["undelivered"]:
             live = _live_chats()
@@ -1586,7 +1859,8 @@ def summary() -> dict[str, str]:
         except ProjectsError as error:
             access = str(error)
     root = projects.home()
-    return {"linear": access, "watching": _watching(_read_state(root) if root.is_dir() else {})}
+    return {"linear": access, "watching": _watching(_read_state(root) if root.is_dir() else {}),
+            "messages": "; ".join(messages.problems()) or "ok"}
 
 
 def project_triggers(name: str, on: list[str], off: list[str]) -> dict[str, Any]:
@@ -1619,7 +1893,9 @@ def project_triggers(name: str, on: list[str], off: list[str]) -> dict[str, Any]
         if other != name and shared and theirs.get("scope") == document.get("scope"):
             warnings.append(f"project {other} covers the same tickets with {', '.join(shared)}; "
                             "each ticket goes to one project only")
+    said = [say("trigger_now_on", trigger=item) for item in on] + [say("trigger_now_off", trigger=item) for item in off]
     return {"project": name, "triggers": current, "available": sorted(triggers),
+            **({"say": " ".join(said)} if said else {}),
             **({"warnings": warnings} if warnings else {}), **({"problems": problems} if problems else {})}
 
 
@@ -1629,19 +1905,20 @@ def pause() -> dict[str, Any]:
     if not path.is_file():
         projects._atomic_write(path, f"{_stamp()}\n")
     running = [_public(event) for event in _read_state(root)["events"] if event["state"] == "started"]
-    return {"paused": paused(), "still_running": running}
+    return {"paused": paused(), "still_running": running, "say": say("paused", running=len(running))}
 
 
 def resume() -> dict[str, Any]:
     root = projects._require_home()
     path = root / "paused"
     if not path.is_file():
-        return {"resumed": False, "note": "watching was not paused"}
+        return {"resumed": False, "note": "watching was not paused", "say": say("not_paused")}
     # Forget the baseline first, so that whatever came in meanwhile is held for the developer.
     with _state() as state:
         state["baseline"] = {}
     path.unlink()
-    return {"resumed": True, **poll()}
+    found = poll()
+    return {"resumed": True, **found, "say": "\n\n".join([say("resumed"), *([found["say"]] if found.get("say") else [])])}
 
 
 def events(project: str | None, everything: bool) -> dict[str, Any]:
@@ -1736,7 +2013,10 @@ def add_run(project: str, ticket: str, text: str, model: str | None, effort: str
             "known": True,
         }
         state["events"].append(event)
-        return {"events": [_public(event)], "queue": _queue(state), "watching": watching}
+        queue = _queue(state)
+        where = say("where_starting" if queue["running"] < queue["limit"] else "where_waiting", step=_step(event, triggers))
+        return {"events": [_public(event)], "queue": queue, "watching": watching,
+                "say": say("asked", line=_line(ticket, title, url, where), model=model, effort=effort)}
 
 
 def wait(number: int) -> str:
@@ -1786,7 +2066,8 @@ def open_run(number: int, title: str | None) -> dict[str, Any]:
     if live is None:
         raise ProjectsError("the chats on this machine cannot be listed, and opening a chat that runs would start a copy")
     if session in live:
-        return {"event": number, "ticket": event["ticket"], "chat": live[session], "opened": "it was open already"}
+        return {"event": number, "ticket": event["ticket"], "chat": live[session], "opened": "it was open already",
+                "say": say("opened_already", chat=live[session])}
     if not event.get("chat") and not title:
         raise ProjectsError("give the chat a title with --title")
     if not Path(copy).is_dir():
@@ -1811,7 +2092,8 @@ def open_run(number: int, title: str | None) -> dict[str, Any]:
             if item["id"] == number:
                 item.setdefault("chat", title)
                 title = item["chat"]
-    return {"event": number, "ticket": event["ticket"], "chat": title, "working_copy": copy}
+    return {"event": number, "ticket": event["ticket"], "chat": title, "working_copy": copy,
+            "say": say("opened", chat=title)}
 
 
 def _close_chat(run_dir: Path) -> None:
@@ -1855,7 +2137,9 @@ def decide(ids: list[int], target: str) -> dict[str, Any]:
                 by_id[number]["known"] = True
         changed = [_public(by_id[number]) for number in ids]
         watching = _watching(state)
-    return {"events": changed, "watching": watching}
+    tickets = ", ".join(dict.fromkeys(event["ticket"] for event in changed))
+    return {"events": changed, "watching": watching,
+            "say": say("queued" if target == "waiting" else "dismissed", tickets=tickets)}
 
 
 def _unit(command: Path) -> str:
@@ -1929,8 +2213,13 @@ def add_commands(commands: Any, project: Any) -> None:
     trigger.add_parser("list", help="print every trigger in plain words; with --project, split into on and off").add_argument(
         "--project")
     trigger.add_parser("check", help="say whether a trigger file is one the watching script accepts").add_argument("file")
-    commands.add_parser("board", help="print a project's triggers and the tickets under them, as text to show "
-                                      "the developer as it is").add_argument("project")
+    shown = commands.add_parser("board", help="print the state of a project, or of one of its tickets, as text to "
+                                              "show the developer as it is")
+    shown.add_argument("project")
+    shown.add_argument("ticket", nargs="?", help="print this ticket in full: where it stands and its last report")
+    shown.add_argument("--first", action="store_true", help="end with the line on what to send next")
+    commands.add_parser("news", help="print what happened in a project since its chat last asked, as text to show "
+                                     "the developer as it is; reading empties the list").add_argument("project")
     commands.add_parser("pause", help="stop reading the tracker and starting runs; running ones finish")
     commands.add_parser("resume", help="watch again, and hold what came in meanwhile for the developer")
     watch = commands.add_parser("watch", help="read the tracker for triggers and start their runs").add_subparsers(
@@ -1975,7 +2264,9 @@ def run(args: argparse.Namespace) -> dict[str, Any] | str:
     if args.command == "trigger":
         return trigger_list(args.project) if args.action == "list" else trigger_check(args.file)
     if args.command == "board":
-        return board(args.project)
+        return board(args.project, args.ticket, args.first)
+    if args.command == "news":
+        return news(args.project)
     if args.command == "pause":
         return pause()
     if args.command == "resume":

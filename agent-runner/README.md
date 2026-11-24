@@ -355,12 +355,24 @@ agent-projects watch start 3 4                       # let the loop start held e
 agent-projects watch add billing UIB-123 <<'EOF'     # queue a step the developer asked for
 $review-task UIB-123
 EOF
+agent-projects board billing                         # the state of the project, as text to show as it is
+agent-projects board billing UIB-123                 # one ticket in full, with its last report
+agent-projects news billing                          # what happened since the project chat last asked
 agent-projects watch dismiss 5
 agent-projects watch limit 3                         # how many runs may go at once
 agent-projects watch digest --at 09:00 --timezone Europe/Warsaw   # daily summary; --off
 agent-projects watch install                         # keep the loop running (systemd)
 agent-projects pause                                 # and: agent-projects resume
 ```
+
+`board` and `news` print text that a project chat shows the developer as it is, and
+each command that changes something answers with such a line under `say`. The English
+texts are in `project_messages.py`. `skills/project-master/messages.yaml` replaces
+them with the developer's own language, and `messages.yaml` in the projects folder of
+a machine wins over both. A text that names a slot the scripts do not fill is left
+out, and `agent-projects init` says so under `messages`. What follows the line
+`=== for the chat, not for the developer ===` is for the chat: commands to start or
+stop, and the notification to send.
 
 - The format of a trigger file is in `skills/project-master/references/triggers.md`.
 - Triggers are read from `agent-projects/triggers/` on the machine, then from

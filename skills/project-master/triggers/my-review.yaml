@@ -1,6 +1,11 @@
 # Reviews that wait for the current user, and what happens to a review afterwards.
 # Format and rules: skills/project-master/references/triggers.md.
 name: my review
+# Words for the developer, shown as they are: the trigger in one line, and the heading
+# over the tickets that are under it. A run's `label` is how its step is called; a
+# run that starts a skill is called by the skill's words in ../messages.yaml.
+about: "тикет перевели в In Review на тебя, и это сделал не ты: запускает ревью; новые комментарии к таким тикетам разбирает проверка"
+heading: В ревью сейчас
 on_any:
   - source: linear
     event: status_changed
@@ -36,6 +41,7 @@ run:
     prompt: |
       Add the current user's remarks to the ticket's record, so that the next
       review run takes them into account. Start nothing.
+    label: запись твоих замечаний
     model: haiku
     effort: low
     quiet: true                         # only a record; the project chat is not told
@@ -43,6 +49,7 @@ run:
     prompt: |
       Report which review points the author closed, which stay open, and the
       command that reviews the change again. Start nothing.
+    label: разбор ответа автора
     model: sonnet
     effort: medium
   noise: skip

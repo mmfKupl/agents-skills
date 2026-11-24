@@ -27,6 +27,8 @@ SKIPPED = "skipped: the agent-projects folder does not exist"
 PROJECT_NAME = re.compile(r"[a-z0-9][a-z0-9-]*")
 TICKET_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
 REPORT_KIND = re.compile(r"[a-z][a-z0-9-]*")
+# News that no chat reads must not grow without end.
+NEWS_KEPT = 200
 # For `ticket wait` and `watch wait`: how often they look, how long a new chat may take
 # to record its ticket, and how long a line may take to reach the project chat.
 WAIT_SECONDS = 5.0
@@ -375,7 +377,28 @@ def report_add(project: str, ticket: str, kind: str, source: str | None) -> dict
         if project not in meta["projects"]:
             meta["projects"].append(project)
         _save_ticket(path, meta, _event(body, f"{kind} report: {target}"))
+    # After the ticket is free again: the news has a lock of its own.
+    news_add(root, project, {"kind": "ready", "ticket": ticket, "report": str(target)})
     return {"ticket": ticket, "project": project, "report": str(target)}
+
+
+def news_add(root: Path, project: str, item: dict[str, Any]) -> None:
+    """Keep a piece of news for the project's chat, which reads it with `agent-projects news`."""
+    path = _project_dir(root, project) / "news.yaml"
+    with _locked(path):
+        items = (_load_mapping(path).get("items") or []) if path.is_file() else []
+        _atomic_write(path, _dump({"items": [*items, {**item, "at": _now()}][-NEWS_KEPT:]}))
+
+
+def news_take(root: Path, project: str) -> list[dict[str, Any]]:
+    """The news that the project's chat has not read yet. Taking it empties the list."""
+    path = _project_dir(root, project) / "news.yaml"
+    with _locked(path):
+        if not path.is_file():
+            return []
+        items = _load_mapping(path).get("items") or []
+        _atomic_write(path, _dump({"items": []}))
+    return items
 
 
 def report_copy(source: str, cwd: str | None) -> dict[str, Any]:
@@ -518,7 +541,7 @@ def _argument_parser() -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> dict[str, Any] | str:
-    if args.command in ("watch", "trigger", "board", "pause", "resume") or getattr(args, "action", None) == "triggers":
+    if args.command in ("watch", "trigger", "board", "news", "pause", "resume") or getattr(args, "action", None) == "triggers":
         import project_watch
 
         return project_watch.run(args)

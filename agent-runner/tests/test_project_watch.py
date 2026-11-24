@@ -20,6 +20,7 @@ import yaml
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import agent_projects
+import project_messages
 import project_watch
 from test_run_chat import FAKE_CLAUDE
 
@@ -89,6 +90,11 @@ class ProjectWatchTests(unittest.TestCase):
         self.home = self.root / "agent-projects"
         self.repo = self.root / "repo"
         self.repo.mkdir()
+        # A chat's working directory: `board` and `news` copy a report into it.
+        self.cwd = self.root / "chat"
+        self.cwd.mkdir()
+        self.addCleanup(os.chdir, os.getcwd())
+        os.chdir(self.cwd)
         self.key = self.root / "linear-api-key"
         self.key.write_text("lin_api_test\n")
         self.log = self.root / "calls.jsonl"
@@ -101,6 +107,8 @@ class ProjectWatchTests(unittest.TestCase):
             agent_projects.HOME_VARIABLE: str(self.home), "CLAUDE_CODE_SESSION_ID": "project-chat",
             project_watch.KEY_VARIABLE: str(self.key), project_watch.TRIGGERS_VARIABLE: str(READY_TRIGGERS),
             "AGENT_RUNNER_CLAUDE_BIN": str(fake), "FAKE_LOG": str(self.log),
+            # No file with other words, so the texts are the English ones.
+            project_messages.MESSAGES_VARIABLE: "",
         })
         patcher = patch.dict(os.environ, environment, clear=True)
         patcher.start()
@@ -1023,7 +1031,7 @@ run:
     def test_pause_stops_polling_and_resume_holds_what_came_in(self) -> None:
         self.watched_project()
 
-        self.assertEqual(self.ok("pause")["still_running"], [])
+        self.assertEqual(self.ok("pause")["say"], "Watching is paused. Runs that are going and will finish: 0.")
         self.issues = [issue("UIB-1", minutes_ago=30)]
         self.assertIn("paused", project_watch.poll(NOW))
         self.assertEqual(project_watch.cycle(), [])
@@ -1034,7 +1042,11 @@ run:
 
         self.assertTrue(resumed["resumed"])
         self.assertEqual([(event["ticket"], event["state"]) for event in resumed["held"]], [("UIB-1", "held")])
-        self.assertEqual(self.ok("resume"), {"resumed": False, "note": "watching was not paused"})
+        self.assertEqual(resumed["say"].splitlines(), [
+            "Watching is on again.", "", "These tickets match already and did not start by themselves:",
+            '- [UIB-1](https://linear.app/x/UIB-1) "Title of UIB-1": review waits for your word to start',
+            "Which of them to run?"])
+        self.assertEqual(self.ok("resume")["say"], "Watching was not paused.")
 
     def test_start_and_dismiss_change_only_events_that_can_change(self) -> None:
         self.project()
@@ -1099,14 +1111,19 @@ run:
         # A review gets the model that the project's trigger gives a review.
         self.assertEqual((event["id"], event["state"], event["run"], event["asked"]["model"], event["asked"]["effort"]),
                          (1, "waiting", "review-task", "opus", "high"))
+        self.assertEqual(yaml.safe_load(stdout)["say"], '[UIB-7](https://linear.app/x/issue/UIB-7) "Limits": review-task is '
+                         "starting, on opus, high. The outcome will come here.")
         self.assertIn("UIB-7 has event 1 going already", add()[2])
 
         with patch.object(project_watch, "_tell", return_value=None) as tell:
             project_watch.cycle(read_tracker=False)
             self.assertEqual(self.states(), {"UIB-7": "started"})
             tell.assert_not_called()                                          # the chat that asked knows of the run
-            self.assertIn('- UIB-7 "Limits" https://linear.app/x/issue/UIB-7: review-task going, event 1',
-                          self.command("board", "billing")[1])
+            shown = self.command("board", "billing")[1]
+            self.assertIn('Also not over:\n- [UIB-7](https://linear.app/x/issue/UIB-7) "Limits": review-task is going\n', shown)
+            self.assertTrue(shown.strip().endswith(
+                f"{project_watch.CHAT_PART}\n- show UIB-7 while it goes, unless this chat does already: run "
+                "`agent-projects watch wait 1` in the background"))
             self.wait_for_runs()
             call = next(item for item in map(json.loads, self.log.read_text().splitlines()) if "--worktree" in item["argv"])
             self.assertTrue(call["prompt"].startswith(
@@ -1206,11 +1223,18 @@ run:
     def boards(self, tell) -> list[str]:
         return [call.args[3] for call in tell.call_args_list if call.args[3].startswith("Tickets changed in billing.")]
 
+    def words(self, trigger: str) -> dict:
+        """The words a ready trigger has for the developer."""
+        return yaml.safe_load((READY_TRIGGERS / f"{trigger.replace(' ', '-')}.yaml").read_text())
+
+    def news(self, project: str = "billing") -> list[str]:
+        return self.command("news", project)[1].rstrip("\n").splitlines()
+
     def test_new_ticket_under_a_trigger_is_told_with_every_ticket_under_it(self) -> None:
         self.project()
         self.issues = [issue("UIB-1")]
         project_watch.poll(NOW)                                      # held: it matched before watching began
-        self.ok("watch", "start", "1")
+        self.assertEqual(self.ok("watch", "start", "1")["say"], "Queued: UIB-1.")
         with patch.object(project_watch, "_tell", return_value=None) as tell:
             project_watch.cycle(read_tracker=False)
             tell.assert_not_called()                                 # the chat asked for this run itself
@@ -1220,13 +1244,20 @@ run:
             project_watch.cycle()                                    # nothing changed: nothing is said
 
         self.assertEqual(len(tell.call_args_list), 1)                # and the start of the run got no line of its own
-        said = tell.call_args.args[3].splitlines()
-        self.assertEqual(said[0], "Tickets changed in billing.")
-        self.assertRegex(said[1], r'^New: UIB-2 "Title of UIB-2" was moved from In Progress to In Review by Other at \S+, '
-                                  r"event 2\. https://linear\.app/x/UIB-2$")
-        self.assertEqual(said[2:], ['Under "my review" now:',
-                                    '- UIB-1 "Title of UIB-1" https://linear.app/x/UIB-1: review going, event 1',
-                                    '- UIB-2 "Title of UIB-2" https://linear.app/x/UIB-2: review going, event 2'])
+        self.assertEqual(tell.call_args.args[3], "Tickets changed in billing. New: UIB-2.")
+        # What the developer reads comes from the script, ready to show.
+        self.assertEqual(self.news(), [
+            'New: [UIB-2](https://linear.app/x/UIB-2) "Title of UIB-2".',
+            "",
+            f"{self.words('my review')['heading']}:",
+            '- [UIB-1](https://linear.app/x/UIB-1) "Title of UIB-1": review is going',
+            '- [UIB-2](https://linear.app/x/UIB-2) "Title of UIB-2": review is going',
+            "",
+            project_watch.CHAT_PART,
+            "- show UIB-1 while it goes, unless this chat does already: run `agent-projects watch wait 1` in the background",
+            "- show UIB-2 while it goes, unless this chat does already: run `agent-projects watch wait 2` in the background",
+        ])
+        self.assertEqual(self.news(), ["Nothing new."])               # read once
         self.assertNotIn("known", project_watch.events(None, True)["events"][0])
 
     def test_board_prints_the_project_the_same_way_every_time(self) -> None:
@@ -1234,54 +1265,126 @@ run:
         self.ok("project", "create", "mine", "--repository", str(self.repo), "--tracker", "linear",
                 "--scope", "assignee=current_user")
         self.assertIn("No trigger is on, so nothing is watched.", self.command("board", "mine")[1])
-        self.ok("project", "triggers", "mine", "--on", "my review")
+        self.assertEqual(self.ok("project", "triggers", "mine", "--on", "my review")["say"], 'The trigger "my review" is on.')
         self.issues = [issue("UIB-1"), issue("UIB-2", assignee="other")]
         project_watch.poll(NOW)                                      # UIB-1 is held; UIB-2 is not for the developer
 
-        printed = self.command("board", "mine")[1].splitlines()
+        printed = self.command("board", "mine", "--first")[1].splitlines()
 
-        self.assertEqual(printed[:-1], [
-            "Project mine: every ticket assigned to the developer.",
+        self.assertEqual(printed[:9], [
+            "Project mine: every ticket assigned to you.",
             "",
             "Triggers:",
-            "- my progress: off. a ticket moved to In Progress, assigned to the developer: a check decides what to start; "
-            "comments on its tickets are sorted by a check.",
-            "- my review: ON. a ticket moved to In Review, assigned to the developer, by someone else: starts /review-task "
-            "(opus, high); comments on its tickets are sorted by a check.",
+            f"- my progress: off. {self.words('my progress')['about']}.",     # a trigger says in its own words what it does
+            f"- my review: ON. {self.words('my review')['about']}.",
             "",
-            'Under "my review" now:',
-            '- UIB-1 "Title of UIB-1" https://linear.app/x/UIB-1: waits for the developer\'s word to start, event 1',
+            f"{self.words('my review')['heading']}:",
+            '- [UIB-1](https://linear.app/x/UIB-1) "Title of UIB-1": review waits for your word to start',
             "",
         ])
-        self.assertRegex(printed[-1], r"^The tracker was read at \S+; watching is not running\.$")
+        self.assertRegex(printed[9], r"^The tracker was read at \d{4}-\d\d-\d\d \d\d:\d\d UTC; watching is not running\.$")
+        self.assertEqual(printed[10:], ["", "Send a ticket, or say which trigger to turn on or off."])
+        # A trigger with no words of its own is described from its conditions.
+        self.assertIn("a ticket moved to In Review, assigned to the developer, by someone else: starts /review-task",
+                      project_watch._brief(project_watch.load_triggers()[0]["my review"]))
 
     def test_ticket_that_leaves_a_trigger_is_told_once_with_what_stays_under_it(self) -> None:
         self.watched_project()
         self.issues = [issue(f"UIB-{number}", minutes_ago=30) for number in (1, 2, 3)]
+        heading = f"{self.words('my review')['heading']}:"
         with patch.object(project_watch, "_tell", return_value=None) as tell:
             project_watch.cycle()
+            # Three new tickets, a blank line, the heading and the three under the trigger, then the chat's part.
+            self.assertEqual(len(self.news()), 13)
             self.wait_for_runs()
             self.reviewed("UIB-1")                                   # it has a history on this machine
             self.issues, self.closed = [issue("UIB-2", minutes_ago=30)], {"UIB-1"}     # one closed, one moved on
             project_watch.cycle()
             project_watch.cycle()
+            left = self.news()
             self.issues, self.closed = [], {"UIB-1", "UIB-2"}
             project_watch.cycle()
 
-        arrived, left, last = self.boards(tell)
-        self.assertEqual(len(arrived.splitlines()), 8)               # three new tickets, then the three under the trigger
-        self.assertEqual(left.splitlines(), [
-            "Tickets changed in billing.",
-            'Left: UIB-1 "Title of UIB-1" is now Done, closed. https://linear.app/x/UIB-1',
-            'Left: UIB-3 "Title of UIB-3" is now In Progress, assigned to Other. https://linear.app/x/UIB-3',
-            'Under "my review" now:',
-            '- UIB-2 "Title of UIB-2" https://linear.app/x/UIB-2: review ended without a report, event 2',
+        self.assertEqual(self.boards(tell), ["Tickets changed in billing. New: UIB-1, UIB-2, UIB-3.",
+                                             "Tickets changed in billing. Left: UIB-1, UIB-3.",
+                                             "Tickets changed in billing. Left: UIB-2."])
+        gone = left.index('[UIB-1](https://linear.app/x/UIB-1) "Title of UIB-1" is closed (Done).')
+        self.assertEqual(left[gone:gone + 5], [
+            '[UIB-1](https://linear.app/x/UIB-1) "Title of UIB-1" is closed (Done).',
+            '[UIB-3](https://linear.app/x/UIB-3) "Title of UIB-3" left: it is now In Progress, assigned to Other.',
+            "",
+            heading,
+            '- [UIB-2](https://linear.app/x/UIB-2) "Title of UIB-2": review ended without a report',
         ])
-        self.assertEqual(last.splitlines()[1:], ['Left: UIB-2 "Title of UIB-2" is now Done, closed. https://linear.app/x/UIB-2',
-                                                 'Under "my review" now:', "- none"])
+        self.assertEqual(self.news()[:4], ['[UIB-2](https://linear.app/x/UIB-2) "Title of UIB-2" is closed (Done).', "",
+                                           heading, "- none"])
         history = {item["ticket"]: item["last_event"] for item in self.ok("status")["tickets"]}
         self.assertTrue(history["UIB-1"].endswith("closed in the tracker: Done"))
         self.assertNotIn("UIB-2", history)                           # no record here: none is made for a note
+
+    def test_filed_report_is_news_with_its_own_words_and_the_ticket_can_be_shown_again(self) -> None:
+        self.project()
+        project_watch.cycle(read_tracker=False)
+        with patch.object(sys, "stdin", io.StringIO("$review-task UIB-7\n")):
+            self.ok("watch", "add", "billing", "UIB-7", "--title", "Limits", "--url", "https://linear.app/x/issue/UIB-7/limits")
+        report = ("### What this PR does\nIt adds limits.\n\n### Verdict\nready after fixes: the limit is off by one.\n\n"
+                  "### Needs from you\n1. Publish the review? Recommended: yes.\n\n### Findings\n#### P2 — Off by one\n- text\n\n"
+                  "### Suggestions\n- say it shorter\n- one more\n")
+        with patch.object(project_watch, "_tell", return_value=None):
+            project_watch.cycle(read_tracker=False)
+            self.wait_for_runs()
+            with patch.object(sys, "stdin", io.StringIO(report)):
+                self.ok("report", "add", "--project", "billing", "--ticket", "UIB-7", "--kind", "review")
+            project_watch.cycle(read_tracker=False)
+
+        name = f"{project_watch._stamp()[:10]}-UIB-7-review.md"
+        card = ['[UIB-7](https://linear.app/x/issue/UIB-7) "Limits": review-task report is ready',
+                "ready after fixes: the limit is off by one.",              # the report's own words, not a retelling
+                "",
+                "Needs from you:",
+                "1. Publish the review? Recommended: yes.",
+                "",
+                f"Report: [{name}](.agent-reports/{name}) Suggestions in the report: 2.",
+                'Say "open UIB-7" to talk to the agent that did this.',
+                "",
+                project_watch.CHAT_PART]
+        opening = '- to open the chat of UIB-7 when the developer asks: agent-projects watch open 1 --title "<title>"'
+        self.assertEqual(self.news(), [
+            *card,
+            "- stop the background command that shows UIB-7, if this chat runs one",
+            "- notify: UIB-7: review-task report is ready, your answer is needed",
+            opening])
+        self.assertTrue((self.cwd / ".agent-reports" / name).is_file())  # where the developer can open it
+        self.assertEqual(self.news(), ["Nothing new."])
+        self.assertEqual(self.command("board", "billing", "UIB-7")[1].rstrip("\n").splitlines(), [*card, opening])
+        self.assertEqual(self.command("board", "billing", "UIB-9")[1].strip(), "UIB-9 has no record on this machine.")
+
+    def test_sections_of_a_report_are_found_however_their_headings_are_written(self) -> None:
+        text = "**Verdict:**\nready\n\nNeeds from you\nnone\n\n## Suggestions\nnone\n"
+        self.assertEqual(project_watch._section(text, "Verdict"), "ready")
+        self.assertEqual(project_watch._section(text, "Needs from you"), "none")
+        self.assertFalse(project_watch._says_something(project_watch._section(text, "Needs from you")))
+        self.assertEqual(project_watch._section(text, "Findings"), "")
+
+    def test_words_for_the_developer_come_from_a_file_and_a_broken_text_is_left_out(self) -> None:
+        ready = READY_TRIGGERS.parent / "messages.yaml"
+        os.environ[project_messages.MESSAGES_VARIABLE] = str(ready)
+        texts, problems = project_messages.load()
+        self.assertEqual(problems, [])
+        # The file of the repository gives every text in the developer's language.
+        self.assertEqual(set(yaml.safe_load(ready.read_text())), set(project_messages.DEFAULTS))
+        self.assertNotEqual(texts["news_none"], project_messages.DEFAULTS["news_none"])
+
+        own = self.root / "messages.yaml"
+        own.write_text('ticket: "{nobody}: {ticket}"\nno_such_text: x\nnews_none: "All quiet."\nsteps:\n  review: look\n')
+        os.environ[project_messages.MESSAGES_VARIABLE] = os.pathsep.join([str(ready), str(own)])
+        texts, problems = project_messages.load()
+        self.assertEqual((texts["news_none"], texts["steps"]["review"], texts["steps"]["develop"]),
+                         ("All quiet.", "look", "разработка"))
+        self.assertEqual(texts["ticket"], yaml.safe_load(ready.read_text())["ticket"])     # the broken one did not replace it
+        self.assertEqual(len(problems), 2)
+        self.assertIn("nobody", problems[0])
+        self.assertIn("nobody", self.ok("init")["messages"])               # `init` says what is wrong with the file
 
     def test_wait_ends_at_once_for_an_event_that_does_not_move(self) -> None:
         self.project()

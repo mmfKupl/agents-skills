@@ -660,6 +660,58 @@ On 2026-11-24 the developer asked for four more things, all written the same day
   review`. With no such trigger it is `opus` and `high`. `--model` and
   `--effort` are for a developer who names another, and the project chat says
   the model in its line about the start.
+- The typical messages are written by the script, not by the project chat. The
+  developer on 2026-11-24: "давай еще подумаем как сделать так чтобы мастер агент
+  на типичные вещи отвечал шаблонно и сам не придумывал текст. например вот
+  ответы после тригерров и тд. мб это нужно рядом с тригером писать шаблоны
+  ответа", and then, offered a choice of where the templates live and in which
+  language: "сделай как думаешь будет лучше. я тебе доверяю". The record of the
+  project chat of that day showed twelve typical answers, of which the script
+  wrote one (the state of the project), and the chat retold a report in its own
+  words each time: where the report said "Публиковать этот обзор в тикет
+  UIB-6674? Рекомендую: да.", the chat wrote "Опубликовать обзор в тикет: да или
+  нет? Рекомендую да.". Now:
+  - Three commands print text that the chat shows as it is: `agent-projects
+    board <project>` (the state of the project), `agent-projects board <project>
+    <ticket>` (one ticket in full), and `agent-projects news <project>` (what
+    happened since the chat last asked). A command that changes something answers
+    with a line under `say`.
+  - One ticket reads the same in every message: its number as a link, its title,
+    and where it stands, from a closed list of states.
+  - The text about a report takes the report's `Verdict` and `Needs from you`
+    sections as they are written, links a copy of the report that the application
+    can open, and counts the suggestions. Reports are written in the developer's
+    language already, and their headings are the same in every workflow.
+  - News is kept per project in `news.yaml` and read by the chat, so the text does
+    not pass through the small chat that wakes the project chat. A line that
+    arrives only says that there is news. A report becomes news the moment it is
+    filed, whoever filed it.
+  - What the chat needs for its own steps (which background command to start or
+    stop, which notification to send, which command opens a chat) follows the
+    line `=== for the chat, not for the developer ===` and is not shown.
+  - The words are in one file, `skills/project-master/messages.yaml`, in Russian,
+    over English ones in `agent-runner/project_messages.py`; a file of the same
+    name in the projects folder of a machine wins. A trigger file holds only the
+    trigger's own words: `about`, `heading`, and a `label` for a run with a
+    prompt. Whole templates per trigger were not built: the sentences are the
+    same for every trigger, and half of the messages have no trigger.
+  - Left to the chat's own words: a question to the developer, an answer that
+    these texts do not cover, and a problem with a command.
+- A button that opens the chat of the agent. The developer asked the same day
+  for a button in the text about finished work, "чтобы я на неё нажал и
+  автоматически в чат отправилось \"открой мне этого агента\"". The Claude Code
+  documentation (remote-control, tools-reference, interactive-mode,
+  cross-session-messaging, read the same day) gives a chat one thing that is a
+  button: a question with options (`AskUserQuestion`). The project chat on the VM
+  has that tool. Under Remote Control such a question stays open until it is
+  answered, with no time limit, and the chat reads messages from other chats only
+  between tool calls, so a question under every report would hold back the next
+  news until the developer answers. No suggested replies and no link that sends
+  text are documented. So the text about a report ends with the words to write,
+  "open UIB-123", and no question is asked. Not known yet: whether the
+  application shows those words as grey suggested text in the empty message box
+  of a chat on the VM, which would make it one key, and how it shows the
+  question's options.
 
 Left from the reviews:
 - About 22 lines that can be cut, and two commands nobody needs daily

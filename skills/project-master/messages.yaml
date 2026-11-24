@@ -1,0 +1,105 @@
+# Тексты, которые чат проекта показывает разработчику как есть.
+# Скрипт подставляет значения в фигурные скобки и печатает готовый текст; чат его не
+# сочиняет. Английские тексты и список скобок для каждого: agent-runner/project_messages.py.
+# Свой вариант любого текста на одной машине: ~/agent-projects/messages.yaml.
+# Проверить файл: agent-projects init, строка messages.
+
+# Как называется шаг: по скиллу, который он запускает, или по виду отчёта.
+# Слово стоит перед «идёт», «в очереди», «: отчёт готов», поэтому в именительном падеже.
+steps:
+  review-task: ревью
+  review: ревью
+  brainstorm-task: проработка
+  brainstorm: проработка
+  develop-task: разработка
+  develop-please: разработка
+  develop: разработка
+  develop-draft: прототип
+  draft: прототип
+
+# Раздел отчёта, в котором сказано, чем кончился шаг. Показывается первый найденный.
+outcome_sections:
+  - Verdict
+
+# Тикет в одну строку. {ticket} — номер, ссылкой, когда адрес известен.
+ticket: "{ticket} «{title}»: {where}"
+ticket_untitled: "{ticket}: {where}"
+step_unknown: "запуск"
+where_held: "{step} ждёт твоего слова"
+where_waiting: "{step} в очереди"
+where_starting: "{step} запускается"
+where_checking: "комментарий разбирается"
+where_started: "{step} идёт"
+where_failed: "{step}: ошибка"
+where_ready: "{step}: отчёт готов"
+where_no_report: "{step}: закончено без отчёта"
+where_chat: "над ним работает чат: {chats}"
+where_nothing: "ничего не запущено"
+where_open: "{where}, чат открыт: {chat}"
+
+# Состояние проекта: agent-projects board <проект>.
+board_project: "Проект {project}: {covers}."
+covers_linear: "проект Linear {name}"
+covers_tickets: "тикеты {tickets}"
+covers_assignee: "все тикеты, назначенные на тебя"
+covers_none: "тикеты пока не названы"
+covers_and: " и "
+board_triggers: "Триггеры:"
+trigger_on: "- {trigger}: ВКЛЮЧЁН. {about}"
+trigger_off: "- {trigger}: выключен. {about}"
+under: "Под «{trigger}» сейчас:"
+under_heading: "{heading}:"
+item: "- {line}"
+none: "- ничего"
+board_unwatched: "Ни один триггер не включён, поэтому за трекером никто не следит."
+board_other: "Ещё не закончено:"
+board_read: "Трекер прочитан {time}; слежение {watching}."
+board_never: "Трекер ещё не читался; слежение {watching}."
+watching_running: "работает"
+watching_stopped: "не работает"
+watching_paused: "на паузе с {time}"
+board_next: "Дальше пришли номер тикета или скажи, какой триггер включить или выключить."
+
+# Один тикет целиком: agent-projects board <проект> <тикет>, и новость о готовом отчёте.
+card_needs: "Нужно от тебя:"
+card_no_needs: "От тебя ничего не нужно."
+card_report: "Отчёт: [{name}]({link})"
+card_suggestions: "Предложений в отчёте: {count}."
+card_failed: "Причина: {note}"
+card_again: "Напиши «запусти {ticket} ещё раз», чтобы повторить."
+card_last: "Последнее сообщение запуска: [{name}]({link})"
+card_open: "Напиши «открой {ticket}», чтобы поговорить с агентом, который это сделал."
+card_none: "По {ticket} на этой машине записей нет."
+
+# Новости проекта: agent-projects news <проект>.
+news_none: "Ничего нового."
+news_started: "{line} (запустил триггер «{trigger}»)"
+left_closed: "{ticket} «{title}» закрыт ({status})."
+left_moved: "{ticket} «{title}» ушёл: теперь {status}, назначен на {assignee}."
+arrived: "Новый: {ticket} «{title}»."
+burst: "В очереди {count} новых событий, а одновременно идёт не больше {limit}. Скажи, какие снять, если они не нужны."
+summary_head: "Сводка за день по {project}:"
+summary_finished: "- закончено: {ticket} ({step})"
+summary_failed: "- ошибка: {ticket} ({step}): {note}"
+summary_held: "- ждут твоего слова: {tickets}"
+summary_going: "- идёт сейчас: {running}; в очереди: {queued}"
+summary_skipped: "- пропущено или разобрано как шум: {count}"
+summary_cost: "- стоимость законченных запусков: ${cost}"
+
+# Строка, которой команда отвечает в поле say.
+asked: "{line}, на {model}, {effort}. Итог придёт сюда."
+trigger_now_on: "Триггер «{trigger}» включён."
+trigger_now_off: "Триггер «{trigger}» выключен."
+held_head: "Под триггер уже подходят эти тикеты, сами они не запустились:"
+held_ask: "Какие из них запустить?"
+paused: "Слежение на паузе. Запусков, которые ещё идут и доработают: {running}."
+resumed: "Слежение снова работает."
+not_paused: "Слежение не было на паузе."
+opened: "Чат в сайдбаре: «{chat}». Его первый ответ стоит дороже обычного: он заново читает всю переписку."
+opened_already: "Чат уже открыт: «{chat}»."
+queued: "В очередь: {tickets}."
+dismissed: "Снято: {tickets}."
+
+# Одна строка уведомления на телефон. Про тикет это строка ticket_untitled; {line} здесь она же.
+notify_needs: "{line}, нужен твой ответ"
+notify_summary: "Сводка за день по {project} в чате"

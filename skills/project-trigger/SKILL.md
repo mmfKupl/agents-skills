@@ -39,6 +39,8 @@ form for a project.
 2. Work out the trigger. Ask only what the request leaves open and the answer would
    change: which event, for whose tickets, what starts, and on which model. Propose a
    cheap model for a prompt that only reports, and a strong one for a whole workflow.
+   Give the trigger its own words in the developer's language, as the reference says
+   under Format: `about`, `heading`, and a `label` for each run that has a prompt.
 3. Write the file into the `triggers` folder of the project files
    (`agent-projects init` prints the folder as `home`), named after the trigger with
    dashes, such as `my-review.yaml`. Keep the name of a trigger you change.

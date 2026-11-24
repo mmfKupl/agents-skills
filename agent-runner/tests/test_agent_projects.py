@@ -31,7 +31,9 @@ class AgentProjectsTests(unittest.TestCase):
                        if key not in ("CODEX_THREAD_ID", "CLAUDE_CODE_SESSION_ID")}
         # No Linear key here, so no command reaches for the network.
         environment.update({agent_projects.HOME_VARIABLE: str(self.home), variable: chat_id,
-                            "AGENT_PROJECTS_LINEAR_KEY_FILE": str(self.home.parent / "no-linear-key")})
+                            "AGENT_PROJECTS_LINEAR_KEY_FILE": str(self.home.parent / "no-linear-key"),
+                            # No file with other words for the developer, so the texts are the English ones.
+                            "AGENT_PROJECTS_MESSAGES": ""})
         patcher = patch.dict(os.environ, environment, clear=True)
         patcher.start()
         self.addCleanup(patcher.stop)
@@ -58,7 +60,8 @@ class AgentProjectsTests(unittest.TestCase):
     def test_init_creates_the_folder_once(self) -> None:
         first = self.ok("init")
         self.assertEqual(first, {"home": str(self.home), "created": True, "projects": [],
-                                 "linear": f"no key: {self.home.parent / 'no-linear-key'}", "watching": "not running"})
+                                 "linear": f"no key: {self.home.parent / 'no-linear-key'}", "watching": "not running",
+                                 "messages": "ok"})
         self.assertTrue((self.home / "tickets").is_dir())
         self.assertTrue((self.home / "triggers").is_dir())
         self.assertFalse(self.ok("init")["created"])

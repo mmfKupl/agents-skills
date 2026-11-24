@@ -514,6 +514,23 @@ was run by hand on a real pull request, and the rest is unit-tested with `gh`
 replaced); `my progress` on real tickets; an `author_answered` run; `project-trigger`
 and the listing of triggers in a real chat; Codex as the host of a project chat.
 
+On 2026-11-24 three independent agents reviewed the watching code: one for bugs, one
+for safety, one for code that can be cut. The bug review found one defect that would
+have stopped the service and five that needed an unusual situation; the safety review
+found four real holes; the reduction review found the code close to lean. All are
+fixed in commit `a02fb33` except the two below, and the fixed code read real Linear
+and GitHub once on the VM. The service runs there since that day.
+
+Left from the reviews:
+
+- Nothing limits how many runs one reading starts. If someone moves thirty of the
+  developer's tickets to In Review at once, thirty reviews start. The developer
+  asked for no limit on tasks, so this is their call.
+- About 22 lines that can be cut, and two commands nobody needs daily
+  (`watch uninstall`, `watch run --interval`).
+- The chat that only passes one line to the project chat still runs with approvals
+  off, because it was not checked whether it can message a chat without that.
+
 ## Open points
 
 - Notification when the project chat is closed or dead: the report stays in

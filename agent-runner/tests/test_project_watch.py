@@ -1359,6 +1359,11 @@ run:
         self.assertEqual(self.command("board", "billing", "UIB-7")[1].rstrip("\n").splitlines(), [*card, opening])
         self.assertEqual(self.command("board", "billing", "UIB-9")[1].strip(), "UIB-9 has no record on this machine.")
 
+        with patch.object(sys, "stdin", io.StringIO("$review-task UIB-7\n")):   # once more: the earlier verdict is not its outcome
+            self.ok("watch", "add", "billing", "UIB-7", "--title", "Limits")
+        self.assertEqual(self.command("board", "billing", "UIB-7")[1].splitlines()[:2], [
+            'UIB-7 "Limits": review-task is in the queue', f"Earlier report: [{name}](.agent-reports/{name})"])
+
     def test_sections_of_a_report_are_found_however_their_headings_are_written(self) -> None:
         text = "**Verdict:**\nready\n\nNeeds from you\nnone\n\n## Suggestions\nnone\n"
         self.assertEqual(project_watch._section(text, "Verdict"), "ready")

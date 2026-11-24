@@ -1443,6 +1443,7 @@ def _card(state: dict[str, Any], root: Path, project: str, ticket: str, triggers
     if over and event["state"] == "failed" and not report:
         lines += [say("card_failed", note=event.get("note") or "?"), say("card_again", ticket=ticket)]
         chat.append(f"to run {ticket} again when the developer says so: agent-projects watch start {event['id']}")
+        lines += [say("card_earlier", name=Path(path).name, link=_copy(path))] if path and Path(path).is_file() else []
     elif over and event["state"] == "finished" and event.get("note") and not report:
         try:
             last = (projects._load_mapping(Path(event["run_dir"]) / "chat.yaml").get("turns") or [{}])[-1].get("result")
@@ -1451,7 +1452,6 @@ def _card(state: dict[str, Any], root: Path, project: str, ticket: str, triggers
         if last and Path(str(last)).is_file():
             lines.append(say("card_last", name=Path(str(last)).name, link=_copy(str(last))))
     elif path and Path(path).is_file() and (report or event is None or event["state"] == "finished"):
-        # Not while a later step goes or after it failed: an earlier report would read as its outcome.
         text = Path(path).read_text(encoding="utf-8")
         outcome = next((body for body in (_section(text, name) for name in messages.texts()["outcome_sections"])
                         if _says_something(body)), "")
@@ -1470,6 +1470,10 @@ def _card(state: dict[str, Any], root: Path, project: str, ticket: str, triggers
             line = say("ticket_untitled", ticket=ticket, where=words)
             chat += [f"stop the background command that shows {ticket}, if this chat runs one",
                      "notify: " + (say("notify_needs", line=line) if _says_something(needs) else line)]
+    else:
+        # While a later step goes, or after it failed, an earlier report is only named:
+        # its verdict would read as the outcome of that step.
+        lines += [say("card_earlier", name=Path(path).name, link=_copy(path))] if path and Path(path).is_file() else []
     if over and event.get("run_dir") and not event.get("chat"):
         try:
             record = projects._load_mapping(Path(event["run_dir"]) / "chat.yaml")

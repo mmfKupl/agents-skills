@@ -4,7 +4,7 @@ name: my review
 # Words for the developer, shown as they are: the trigger in one line, and the heading
 # over the tickets that are under it. A run's `label` is how its step is called; a
 # run that starts a skill is called by the skill's words in ../messages.yaml.
-about: "тикет перевели в In Review на тебя, и это сделал не ты: запускает ревью; новые комментарии к таким тикетам разбирает проверка"
+about: "Тикет перевели в In Review на тебя, и это сделал не ты: запускает ревью. Новые комментарии к таким тикетам разбирает проверка"
 heading: В ревью сейчас
 on_any:
   - source: linear

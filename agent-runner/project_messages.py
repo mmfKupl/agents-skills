@@ -71,6 +71,7 @@ DEFAULTS: dict[str, Any] = {
     "card_failed": "Reason: {note}",
     "card_again": 'Say "start {ticket} again" to run it once more.',
     "card_last": "Its last message: [{name}]({link})",
+    "card_earlier": "Earlier report: [{name}]({link})",
     "card_open": 'Say "open {ticket}" to talk to the agent that did this.',
     "card_none": "{ticket} has no record on this machine.",
 

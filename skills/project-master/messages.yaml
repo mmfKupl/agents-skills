@@ -68,6 +68,7 @@ card_suggestions: "Предложений в отчёте: {count}."
 card_failed: "Причина: {note}"
 card_again: "Напиши «запусти {ticket} ещё раз», чтобы повторить."
 card_last: "Последнее сообщение запуска: [{name}]({link})"
+card_earlier: "Предыдущий отчёт: [{name}]({link})"
 card_open: "Напиши «открой {ticket}», чтобы поговорить с агентом, который это сделал."
 card_none: "По {ticket} на этой машине записей нет."
 

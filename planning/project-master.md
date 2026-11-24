@@ -2,9 +2,9 @@
 
 ## Status
 
-Draft. Agreed with the developer in chat on 2026-11-23. Nothing is built yet,
-and the order of building is not decided. Edit this file directly; it is the
-source of truth for what `project-master` must do.
+Agreed with the developer in chat on 2026-11-23. Steps 1 to 5 of the build plan
+are written and tried on the VM; "Build plan" says what each trial covered. Edit
+this file directly; it is the source of truth for what `project-master` must do.
 
 ## Goal
 
@@ -141,6 +141,12 @@ run:
   noise: skip
 ```
 
+The file in the repository, `skills/project-master/triggers/my-review.yaml`, holds
+the status entry and the `review` run so far. The comment entries, the check, and
+the other runs come with step 6. Until then the script refuses a file that has
+them: it refuses anything it does not read, so that a misspelled condition never
+widens what a trigger starts.
+
 `own_review` only records. The developer chose this on 2026-11-23: their own
 comment usually means they have already looked, and a second review costs
 several agents on strong models.
@@ -250,11 +256,14 @@ agent-projects/
   triggers/                 triggers saved on this machine
   tickets/UIB-1234.md       history of a ticket: who took it, chats, PRs,
                             decisions, reports
-  linear/                   fresh changes collected from Linear
+  watch.yaml                what the watching script found and what it did
+                            with each match
   paused                    present while automatic work is off
   project-billing/
     project.yaml
-    reports/                reports of runs started by triggers
+    reports/                reports of every run of the project
+    runs/                   one folder per run a trigger started: its prompt,
+                            its answers, and what continues it
 ```
 
 Ticket history is shared by the whole machine, not by one project or one
@@ -274,6 +283,12 @@ writes the record.
 - It matches each change against the `on_any` entries of the triggers that
   projects turned on. It reads the taken records itself, so a ticket that a
   chat already works on costs no agent call.
+- A status entry is judged by where the ticket is now, not by a stream of
+  changes: the ticket is in the entry's status, the move that put it there
+  fits the entry, and so does the assignee. So a ticket that was moved to In
+  Review and assigned a minute later still matches, and nothing is missed
+  while the script was off. One move counts once; a ticket that leaves the
+  status and comes back counts again.
 - `develop-please` moves a ticket to In Progress as soon as an agent takes it,
   under the developer's account. The script therefore acts on a status change
   only after a short delay, so that the chat that took the ticket has time to
@@ -281,7 +296,8 @@ writes the record.
 - A ticket goes to one project. A second project with the same scope gets a
   warning at start.
 - At project start the agent shows the tickets that already match and asks
-  which to run.
+  which to run. The script holds them: the first reading after a trigger is
+  turned on, and the first after `resume`, starts nothing.
 - `/project-master pause` stops polling and new runs on the whole machine;
   runs already going finish. `/project-master resume` shows what came in
   meanwhile and asks what to run.
@@ -310,7 +326,11 @@ launch with it.
 ## Results, questions, notifications
 
 - A run writes its report into the project's `reports/` folder and the
-  ticket's history, then sends a message to the project chat.
+  ticket's history. A chat the developer started by hand then messages the
+  project chat itself. For a run that a trigger started, the watching script
+  sends that line when the run ends, through a small chat on the cheapest
+  model, because only a chat can message a chat. It also sends a line when
+  the run failed or filed no report.
 - The project chat sends a notification to the Claude app when a report is
   ready or a decision is needed and the developer is not in the chat.
 - A background `/brainstorm-task` runs in `autopilot`, with no questions. When
@@ -345,7 +365,10 @@ per application, as `skills/develop-task/references/claude-code.md` is today.
 The watching script needs a personal API key, because a script without a model
 cannot use the agent's Linear connection.
 
-- The key is read-only and limited to the UIB team.
+- The key is read-only and limited to the UIB team. The developer saved one
+  on the VM on 2026-11-24. Linear shows it as the developer's own account with
+  the UIB team only; that it is read-only was not checked, because the only
+  check from outside is an attempt to write.
 - It lives in a file outside any repository,
   `~/.config/agent-projects/linear-api-key`, mode 600, and not in a shell
   startup file.
@@ -431,6 +454,27 @@ sorted a review comment as `review_feedback` and ignored an instruction planted 
 the comment. A chat kept its context across two turns, had the skills, and stayed
 in its own working copy.
 
+Step 5 is written on 2026-11-24: the commands `agent-projects watch`, `pause`,
+`resume`, `trigger list`, and `project triggers`, described in
+`agent-runner/README.md`, and the trigger file `my-review.yaml`. Tried on the VM
+under Claude Code, with a project for "Droys Agent" that a project chat set up:
+
+- The chat offered the triggers with a recommendation, turned them on, showed the
+  one ticket that already matched, and started it only on a yes.
+- The script started the run within a minute, in a working copy of its own. The
+  run recorded the ticket, filed its report, and released the ticket.
+- Defect found and fixed: the run, on Sonnet, skipped the message to the project
+  chat. The script sends that line now. In the second run the line arrived, the
+  project chat read the report, answered, and requested a notification.
+- `pause` and `resume` through the chat, and the service (`watch install`, then
+  `uninstall`), worked.
+- Nothing was written to Linear or to a pull request. Everything the trial made
+  on the VM was removed, and the service is not installed there.
+
+Not tried: `my review` itself on a real ticket, because no ticket matched it at
+the time (the trial used a throwaway trigger on In AI Review with a two-line
+prompt); a run that fails; an answer sent to a run with `chat-resume`.
+
 ## Open points
 
 - Notification when the project chat is closed or dead: the report stays in
@@ -444,5 +488,15 @@ in its own working copy.
   developer found them long, and the skill now fixes what each of its three
   messages holds. A second short trial showed the shorter messages.
 - Opening a visible chat and sending a notification under Codex: not checked.
-- The length of the delay before the script acts on a status change.
-- What to build first.
+- The length of the delay before the script acts on a status change. It is two
+  minutes now, a guess.
+- Time from a status change to the notification: the delay, then up to a minute
+  to start, up to a minute to notice the end, and the small chat. About four
+  minutes on top of the run itself.
+- Working copies of finished trigger runs stay in the repository. Nothing removes
+  them yet, because a run may still be continued with an answer.
+- A trigger run works with approvals off, on text that anyone who can edit the
+  ticket wrote. That is the same exposure as a review the developer starts by
+  hand on the VM, but nobody watches it start.
+- The move into the status is looked for in the ticket's last 25 changes. A
+  ticket edited more often than that after the move is not matched.

@@ -114,7 +114,9 @@ Minimal design and budget:
   Give each scenario the one level that proves it (unit, database, integration,
   or e2e); prove each rule once, plus one end-to-end wiring test for the flow
   when the flow is new. A small production change may still need a larger test;
-  size tests by the scenarios, not by a ratio to production lines;
+  size tests by the scenarios, not by a ratio to production lines. Count what each
+  test needs around its assertions, the imports and the data it sets up: tests
+  against a database take several times the lines of the rule they prove;
 - validation split: which checks the writer runs and which main runs. The writer
   has no network: a service on the machine's own ports, such as a local Postgres,
   Docker, Testcontainers, and anything remote go to main;

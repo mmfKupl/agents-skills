@@ -20,10 +20,17 @@ What to show:
 
 How to capture on the preview:
 
-- Use a disposable worktree at the PR head commit, never the task worktree, and remove
-  it when done. Install its own dependencies: `cd front && npm ci`, adding
+- Use a disposable copy of the PR head commit, never the task worktree, and remove it
+  when done. It is a disposable worktree, or, in a session that cannot make one, an
+  export of the commit: `git archive --output=<file> HEAD front
+  .github/workflows/preview-hetzner`, unpacked into a temporary folder. Export the whole
+  `front`: with `front/projects/e2e` alone the run fails on imports such as
+  `projects/e2e/fixtures/base`.
+- Install the copy's own dependencies: `cd front && npm ci`, adding
   `--engine-strict=false` when only the local Node patch version differs, then
   `npx playwright install chromium`. Another checkout's `node_modules` can be weeks old.
+  A link to `front/node_modules` of the task worktree will do instead when that was
+  installed at the same commit.
 - Write a scratch spec under `front/projects/e2e/tests/<scratch>/` on
   `baseAuthorizedTest`, which registers a new organization user on the preview, and the
   existing page objects. Set `video: 'on'`, `ignoreHTTPSErrors: true`, and

@@ -340,7 +340,7 @@ route override with its reason, and replan triggers; `dispatch` derives the exac
 models from them. It
 also gives the minimal design: the approach, the existing code it reuses, and a size
 budget: the test scenarios, each at the one level that proves it, with rough production
-and test lines. When it flags a
+and test lines, the test lines counted with their imports and data setup. When it flags a
 requirement whose cost is out of proportion to its outcome, ask the developer before
 implementation; never drop it silently. It must not ask to remove a ceiling.
 

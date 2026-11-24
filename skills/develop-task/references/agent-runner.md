@@ -46,8 +46,8 @@ are fixed for the run; do not copy a manifest to another chat to bypass them.
 
 ## Dispatch A Job
 
-Write the job packet to a file outside the worktree, then run one foreground command per
-job:
+Write the job packet to a file outside the worktree, with the file tool and not with a
+shell here-document, then run one foreground command per job:
 
 ```bash
 agent-run-manifest dispatch /absolute/run.yaml --role implementation-worker \

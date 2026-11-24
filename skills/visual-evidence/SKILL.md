@@ -53,7 +53,9 @@ repository's Storybook.
 - Install that worktree's own dependencies and the Playwright browser it pins; another
   checkout's `node_modules` can be weeks older.
 - Turn on video, a short `slowMo`, and the e2e viewport, and log the API responses the
-  scenario depends on. Wait for a visible state, not a fixed time, before each screenshot.
+  scenario depends on. Wait for a visible state, not a fixed time, before each screenshot,
+  and then for the end of its transition: a checkbox caught in the middle of its
+  animation shows neither state, and the inspector cannot confirm it.
 - A scratch spec breaks on small details, such as a menu that Escape does not close.
   Fix it and rerun; a failed capture is not evidence.
 - Take a cropped or zoomed screenshot after the video has stopped, or cut it from the

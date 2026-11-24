@@ -117,6 +117,27 @@ The `chat-title` skill lists the Claude rename tools and applies here unchanged.
   in this Claude installation (`gh`, the `linear` MCP server). If one is not
   connected, report the gap rather than switching to a different system.
 
+## A session in a working copy of its own
+
+Claude Code started with `--worktree`, which is how a project starts every run,
+keeps git inside that working copy. It refuses a Bash command that names git in a
+form it cannot check, with "names git in a form too complex to verify that it stays
+inside the worktree". Checked on 2026-11-24 with Claude Code 2.1.331: one run lost
+thirteen commands this way.
+
+- Refused: git together with `cd`, a shell variable (also `$?`), a loop, or a
+  here-document in the same command. The word "git" inside text that the command
+  writes counts too, so a here-document that writes a packet is refused.
+- Runs: plain git commands, one or several in a row, from the working copy.
+
+So run git as commands of its own, with no `cd` and no variables in the same call,
+and write a packet, a prompt, or any other file with the Write tool, never with a
+here-document in Bash. Do not retry a refused command as it is: split it.
+
+A second git worktree may not be possible from such a session. Where a skill asks
+for a disposable worktree, export the commit instead: `git archive --output=<file>
+HEAD <paths>`, unpacked into a temporary folder.
+
 ## Claude project threads
 
 When `mcp__hearthbot__*` tools are available, the skill runs in a Claude

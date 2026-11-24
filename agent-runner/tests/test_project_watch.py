@@ -54,12 +54,13 @@ def comment(identity: str, minutes: float, body: str, user: str | None = "other"
 
 
 def commented(identifier: str, comments: list[dict], *, pull: str | None = None, state_type: str = "started",
-              project: str = "Billing") -> dict:
+              project: str = "Billing", assignee: str | None = None) -> dict:
     """A ticket as the comments query returns it."""
     return {
         "identifier": identifier, "title": f"Title of {identifier}", "url": f"https://linear.app/x/{identifier}",
         "description": f"Description of {identifier}", "state": {"name": "In Review", "type": state_type},
-        "project": {"name": project}, "attachments": {"nodes": [{"url": pull}] if pull else []},
+        "project": {"name": project}, "assignee": {"id": assignee} if assignee else None,
+        "attachments": {"nodes": [{"url": pull}] if pull else []},
         "history": {"nodes": [{"createdAt": at(-600), "actor": {"name": "Other"}, "botActor": None,
                                "fromState": {"name": "In Progress"}, "toState": {"name": "In Review"}}]},
         "comments": {"nodes": comments},
@@ -331,10 +332,50 @@ class ProjectWatchTests(unittest.TestCase):
             {"issues": {"nodes": [issue("UIB-2")], "pageInfo": {"hasNextPage": False, "endCursor": None}}},
         ]
         with patch.object(project_watch, "linear", side_effect=pages) as linear:
-            found = project_watch._issues({"linear_project": "Billing"}, ["In Review"])
+            found = project_watch._issues({"linear_project": "Billing"}, ["In Review"], "me")
 
         self.assertEqual([item["identifier"] for item in found], ["UIB-1", "UIB-2"])
         self.assertEqual(linear.call_args_list[1].args[1]["after"], "next")
+
+    def test_project_can_cover_every_ticket_assigned_to_the_current_user(self) -> None:
+        self.ok("init")
+        self.ok("project", "create", "mine", "--repository", str(self.repo), "--tracker", "linear",
+                "--scope", "assignee=current_user")
+        self.ok("project", "triggers", "mine", "--on", "my review")
+        self.issues = [issue("UIB-1")]
+
+        found = project_watch.poll(NOW)
+
+        self.assertNotIn("problems", found)
+        self.assertEqual([query["filter"] for query in self.queries],
+                         [{"assignee": {"id": {"eq": "me"}}, "state": {"name": {"in": ["In Review"]}}}])
+        self.assertEqual([(event["ticket"], event["project"], event["state"]) for event in found["new"]],
+                         [("UIB-1", "mine", "held")])
+
+    def test_project_that_names_a_tracker_project_wins_over_one_for_the_assigned_tickets(self) -> None:
+        self.ok("init")
+        self.ok("project", "create", "all-mine", "--repository", str(self.repo), "--tracker", "linear",
+                "--scope", "assignee=current_user")
+        self.ok("project", "triggers", "all-mine", "--on", "my review")
+        self.project()                                           # billing comes later by name
+        self.reviewed("UIB-1")
+        self.ok("ticket", "take", "UIB-2", "--workflow", "review")       # reviewed outside any project
+        self.ok("ticket", "take", "UIB-3", "--workflow", "review")
+        self.ok("ticket", "take", "UIB-4", "--workflow", "review")
+        project_watch.poll(NOW)
+        self.issues = [issue("UIB-5", minutes_ago=30)]
+        self.commented = [
+            commented("UIB-1", [comment("c1", 5, "new")], project="Another project"),
+            commented("UIB-2", [comment("c2", 5, "new")]),
+            commented("UIB-3", [comment("c3", 5, "new")], project="Another project", assignee="me"),
+            commented("UIB-4", [comment("c4", 5, "new")], project="Another project", assignee="other"),
+        ]
+
+        found = project_watch.poll(NOW + timedelta(minutes=10))["new"]
+
+        # UIB-4 is in no project's Linear project and is assigned to someone else: nobody gets it.
+        self.assertEqual([(event["ticket"], event["project"]) for event in found],
+                         [("UIB-5", "billing"), ("UIB-1", "billing"), ("UIB-2", "billing"), ("UIB-3", "all-mine")])
 
     def test_ticket_named_by_number_goes_to_the_project_that_names_it(self) -> None:
         self.watched_project()                                   # billing covers the whole Linear project

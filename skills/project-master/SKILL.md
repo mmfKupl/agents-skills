@@ -68,7 +68,9 @@ On the first `$project-master` in a chat:
    - a short name in lowercase with dashes, such as `billing`;
    - the repository folder, by default the root of the current repository;
    - the tracker, from Repository notes below;
-   - what the project covers: a project in the tracker, or a list of tickets.
+   - what the project covers: a project in the tracker, a list of tickets, or every
+     ticket assigned to the developer. The last is for a developer who wants one chat
+     for all their reviews or all their tasks, wherever the tickets lie in the tracker.
 
    Then confirm the name before creating anything, even when everything is clear:
    tell the developer in one or two lines the name you propose and what the project
@@ -85,6 +87,10 @@ On the first `$project-master` in a chat:
    ```
 
    `--ticket <id>`, repeatable, names single tickets instead of a tracker project.
+   `--scope assignee=current_user` covers every ticket assigned to the developer. These
+   are the only ways to say what a project covers; the command refuses any other
+   `--scope`. A trigger only says which event to react to, so what the developer wants
+   watched must be covered by the project.
    `--no-section` is for a developer who does not want the project's chats collected
    in one sidebar section.
 

@@ -182,9 +182,10 @@ def project_create(name: str, repository: str, tracker: str, scope: list[str], t
         raise ProjectsError(f"project {name!r} already exists: {path}")
     scope_map: dict[str, Any] = {}
     for item in scope:
-        key, separator, value = item.partition("=")
-        if not separator or not key or not value:
-            raise ProjectsError(f"--scope takes key=value, got {item!r}")
+        key, _, value = item.partition("=")
+        # A key the watching script does not read would cover nothing and say nothing.
+        if not value or key not in ("linear_project", "assignee") or (key == "assignee" and value != "current_user"):
+            raise ProjectsError(f"--scope takes linear_project=<name> or assignee=current_user, got {item!r}")
         scope_map[key] = value
     if tickets:
         scope_map["tickets"] = [_ticket_id(ticket) for ticket in tickets]
@@ -399,7 +400,8 @@ def _argument_parser() -> argparse.ArgumentParser:
     create.add_argument("--repository", required=True, help="folder of the repository the project works in")
     create.add_argument("--tracker", choices=TRACKERS, default="files")
     create.add_argument("--scope", action="append", default=[], metavar="KEY=VALUE",
-                        help="what the project covers, for example linear_project=Billing")
+                        help="what the project covers: linear_project=<name> for a Linear project, "
+                             "assignee=current_user for every ticket assigned to you; repeatable")
     create.add_argument("--ticket", action="append", default=[], help="a ticket the project covers; repeatable")
     create.add_argument("--no-section", action="store_true",
                         help="do not collect the project's chats in a sidebar section")

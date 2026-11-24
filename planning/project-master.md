@@ -242,8 +242,12 @@ scope:
 triggers: [my review, my progress]
 ```
 
-`scope` may also be a list of tickets. A project with no `triggers` has no
-automatic work.
+`scope` may also be a list of tickets, or `assignee: current_user` for every
+ticket assigned to the developer, wherever it lies in the tracker. The developer
+asked for the last one on 2026-11-24: "хочу тут вести все мои ревью из линера
+которые приходят". Their tickets in In Review had no Linear project, so neither
+of the first two could cover them. `project create` refuses a `scope` the script
+does not read. A project with no `triggers` has no automatic work.
 
 ## Folder on the machine
 
@@ -298,9 +302,10 @@ writes the record.
   only after a short delay, so that the chat that took the ticket has time to
   write its record.
 - A ticket goes to one project per trigger. The project that names the ticket
-  by number wins over one that covers a whole tracker project; otherwise the
-  first project by name gets it. A second project with the same scope gets a
-  warning when a trigger is turned on.
+  by number wins over one that covers a whole tracker project, and that one
+  wins over a project that covers the tickets assigned to the developer; among
+  equals the first project by name gets it. A second project with the same
+  scope gets a warning when a trigger is turned on.
 - The working copy of a run that a trigger started is removed once its ticket
   is closed in the tracker (Done, Canceled, Won't do, Duplicate). The developer
   asked for this on 2026-11-24. Until then it stays, because the run may be

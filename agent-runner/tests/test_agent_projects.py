@@ -87,10 +87,24 @@ class AgentProjectsTests(unittest.TestCase):
         self.assertEqual(self.run_command("project", "create", "../x", "--repository", "/repo")[0], 2)
         self.assertEqual(self.run_command("project", "create", "ok", "--repository", "/repo", "--scope", "x")[0], 2)
 
+    def test_project_create_refuses_a_scope_the_watching_script_does_not_read(self) -> None:
+        self.ok("init")
+        for scope in ("team=UIB", "assignee=someone", "tickets=UIB-1"):
+            code, _, stderr = self.run_command("project", "create", "ok", "--repository", "/repo", "--scope", scope)
+            self.assertEqual(code, 2, scope)
+            self.assertIn("linear_project=<name> or assignee=current_user", stderr)
+        self.assertEqual(self.ok("project", "list"), {"projects": []})
+
     def test_project_with_named_tickets(self) -> None:
         self.ok("init")
         created = self.ok("project", "create", "few", "--repository", "/repo", "--ticket", "uib-1", "--ticket", "UIB-2")
         self.assertEqual(created["scope"], {"tickets": ["UIB-1", "UIB-2"]})
+
+    def test_project_with_the_tickets_assigned_to_the_current_user(self) -> None:
+        self.ok("init")
+        created = self.ok("project", "create", "mine", "--repository", "/repo", "--tracker", "linear",
+                          "--scope", "assignee=current_user")
+        self.assertEqual(created["scope"], {"assignee": "current_user"})
 
     def test_project_chat_records_the_calling_chat(self) -> None:
         self.create_project()

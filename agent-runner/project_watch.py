@@ -83,6 +83,7 @@ query($filter: IssueFilter, $after: String) {
       identifier title url description
       state { name type }
       project { name }
+      assignee { id }
       attachments(first: 20) { nodes { url } }
       history(first: 15) { nodes { createdAt actor { name } botActor { name } fromState { name } toState { name } } }
       comments(first: 30) { nodes { id createdAt url body user { id name } botActor { name } } }
@@ -409,14 +410,23 @@ def _pages(query: str, issue_filter: dict[str, Any]) -> list[dict[str, Any]]:
     return nodes
 
 
-def _issues(scope: dict[str, Any], statuses: list[str]) -> list[dict[str, Any]]:
+def _wide(scope: dict[str, Any]) -> bool:
+    """Whether the project covers the tickets assigned to the current user and names
+    nothing: the widest scope, which gets a ticket only when no other project has it."""
+    return scope.get("assignee") == "current_user" and not scope.get("linear_project") and not scope.get("tickets")
+
+
+def _issues(scope: dict[str, Any], statuses: list[str], me: str) -> list[dict[str, Any]]:
     """Every ticket the project covers that is now in one of the statuses."""
     filters: list[dict[str, Any]] = []
     if scope.get("linear_project"):
         filters.append({"project": {"name": {"eq": str(scope["linear_project"])}}})
+    if scope.get("assignee") == "current_user":
+        filters.append({"assignee": {"id": {"eq": me}}})
     filters += _ticket_filters(scope.get("tickets") or [])
     if not filters:
-        raise ProjectsError("its scope names no Linear project and no tickets")
+        raise ProjectsError("its scope names no Linear project, no tickets, and not the tickets assigned to the "
+                            "current user")
     found: dict[str, dict[str, Any]] = {}
     for scope_filter in filters:
         nodes = _pages(ISSUES_QUERY, {**scope_filter, "state": {"name": {"in": statuses}}})
@@ -504,10 +514,11 @@ def _local_tickets(root: Path) -> dict[str, dict[str, Any]]:
 
 
 def _owner(ticket: str, issue: dict[str, Any], facts: dict[str, Any], trigger_name: str,
-           watched: dict[str, dict[str, Any]]) -> str | None:
+           watched: dict[str, dict[str, Any]], me: str) -> str | None:
     """The one project that gets this ticket's comments for a trigger: where a chat
     worked on it, else the one that names it, else the one that covers its tracker
-    project; among equals, the first by name."""
+    project, else the one that covers the tickets assigned to the current user; among
+    equals, the first by name."""
     ranked = []
     for name, project in watched.items():
         scope = project.get("scope") or {}
@@ -519,6 +530,8 @@ def _owner(ticket: str, issue: dict[str, Any], facts: dict[str, Any], trigger_na
             ranked.append((1, name))
         elif scope.get("linear_project") and scope["linear_project"] == (issue.get("project") or {}).get("name"):
             ranked.append((2, name))
+        elif scope.get("assignee") == "current_user" and (issue.get("assignee") or {}).get("id") == me:
+            ranked.append((3, name))
     return min(ranked)[1] if ranked else None
 
 
@@ -647,7 +660,8 @@ def poll(now: datetime | None = None) -> dict[str, Any]:
         elif any(item in triggers for item in project["triggers"]):
             plans[name] = [triggers[item] for item in project["triggers"] if item in triggers]
     # A ticket goes to one project per trigger. The project that names it by number wins
-    # over one that covers a whole tracker project; otherwise the first by name gets it.
+    # over one that covers a whole tracker project, and that one wins over a project that
+    # covers the tickets assigned to the current user; among equals the first by name gets it.
     named: dict[tuple[str, str], str] = {}
     for name, project in watched.items():
         for ticket in (project.get("scope") or {}).get("tickets") or []:
@@ -709,13 +723,13 @@ def poll(now: datetime | None = None) -> dict[str, Any]:
             known.add(key)
             new.append(event)
 
-        for name, active in plans.items():
+        for name, active in sorted(plans.items(), key=lambda plan: _wide(watched[plan[0]].get("scope") or {})):
             statuses = sorted({entry["to"] for trigger in active for entry in trigger["on_any"] if entry["event"] == STATUS})
             if not statuses:
                 continue
             try:
                 me = _current_user(state)
-                issues = _issues(watched[name].get("scope") or {}, statuses)
+                issues = _issues(watched[name].get("scope") or {}, statuses, me)
             except ProjectsError as error:
                 problems.append(f"project {name}: {error}")
                 unread.add(name)
@@ -754,7 +768,7 @@ def poll(now: datetime | None = None) -> dict[str, Any]:
                     continue
                 state["closed_tickets"].pop(ticket, None)
                 for trigger in commented.values():
-                    name = _owner(ticket, issue, local[ticket], trigger["name"], {key: watched[key] for key in plans})
+                    name = _owner(ticket, issue, local[ticket], trigger["name"], {key: watched[key] for key in plans}, me)
                     if name is None:
                         continue
                     for index, entry in enumerate(trigger["on_any"]):

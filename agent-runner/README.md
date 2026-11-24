@@ -336,3 +336,54 @@ agent-run-manifest chat-resume /absolute/run --prompt-file /absolute/answer.md
   `session`, `usage` in the same convention as a job, `cost_usd` when the application
   reports it, and the final message as `report`. It exits with 0 only for
   `completed`. `--timeout-minutes`, 180 by default, stops a turn that runs too long.
+
+## Watching and triggers
+
+`agent-projects` also watches the tracker for the triggers that projects turned on
+(`planning/project-master.md`, section "Triggers"). No model takes part: a loop reads
+Linear, matches what it finds against the trigger files, and starts a full chat with
+`agent-run-manifest chat` for each match.
+
+```bash
+agent-projects trigger list                          # the triggers this machine has
+agent-projects project triggers billing --on "my review"
+agent-projects watch poll                            # read Linear once; starts nothing
+agent-projects watch list                            # events that are not over
+agent-projects watch start 3 4                       # let the loop start held events
+agent-projects watch dismiss 5
+agent-projects watch install                         # keep the loop running (systemd)
+agent-projects pause                                 # and: agent-projects resume
+```
+
+- Triggers are read from `agent-projects/triggers/` on the machine, then from
+  `skills/project-master/triggers/` as installed for Codex and Claude Code. A trigger
+  on the machine wins over a ready one with the same name. A file with anything the
+  script does not understand is refused whole and reported as a problem, so that a
+  misspelled condition never widens what a trigger starts.
+- So far a trigger reads one kind of event, a Linear status change. It is judged by
+  where a ticket is now: the ticket is in the trigger's status, and the move that put
+  it there fits the entry (`from`, `actor`), as does the ticket's assignee. One move
+  counts once, so a ticket that leaves the status and comes back counts again. The
+  move is looked for in the ticket's last 25 changes.
+- A move is acted on only after two minutes, so that a chat that took the ticket has
+  written its record. A ticket that a chat on this machine holds is recorded as
+  `skipped`.
+- The first poll after a trigger is turned on, and the first after `resume`, start
+  nothing: what matches is recorded as `held`, and `watch start` or `watch dismiss`
+  decides. Later matches are `waiting`, and the loop starts them within a minute.
+- A run is `agent-run-manifest chat` with the prompt
+  `/project-scope <project> <the trigger's command>` (`$` instead of `/` under Codex),
+  in a working copy of its own, with approvals off, because nobody is there to
+  approve. Its folder is `agent-projects/project-<name>/runs/<date>-<ticket>-<run>-<id>`,
+  which `chat-resume` takes when the developer answers a question. The run files its
+  report and messages the project chat by itself. When it fails, or ends without a
+  report, the loop starts a small chat on the cheapest model that passes one line on
+  to the project chat. Working copies of finished runs are not removed.
+- `watch install` writes a systemd user service that survives a logout when lingering
+  is on for the user. `scripts/install-skills.sh` restarts it; the runs it started
+  keep going. Elsewhere, keep `agent-projects watch run` running yourself.
+- `pause` creates `agent-projects/paused`. While it is there, nothing is read from
+  the tracker and nothing starts; runs already going finish.
+- The Linear key is read from `~/.config/agent-projects/linear-api-key`
+  (`AGENT_PROJECTS_LINEAR_KEY_FILE` names another file) and goes only into the request
+  header. `agent-projects init` says whether Linear answers and whether the loop runs.

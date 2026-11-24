@@ -1,0 +1,16 @@
+# Someone else moved a ticket to In Review and it is assigned to the current user:
+# review it. Format and rules: planning/project-master.md, section "Triggers".
+name: my review
+on_any:
+  - source: linear
+    event: status_changed
+    to: In Review
+    assignee: current_user
+    actor: not_current_user
+    skip: ticket_taken_in_current_env   # a chat here already works on it
+    then: review
+run:
+  review:
+    command: /review-task {ticket}
+    model: opus
+    effort: high

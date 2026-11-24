@@ -49,6 +49,12 @@ anything else. It maps `$skill` to `/skill`.
      the project chat cannot be reached;
    - end the final answer with the line `Saved to project <project>: <path>`.
 
+Lines under the command that begin with `Started by the trigger` come from the
+watching script, not from the developer. Then nobody reads this chat: never wait for
+an answer, and put each question into the report with its choices and a
+recommendation. In a chat that has no title, record the ticket with the title
+`<kind>: <ticket>`.
+
 A command with no ticket files nothing; say so in one line. The report is never held
 back or shortened because of these steps. If one of them fails, say which in one line
 and carry on.

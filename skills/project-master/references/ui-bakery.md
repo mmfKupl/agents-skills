@@ -11,6 +11,9 @@ Load this reference only after repository evidence identifies the UI Bakery mono
     review. Show it; start a review only when the developer asks.
   - `In Progress`, assigned to the developer: work is wanted. Decide between
     `$brainstorm-task` and development.
+- The ready trigger `my review` covers the first of these statuses: it starts
+  `$review-task` when someone else moved the ticket to `In Review` and the ticket is
+  assigned to the developer.
 - Development always runs as `$develop-please $develop-task <ticket>`. `$develop-please`
   lives in the UI Bakery repository and owns the ticket's status, the pull request,
   and the reports in Linear.

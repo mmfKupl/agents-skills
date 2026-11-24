@@ -164,7 +164,9 @@ def init() -> dict[str, Any]:
     created = not root.is_dir()
     for directory in (root, root / "tickets", root / "triggers"):
         directory.mkdir(parents=True, exist_ok=True)
-    return {"home": str(root), "created": created, "projects": _project_names(root), "watching": "not set up"}
+    import project_watch
+
+    return {"home": str(root), "created": created, "projects": _project_names(root), **project_watch.summary()}
 
 
 def _project_names(root: Path) -> list[str]:
@@ -353,7 +355,11 @@ def status(project: str | None) -> dict[str, Any]:
             "last_event": events[-1] if events else None,
             "file": str(path),
         })
-    return {"home": str(root), **({"project": project} if project else {"projects": _project_names(root)}), "tickets": tickets}
+    import project_watch
+
+    waiting = project_watch.events(project, False)
+    return {"home": str(root), **({"project": project} if project else {"projects": _project_names(root)}),
+            "tickets": tickets, "trigger_events": waiting["events"], "watching": waiting["watching"]}
 
 
 def _argument_parser() -> argparse.ArgumentParser:
@@ -409,10 +415,17 @@ def _argument_parser() -> argparse.ArgumentParser:
 
     commands.add_parser("status", help="print every ticket with who holds it and its last event").add_argument(
         "--project")
+    import project_watch
+
+    project_watch.add_commands(commands, project)
     return parser
 
 
 def run(args: argparse.Namespace) -> dict[str, Any] | str:
+    if args.command in ("watch", "trigger", "pause", "resume") or getattr(args, "action", None) == "triggers":
+        import project_watch
+
+        return project_watch.run(args)
     if args.command == "init":
         return init()
     if args.command == "status":

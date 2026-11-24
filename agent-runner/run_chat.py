@@ -216,7 +216,9 @@ def _turn(run_dir: Path, record: dict[str, Any], prompt: str, timeout_minutes: f
             status, error = "timed_out", f"stopped after {timeout_minutes:g} minutes"
         elif code != 0 or parsed["error"]:
             tail = files["stderr"].read_text(encoding="utf-8", errors="replace").strip()[-500:]
-            status, error = "failed", parsed["error"] or f"exit code {code}: {tail}"
+            # What the application wrote on its way out says why, for example a lost login.
+            reason = parsed["error"] or f"exit code {code}"
+            status, error = "failed", f"{reason}: {tail}" if code and tail else reason
         else:
             status, error = "completed", None
         files["result"].write_text(parsed.get("result") or "", encoding="utf-8")

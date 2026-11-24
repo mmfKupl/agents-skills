@@ -51,6 +51,14 @@ install_agent_runner() {
   "${target_venv}/bin/agent-projects" --help >/dev/null
 
   echo "Installed agent-runner to ${target_venv}/bin/agent-runner"
+
+  # The watching service keeps the old code in memory until it restarts. Runs that it
+  # started are separate processes and keep going.
+  if command -v systemctl >/dev/null 2>&1 &&
+    systemctl --user is-active --quiet agent-projects-watch.service 2>/dev/null; then
+    systemctl --user restart agent-projects-watch.service
+    echo "Restarted agent-projects-watch.service"
+  fi
 }
 
 remove_obsolete_skills() {

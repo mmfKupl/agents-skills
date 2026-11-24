@@ -24,7 +24,10 @@ anything else. It maps `$skill` to `/skill`.
 1. Resolve `agent-projects`:
    `${CODEX_HOME:-$HOME/.codex}/tools/agent-runner/bin/agent-projects`, then `PATH`.
    Run `agent-projects project show <project>`. If the command or the project is
-   missing, say so and stop; do not run the command outside the project.
+   missing, say so and stop; do not run the command outside the project. If the
+   answer has `section: true`, file this chat into the project's sidebar section, as
+   [`../project-master/references/hosts.md`](../project-master/references/hosts.md)
+   says, once, before the work starts.
 2. Run the command as if the developer had written it as this chat's message. A
    `$skill` in it is an explicit invocation of that skill, and all of that skill's
    rules, gates, chat title, and report format apply unchanged. This skill sets no

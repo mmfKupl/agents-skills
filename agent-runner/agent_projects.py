@@ -173,7 +173,8 @@ def _project_names(root: Path) -> list[str]:
     return sorted(path.parent.name.removeprefix("project-") for path in root.glob("project-*/project.yaml"))
 
 
-def project_create(name: str, repository: str, tracker: str, scope: list[str], tickets: list[str]) -> dict[str, Any]:
+def project_create(name: str, repository: str, tracker: str, scope: list[str], tickets: list[str],
+                   section: bool = True) -> dict[str, Any]:
     root = _require_home()
     folder = _project_dir(root, name)
     path = folder / "project.yaml"
@@ -194,6 +195,8 @@ def project_create(name: str, repository: str, tracker: str, scope: list[str], t
         "tracker": tracker,
         "scope": scope_map,
         "triggers": [],
+        # Whether the project's chats file themselves into one sidebar section.
+        "section": section,
         "created": _now(),
     }
     _atomic_write(path, _dump(document))
@@ -203,7 +206,19 @@ def project_create(name: str, repository: str, tracker: str, scope: list[str], t
 def project_show(name: str) -> dict[str, Any]:
     root = _require_home()
     _, document = _load_project(root, name)
-    return {**document, "folder": str(_project_dir(root, name))}
+    # A project made before the field existed has the default, which is on.
+    return {**document, "section": document.get("section", True), "folder": str(_project_dir(root, name))}
+
+
+def project_section(name: str, on: bool) -> dict[str, Any]:
+    """Turn on or off the filing of the project's chats into one sidebar section."""
+    root = _require_home()
+    path, _ = _load_project(root, name)
+    with _locked(path):
+        _, document = _load_project(root, name)
+        document["section"] = on
+        _atomic_write(path, _dump(document))
+    return {"project": name, "section": on}
 
 
 def project_chat(name: str, title: str | None, chat_id: str | None) -> dict[str, Any]:
@@ -386,8 +401,13 @@ def _argument_parser() -> argparse.ArgumentParser:
     create.add_argument("--scope", action="append", default=[], metavar="KEY=VALUE",
                         help="what the project covers, for example linear_project=Billing")
     create.add_argument("--ticket", action="append", default=[], help="a ticket the project covers; repeatable")
+    create.add_argument("--no-section", action="store_true",
+                        help="do not collect the project's chats in a sidebar section")
     project.add_parser("show", help="print a project").add_argument("name")
     project.add_parser("list", help="print project names")
+    section = project.add_parser("section", help="turn the project's sidebar section on or off")
+    section.add_argument("name")
+    section.add_argument("state", choices=("on", "off"))
     chat = project.add_parser("chat", help="record the calling chat as the chat that manages the project")
     chat.add_argument("name")
     chat.add_argument("--title")
@@ -439,7 +459,10 @@ def run(args: argparse.Namespace) -> dict[str, Any] | str:
         return status(args.project)
     if args.command == "project":
         if args.action == "create":
-            return project_create(args.name, args.repository, args.tracker, args.scope, args.ticket)
+            return project_create(args.name, args.repository, args.tracker, args.scope, args.ticket,
+                                  section=not args.no_section)
+        if args.action == "section":
+            return project_section(args.name, args.state == "on")
         if args.action == "show":
             return project_show(args.name)
         if args.action == "chat":

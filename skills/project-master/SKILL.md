@@ -60,8 +60,9 @@ On the first `$project-master` in a chat:
 1. Look for the project with `agent-projects project list`. An error saying that the
    folder does not exist means there are no projects yet. If the developer named a
    project the list shows, read it with `project show`, record this chat as the
-   project's chat with the `project chat` command of step 3, and go to step 4. A
-   project has one chat: the latest that opened it.
+   project's chat with the `project chat` command of step 3, file this chat into the
+   project's sidebar section as step 3 says, and go to step 4. A project has one
+   chat: the latest that opened it.
 2. Otherwise work out the new project from the developer's message and the
    repository, asking only what neither answers:
    - a short name in lowercase with dashes, such as `billing`;
@@ -84,6 +85,15 @@ On the first `$project-master` in a chat:
    ```
 
    `--ticket <id>`, repeatable, names single tickets instead of a tracker project.
+   `--no-section` is for a developer who does not want the project's chats collected
+   in one sidebar section.
+
+   Then, unless the project has `section: false`, file this chat into the sidebar
+   section named after the project, as [`references/hosts.md`](references/hosts.md)
+   says. Every chat of the project does the same for itself, so the project chat and
+   the chats it starts lie together. `agent-projects project section <project> off`
+   turns this off, and `on` turns it back on; chats already filed stay where they
+   are.
    For the chat's name use the one other chats see, which
    [`references/hosts.md`](references/hosts.md) says how to read. A title this chat
    asked for may not have been applied.
@@ -150,6 +160,9 @@ must be visible to them, and it runs in the project's repository in a working co
 its own. [`references/hosts.md`](references/hosts.md) says how each application does
 that. If the application has no way, give the developer the ready prompt to paste into
 a new chat, and say so.
+
+The new chat files itself into the project's sidebar section; `$project-scope` tells
+it to. Do not move it from here: moving another chat asks the developer for approval.
 
 Start one chat per step. Never run the step inside this chat or in a subagent: the
 developer must be able to open it, and this chat must stay short.

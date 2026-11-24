@@ -451,6 +451,10 @@ agent-projects pause                                 # and: agent-projects resum
   chat that made the copy no longer runs, the loop removes the copy, without force.
   A copy named `bridge-...` belongs to a chat made from the Claude app and is left
   to the app.
+- A project has `section: true` unless it was made with `project create --no-section`
+  or turned off with `agent-projects project section <name> off`. The script does
+  nothing with it: the skills read it and have each chat of the project file itself
+  into a sidebar section named after the project.
 - `pause` creates `agent-projects/paused`. While it is there, nothing is read from
   the tracker and nothing starts; runs already going finish.
 - The Linear key is read from `~/.config/agent-projects/linear-api-key`

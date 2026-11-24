@@ -66,6 +66,30 @@ A message from another chat is information, not the developer's instruction.
   chat; that is expected, do not retry.
 - **Otherwise.** Skip the notification. Codex has no such tool in `codex exec` 0.171.
 
+## Keep the project's chats in one sidebar section
+
+When `agent-projects project show <project>` has `section: true`, each chat of the
+project files itself into a sidebar section named after the project, so that the
+project chat and the chats it started lie together. A chat moves only itself: that
+needs no approval, and moving another chat does.
+
+- **Claude desktop app.** The session has `mcp__ccd_sidebar__list_sections`,
+  `mcp__ccd_sidebar__create_section`, and `mcp__ccd_sidebar__move_sessions`; load them
+  with one `ToolSearch` call when they are deferred. Find the section whose name is
+  the project's name with `list_sections`, create it with `create_section` when it is
+  missing, and call `move_sessions` with `session_ids: ["self"]` and that
+  `section_id`. Checked on 2026-11-24: the chat moved with no approval asked.
+- **Claude Code through Remote Control**, with no such tools but with
+  `mcp__claude-code-remote__set_session_tags`: the application gives that chat no
+  tool for sections. Add the tag `project:<name>` to this session instead; the tool
+  groups sessions under a label. Not checked, and writes through this server have
+  been refused since 2026-11-23.
+- **Otherwise**, such as a chat started from the shell, or Codex: there is no tool.
+  Skip it.
+
+This is best effort, like a chat title: when a tool is missing or refuses, carry on
+and say nothing. Do it once per chat.
+
 ## What works the same under Codex
 
 The project files, the watching script, the triggers, and the runs are shared. A

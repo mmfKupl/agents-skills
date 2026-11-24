@@ -60,6 +60,16 @@ class AgentProjectsTests(unittest.TestCase):
         self.assertTrue((self.home / "triggers").is_dir())
         self.assertFalse(self.ok("init")["created"])
 
+    def test_project_keeps_its_chats_in_a_sidebar_section_unless_told_not_to(self) -> None:
+        self.assertTrue(self.create_project()["section"])
+        self.assertEqual(self.ok("project", "section", "billing", "off"), {"project": "billing", "section": False})
+        self.assertFalse(self.ok("project", "show", "billing")["section"])
+        self.ok("project", "create", "quiet", "--repository", str(self.home.parent), "--no-section")
+        self.assertFalse(self.ok("project", "show", "quiet")["section"])
+        document = self.home / "project-quiet" / "project.yaml"
+        document.write_text(document.read_text().replace("section: false\n", ""))
+        self.assertTrue(self.ok("project", "show", "quiet")["section"])           # an older project: on
+
     def test_project_create_show_and_list(self) -> None:
         created = self.create_project()
         self.assertEqual(created["scope"], {"linear_project": "Billing"})

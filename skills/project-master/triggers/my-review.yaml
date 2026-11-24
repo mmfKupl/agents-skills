@@ -1,5 +1,5 @@
-# Someone else moved a ticket to In Review and it is assigned to the current user:
-# review it. Format and rules: planning/project-master.md, section "Triggers".
+# Reviews that wait for the current user, and what happens to a review afterwards.
+# Format and rules: skills/project-master/references/triggers.md.
 name: my review
 on_any:
   - source: linear
@@ -9,8 +9,39 @@ on_any:
     actor: not_current_user
     skip: ticket_taken_in_current_env   # a chat here already works on it
     then: review
+  - source: linear
+    event: comment_added
+    ticket: reviewed_in_current_env     # a review of it is on record here
+    skip: agent_comment
+  - source: github
+    event: pr_review_or_comment
+    ticket: reviewed_in_current_env
+    skip: agent_comment
+check:
+  model: haiku
+  effort: low
+  prompt: |
+    Read the comment, the ticket's record on this machine, and the last review
+    report. Answer with exactly one outcome:
+    - own_review: the current user wrote review remarks themself;
+    - author_answered: the author replied to review points, or says the fixes
+      are pushed;
+    - noise: thanks, status chatter, bots, agent reports.
 run:
   review:
     command: /review-task {ticket}
     model: opus
     effort: high
+  own_review:
+    prompt: |
+      Add the current user's remarks to the ticket's record, so that the next
+      review run takes them into account. Start nothing.
+    model: haiku
+    effort: low
+  author_answered:
+    prompt: |
+      Report which review points the author closed, which stay open, and the
+      command that reviews the change again. Start nothing.
+    model: sonnet
+    effort: medium
+  noise: skip

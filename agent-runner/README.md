@@ -345,7 +345,9 @@ Linear, matches what it finds against the trigger files, and starts a full chat 
 `agent-run-manifest chat` for each match.
 
 ```bash
-agent-projects trigger list                          # the triggers this machine has
+agent-projects trigger list                          # every trigger here, in plain words
+agent-projects trigger list --project billing        # split into on and off for a project
+agent-projects trigger check /absolute/trigger.yaml  # does the script accept this file
 agent-projects project triggers billing --on "my review"
 agent-projects watch poll                            # read Linear once; starts nothing
 agent-projects watch list                            # events that are not over
@@ -355,8 +357,9 @@ agent-projects watch install                         # keep the loop running (sy
 agent-projects pause                                 # and: agent-projects resume
 ```
 
+- The format of a trigger file is in `skills/project-master/references/triggers.md`.
 - Triggers are read from `agent-projects/triggers/` on the machine, then from
-  `skills/project-master/triggers/` as installed for Codex and Claude Code. A trigger
+  `skills/project-master/triggers/` as installed for Claude Code and for Codex. A trigger
   on the machine wins over a ready one with the same name. A file with anything the
   script does not understand is refused whole and reported as a problem, so that a
   misspelled condition never widens what a trigger starts.
@@ -369,11 +372,25 @@ agent-projects pause                                 # and: agent-projects resum
   to one project per trigger: the project that names the ticket by number wins over
   one that covers a whole Linear project, and otherwise the first project by name
   gets it.
-- So far a trigger reads one kind of event, a Linear status change. It is judged by
+- An entry reads one of three events: a Linear status change, a Linear comment, or a
+  review or comment on the ticket's pull request. A status change is judged by
   where a ticket is now: the ticket is in the trigger's status, and the move that put
   it there fits the entry (`from`, `actor`), as does the ticket's assignee. One move
   counts once, so a ticket that leaves the status and comes back counts again. The
   move is looked for in the ticket's last 25 changes.
+- Comments are read only for tickets that a chat on this machine reviewed or worked
+  on, taken from the ticket records, and that are still open. The pull request is
+  the GitHub link Linear holds for the ticket, read through `gh`. A comment counts
+  from the moment its trigger was turned on, once. Agent reports (`$develop-please:`),
+  bot commands (`/e2e-preview`), and bots are left out when the entry says
+  `skip: agent_comment`. Such a ticket goes to the project where a chat worked on it,
+  else to the one that names it, else to the one that covers its Linear project.
+- An entry with no `then` goes through the trigger's `check`: the loop writes a packet
+  (the event, the ticket, its status history, its record here, the last report) and
+  runs the read-only role `project-check` on the check's model. The outcome it picks
+  names the run. An outcome that is `skip` starts nothing; an answer that is no
+  outcome of the trigger fails the event, and `watch start` sends it to the check
+  again. The packet and the answer are in `runs/<date>-<ticket>-check-<id>`.
 - A move is acted on only after two minutes, so that a chat that took the ticket has
   written its record. A ticket that a chat on this machine holds is recorded as
   `skipped`.

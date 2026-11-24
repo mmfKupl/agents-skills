@@ -2,8 +2,8 @@
 
 ## Status
 
-Agreed with the developer in chat on 2026-11-23. Steps 1 to 5 of the build plan
-are written and tried on the VM; "Build plan" says what each trial covered. Edit
+Agreed with the developer in chat on 2026-11-23. All seven steps of the build plan
+are written; "Build plan" says what was tried on the VM and what was not. Edit
 this file directly; it is the source of truth for what `project-master` must do.
 
 ## Goal
@@ -141,11 +141,10 @@ run:
   noise: skip
 ```
 
-The file in the repository, `skills/project-master/triggers/my-review.yaml`, holds
-the status entry and the `review` run so far. The comment entries, the check, and
-the other runs come with step 6. Until then the script refuses a file that has
-them: it refuses anything it does not read, so that a misspelled condition never
-widens what a trigger starts.
+The files are `skills/project-master/triggers/my-review.yaml` and `my-progress.yaml`,
+and `skills/project-master/references/triggers.md` is the format that agents read.
+The script refuses a file with anything it does not read, so that a misspelled
+condition never widens what a trigger starts.
 
 `own_review` only records. The developer chose this on 2026-11-23: their own
 comment usually means they have already looked, and a second review costs
@@ -221,9 +220,10 @@ of UIB-6466 showed `$develop-please:` reports with the developer as the author
 and nothing that marks an agent. So the author does not tell a person from an
 agent. Two steps separate them:
 
-- `skip: agent_comment` drops comments that the repository notes can recognize
-  without a model. In UI Bakery that is a comment that starts with
-  `$develop-please:`.
+- `skip: agent_comment` drops what the script can recognize without a model: a
+  comment that starts with the name of an agent's skill, such as
+  `$develop-please:`, a command for a bot, such as `/e2e-preview`, and anything a
+  bot posted. The rule is one for every repository, not a list per repository.
 - The check judges the rest: a person's remark against an agent's report.
 
 ### In AI Review
@@ -485,6 +485,14 @@ under Claude Code, with a project for "Droys Agent" that a project chat set up:
 Not tried: `my review` itself on a real ticket, because no ticket matched it at
 the time (the trial used a throwaway trigger on In AI Review with a two-line
 prompt); a run that fails; an answer sent to a run with `chat-resume`.
+
+Steps 6 and 7 are written on 2026-11-24. Step 6: comment entries for Linear and for
+the ticket's pull request, the check, both ready triggers in full. Step 7: the skill
+`project-trigger`, the format reference, plain-words listing of triggers
+(`agent-projects trigger list`, with `--project`), and what Codex can and cannot do,
+in `skills/project-master/references/hosts.md`. The developer also asked on
+2026-11-24 for the triggers of a project and of the whole machine to be shown clearly;
+the form is in the format reference.
 
 ## Open points
 

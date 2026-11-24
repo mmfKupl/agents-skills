@@ -203,9 +203,19 @@ To turn a trigger on:
    `agent-projects watch dismiss <id>...` for the rest. With none held, say that the
    trigger is on, in one line.
 
-`--off "<trigger>"` turns a trigger off. A new trigger, or a change to one, is a file
-in the `triggers` folder of the project files; `planning/project-master.md` in the
-agents-skills repository has the format.
+`--off "<trigger>"` turns a trigger off. For a new trigger, or a change to one, use
+`$project-trigger`.
+
+When the developer asks which triggers there are, or which are on, run
+`agent-projects trigger list --project <project>` and answer in the form that
+[`references/triggers.md`](references/triggers.md) gives under "Showing triggers to
+the developer": first the triggers that are on in this project, then the others this
+machine has.
+
+Some events go through a check first: a cheap model reads a comment and sorts it,
+for example into "the author answered" or "noise", and only then something starts.
+Such an event shows as `checking`, then with the outcome the check picked as its
+`run`. Noise starts nothing and needs no word from you.
 
 `$project-master pause` stops reading the tracker and starting runs on the whole
 machine: run `agent-projects pause` and answer in one line, with the runs that are

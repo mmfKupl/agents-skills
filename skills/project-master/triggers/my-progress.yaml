@@ -1,0 +1,55 @@
+# Work that lands on the current user, and what comes back on work an agent did here.
+# Format and rules: skills/project-master/references/triggers.md.
+name: my progress
+on_any:
+  - source: linear
+    event: status_changed
+    to: In Progress
+    assignee: current_user
+    skip: ticket_taken_in_current_env
+  - source: linear
+    event: comment_added
+    ticket: worked_on_in_current_env    # a record or a PR from an agent here
+    skip: agent_comment
+  - source: github
+    event: pr_review_or_comment
+    ticket: worked_on_in_current_env
+    skip: agent_comment
+check:
+  model: haiku
+  effort: low
+  prompt: |
+    Read the event, the ticket, its status history in the tracker, and the
+    ticket's record on this machine. Answer with exactly one outcome:
+    - new_work_large: the ticket came from a not-started status, has no record
+      of earlier work, and is unclear or large;
+    - new_work_small: the same, but small and clear;
+    - review_feedback: the current user or their agents developed this ticket,
+      and a person, the current user included, returned it from In Review or
+      In AI Review, requested changes on the PR, listed problems, asked a
+      question that blocks approval, or opened a task that came out of the
+      review;
+    - continuation: earlier work exists and the event adds a requirement or
+      answers an open question;
+    - noise: thanks, status chatter, bots, agent reports.
+run:
+  new_work_large:
+    command: /brainstorm-task autopilot {ticket}
+    model: opus
+    effort: high
+  new_work_small:
+    prompt: Report what to build and the command that starts it. Start nothing.
+    model: sonnet
+    effort: medium
+  review_feedback:
+    prompt: |
+      Report every point with its link (Linear comment or PR thread), which
+      points need code, and the command that continues the developing chat.
+      Start nothing.
+    model: sonnet
+    effort: high
+  continuation:
+    prompt: Update the ticket's earlier report with what changed.
+    model: sonnet
+    effort: medium
+  noise: skip

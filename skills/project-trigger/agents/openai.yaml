@@ -1,0 +1,4 @@
+interface:
+  display_name: "Project Trigger"
+  short_description: "Show, write, or change a trigger: what in the tracker starts which workflow"
+  default_prompt: "Use $project-trigger to show the triggers on this machine."

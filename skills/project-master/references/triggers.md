@@ -76,7 +76,10 @@ run:
   skill, such as `$develop-please:`, a command for a bot, such as `/e2e-preview`, and
   anything a bot posted.
 - `then` names the entry of `run` that the event starts. An entry with no `then`
-  goes to `check`.
+  goes to `check`. A comment entry with `then` ignores comments written from the
+  current user's own account: with no check, nothing tells the developer from an
+  agent that posts under the same account, and a run that comments would start
+  itself again.
 - `check` is a short job on a cheap model. It gets the event, the ticket, its status
   history, the ticket's record on this machine, and the last report, and answers with
   exactly one outcome. The outcomes are the entries of `run` that no `then` names;
@@ -102,30 +105,37 @@ How the script judges an event:
 - A comment counts from the moment its trigger was turned on, and only for an open
   ticket. The comments that came in since the last reading of a ticket are one event,
   so a discussion starts one check and one run, not one per message.
-- The first reading after a trigger is turned on, and the first after a pause, start
-  nothing: what matched is held for the developer.
+- The first reading after a trigger is turned on, the first after a pause, and the
+  first after the conditions of a trigger that is on were edited, start nothing: what
+  matched is held for the developer.
+- On a pull request, only people of the repository count (owner, member,
+  collaborator), not any GitHub account.
+- A file that is refused does not fall back to an older file of the same name.
 
 ## Showing triggers to the developer
 
 When the developer asks which triggers there are or which are on, run
 `agent-projects trigger list --project <project>`, or without `--project` outside a
-project chat, and answer in this form, in the developer's language. Translate the
-`when` and `starts` lines into plain sentences; do not print the YAML or the field
-names.
+project chat, and answer in this form, in the developer's language. Turn the `when`
+lines and what they start into plain sentences. Do not print the YAML, the field
+names, or the keys of outcomes: say "the author answered", not `author_answered`.
+`starts_directly` is what an event starts with no check; `check.outcomes` is what the
+check may pick, and nothing else.
 
 ```markdown
 **On in <project>**
 
 **<name>**
 - When: <each `when` line as one sentence, one per line>
-- Starts: <what each event starts, with model and effort; for a check, each outcome and what it starts>
+- Starts: <what starts directly, with model and effort; then, for events that go through the check, each outcome in words and what it starts>
 
 **On this machine, off in <project>**
 
 **<name>**: <one sentence: when it fires and what it starts>. <ready | made on this machine>; on in: <projects, or nowhere>.
 ```
 
-Write `none` under a heading that has nothing. Without a project, use one heading,
+A trigger that is off gets its one sentence and no more; the developer asks when
+they want the rest. Write `none` under a heading that has nothing. Without a project, use one heading,
 **Triggers on this machine**, with the long form for each trigger and a last line
 `On in: <projects, or nowhere>`. Add the `problems` of the answer in one line each,
 and a trigger that is on but has no file. Leave out file paths unless the developer

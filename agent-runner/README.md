@@ -416,6 +416,16 @@ agent-projects pause                                 # and: agent-projects resum
 - `watch install` writes a systemd user service that survives a logout when lingering
   is on for the user. `scripts/install-skills.sh` restarts it; the runs it started
   keep going. Elsewhere, keep `agent-projects watch run` running yourself.
+- The loop is built to keep going. `watch.yaml` is saved even when a round fails, so
+  a chat that was started is never started twice. An error on one event fails that
+  event, with the reason in its note, and the others go on. A run that ends gives its
+  ticket back when it did not. An event whose check or run can no longer be reached
+  is freed with `watch dismiss`. After a restart of the machine a process number is
+  trusted only when its command line names the run's folder.
+- Names of people and statuses from the tracker are reduced to plain words before
+  they go into a prompt, and the text of a ticket or comment reaches only the check,
+  between fences that hold a random word. Working copies are removed only when they
+  are named after the run, which is true for Claude Code and not for Codex.
 - `pause` creates `agent-projects/paused`. While it is there, nothing is read from
   the tracker and nothing starts; runs already going finish.
 - The Linear key is read from `~/.config/agent-projects/linear-api-key`

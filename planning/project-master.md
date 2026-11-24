@@ -619,6 +619,17 @@ On 2026-11-24 the developer asked for four more things, all written the same day
   a trigger now with where it stands here. It replaces the line about the start
   of the run for a ticket that has just come. A closed ticket that has a record
   on the machine gets a line in its history.
+- The board is printed by the script. The developer on 2026-11-24, about the
+  first answer of a project chat that listed every ticket assigned to them by
+  status and described the triggers in a paragraph each: "очень путает с бивает.
+  я не понмаю причем тут тикеты котоыре под тригер не подпадают", "какие тригеры
+  включены нунжно писать как-то понятнее и компактнее", "нужны шаблоны или скрипт
+  для агента чтобы он эту инфу выводил не придумывая каждый раз".
+  `agent-projects board <project>` prints what the project covers, each trigger
+  in one line with ON or off, the tickets under the triggers that are on with
+  where each stands, and what else is not over. The project chat shows it as
+  printed, in its first answer and for a question about status, and lists no
+  other tickets.
 
 Left from the reviews:
 - About 22 lines that can be cut, and two commands nobody needs daily

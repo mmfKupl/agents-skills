@@ -518,7 +518,7 @@ def _argument_parser() -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> dict[str, Any] | str:
-    if args.command in ("watch", "trigger", "pause", "resume") or getattr(args, "action", None) == "triggers":
+    if args.command in ("watch", "trigger", "board", "pause", "resume") or getattr(args, "action", None) == "triggers":
         import project_watch
 
         return project_watch.run(args)

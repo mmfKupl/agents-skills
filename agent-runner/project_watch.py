@@ -1230,6 +1230,23 @@ def _where(state: dict[str, Any], root: Path, name: str, ticket: str, triggers: 
     return f"a chat works on it: {', '.join(holders)}" if holders else "nothing started here"
 
 
+def _under(state: dict[str, Any], root: Path, name: str, triggers: dict[str, dict[str, Any]]) -> list[str]:
+    """Every ticket that is under a trigger of the project now, with where it stands."""
+    try:
+        on = projects._load_project(root, name)[1].get("triggers") or []
+    except ProjectsError:
+        on = []
+    board = state["board"].get(name, [])
+    lines = []
+    for trigger in on:
+        if not any(entry["event"] == STATUS for entry in (triggers.get(trigger) or {}).get("on_any", [])):
+            continue
+        under = [f"- {item['ticket']} \"{item['title']}\" {item['url']}: {_where(state, root, name, item['ticket'], triggers)}"
+                 for item in board if item["trigger"] == trigger]
+        lines += [f"Under \"{trigger}\" now:", *(under or ["- none"])]
+    return lines
+
+
 def _board(state: dict[str, Any], root: Path, name: str, arrived: set[int], left: list[dict[str, Any]],
            triggers: dict[str, dict[str, Any]]) -> str:
     """The short news for a project chat when a ticket came under one of its triggers or
@@ -1242,13 +1259,52 @@ def _board(state: dict[str, Any], root: Path, name: str, arrived: set[int], left
         if event["id"] in arrived and event["project"] == name:
             lines.append(f"New: {event['ticket']} \"{_title(event.get('title'))}\" was {event['what']}, event {event['id']}. "
                          f"{_link(event.get('url'), event['ticket'])}")
-    board = state["board"].get(name, [])
-    for trigger in sorted({item["trigger"] for item in board}):
-        lines.append(f"Under \"{trigger}\" now:")
-        lines += [f"- {item['ticket']} \"{item['title']}\" {item['url']}: "
-                  f"{_where(state, root, name, item['ticket'], triggers)}" for item in board if item["trigger"] == trigger]
-    if not board:
-        lines.append("No ticket is under a trigger of the project now.")
+    return "\n".join(lines + _under(state, root, name, triggers))
+
+
+def _brief(trigger: dict[str, Any]) -> str:
+    """A trigger in one short line: what it reacts to and what that starts."""
+    parts = []
+    for entry in trigger["on_any"]:
+        if entry["event"] != STATUS:
+            continue
+        who = {WHO[0]: ", assigned to the developer", WHO[1]: ", assigned to someone else"}.get(entry.get("assignee"), "")
+        who += {WHO[0]: ", by the developer", WHO[1]: ", by someone else"}.get(entry.get("actor"), "")
+        run = trigger["run"].get(entry.get("then"))
+        starts = (f"starts {(run.get('command') or 'a report').replace(' {ticket}', '')} ({run['model']}, {run['effort']})"
+                  if isinstance(run, dict) else "a check decides what to start")
+        parts.append(f"a ticket moved to {entry['to']}{who}: {starts}")
+    if any(entry["event"] != STATUS for entry in trigger["on_any"]):
+        parts.append("comments on its tickets are sorted by a check")
+    return "; ".join(parts) or "reacts to comments only"
+
+
+def board(project: str) -> str:
+    """The state of a project as text that its chat shows as it is: what the project
+    covers, its triggers, the tickets under them now, and what else is not over. It is
+    made here, with no model, so that it reads the same every time."""
+    root = projects._require_home()
+    _, document = projects._load_project(root, project)
+    triggers, _ = load_triggers()
+    state = _read_state(root)
+    scope, on = document.get("scope") or {}, document.get("triggers") or []
+    covers = [f"the Linear project {scope['linear_project']}"] if scope.get("linear_project") else []
+    covers += [f"the tickets {', '.join(str(item) for item in scope['tickets'])}"] if scope.get("tickets") else []
+    covers += ["every ticket assigned to the developer"] if scope.get("assignee") == WHO[0] else []
+    lines = [f"Project {project}: {' and '.join(covers) or 'no tickets named yet'}.", "", "Triggers:"]
+    lines += [f"- {name}: {'ON' if name in on else 'off'}. {_brief(trigger)}." for name, trigger in sorted(triggers.items())]
+    lines += ["", *(_under(state, root, project, triggers) or ["No trigger is on, so nothing is watched."])]
+    listed = {item["ticket"] for item in state["board"].get(project, [])}
+    other = [event for event in state["events"]
+             if event["project"] == project and event["state"] in OPEN_STATES and event["ticket"] not in listed]
+    if other:
+        lines += ["", "Also not over:"]
+        lines += [f"- {event['ticket']} \"{_title(event.get('title'))}\" {_link(event.get('url'), event['ticket'])}: "
+                  f"{_where(state, root, project, event['ticket'], triggers)}"
+                  for event in {event["ticket"]: event for event in other}.values()]
+    if state["undelivered"].get(project):
+        lines += ["", f"{len(state['undelivered'][project])} lines have not reached the project chat yet."]
+    lines += ["", f"The tracker was read at {state.get('polled') or 'no time yet'}; watching is {_watching(state)}."]
     return "\n".join(lines)
 
 
@@ -1803,6 +1859,8 @@ def add_commands(commands: Any, project: Any) -> None:
     trigger.add_parser("list", help="print every trigger in plain words; with --project, split into on and off").add_argument(
         "--project")
     trigger.add_parser("check", help="say whether a trigger file is one the watching script accepts").add_argument("file")
+    commands.add_parser("board", help="print a project's triggers and the tickets under them, as text to show "
+                                      "the developer as it is").add_argument("project")
     commands.add_parser("pause", help="stop reading the tracker and starting runs; running ones finish")
     commands.add_parser("resume", help="watch again, and hold what came in meanwhile for the developer")
     watch = commands.add_parser("watch", help="read the tracker for triggers and start their runs").add_subparsers(
@@ -1837,6 +1895,8 @@ def run(args: argparse.Namespace) -> dict[str, Any] | str:
         return project_triggers(args.name, args.on, args.off)
     if args.command == "trigger":
         return trigger_list(args.project) if args.action == "list" else trigger_check(args.file)
+    if args.command == "board":
+        return board(args.project)
     if args.command == "pause":
         return pause()
     if args.command == "resume":

@@ -48,6 +48,8 @@ agents-skills repository.
   that did the work.
 - `report add`: file a report into a project. `report copy`: put a filed report where
   the developer can open it; see Results.
+- `board <project>`: the state of the project as text to show the developer as it is;
+  see The board.
 - `status [--project <name>]`: every ticket with who holds it, its last event, and its
   last report; the trigger events that are not over; whether watching runs.
 - `trigger list`, `project triggers`, `watch poll | list | start | dismiss | install`,
@@ -107,18 +109,11 @@ On the first `$project-master` in a chat:
    For the chat's name use the one other chats see, which
    [`references/hosts.md`](references/hosts.md) says how to read. A title this chat
    asked for may not have been applied.
-4. Answer with three things and start nothing:
-   - one line that names the project and what it covers;
-   - the unfinished tickets the project covers that are assigned to the developer,
-     grouped by tracker status, each with the chat that holds it when
-     `agent-projects status --project <name>` shows one;
-   - one line on what to send next.
+4. Answer with the board, as The board says, and start nothing. End with one line on
+   what to send next: a ticket, or which trigger to turn on or off. Turn on only what
+   the developer chose, as Triggers says.
 
    Leave out where the files are, how chats will be started, and what was not done.
-
-   For a project with the `linear` tracker, add one question: name each trigger from
-   `agent-projects trigger list` in one line, with what it starts and on which model,
-   and ask which to turn on. Turn on only what the developer chose, as Triggers says.
 
 A later message in the same chat continues the same project.
 
@@ -345,6 +340,23 @@ failed: the script keeps such a line and tries again an hour later.
 `undelivered` in the status lists lines that have reached no chat yet. Show them
 first when the developer asks where things stand.
 
+## The board
+
+`agent-projects board <project>` prints the state of the project as text: what it
+covers, its triggers and which are on, every ticket that is under a trigger now with
+where it stands, and what else is not over. The script makes it, so that it reads the
+same every time and this chat does not compose it. Show it in the first answer of
+this chat and whenever the developer asks where things stand.
+
+Show it as printed: the same lines in the same order, in the developer's language,
+with each ticket id as a link to the address printed next to it. Leave out the
+addresses themselves and the event numbers. Add nothing before or between the lines:
+no other tickets, no history, no advice.
+
+The developer's other tickets do not belong on it. A ticket that is under no trigger
+of the project is shown only after the developer sends it or asks about it, whatever
+the project covers.
+
 ## When tickets come and go
 
 When a ticket comes under a trigger of the project, or leaves it (closed, moved to
@@ -352,8 +364,7 @@ another status, or given to someone else), the script sends a message that start
 with `Tickets changed in <project>`. It says what changed and then lists every ticket
 that is under a trigger now, each with where it stands on this machine.
 
-Pass it on very short, in the developer's language, in this shape and with nothing
-added:
+Pass it on very short, as The board says, in this shape and with nothing added:
 
 ```
 UIB-123 "Billing limits" is closed (Done).
@@ -377,12 +388,11 @@ command with the event number from the message, as Showing work that is going sa
 
 ## Questions about the project
 
-For a question about status, such as "what is where" or "what waits for me", run
-`agent-projects status --project <name>` and read the tracker for the tickets the
-project covers. Answer per ticket: its tracker status, which chat holds it and since
-when, its last event, its last report. Start with what waits for the developer: held
-and failed `trigger_events` first. If the project has triggers and `watching` is not
-`running`, say so in one line.
+For a question about status, such as "what is where" or "what waits for me", show
+the board, as The board says. For a question about one ticket, run
+`agent-projects ticket show <ticket>` and read the ticket in the tracker, then answer
+about that ticket only: its tracker status, which chat holds it and since when, its
+last event, its last report.
 
 Do not re-read the folder or the tracker for a message that is not about status.
 

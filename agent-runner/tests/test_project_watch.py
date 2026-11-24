@@ -1190,6 +1190,32 @@ run:
                                     '- UIB-2 "Title of UIB-2" https://linear.app/x/UIB-2: review going, event 2'])
         self.assertNotIn("known", project_watch.events(None, True)["events"][0])
 
+    def test_board_prints_the_project_the_same_way_every_time(self) -> None:
+        self.ok("init")
+        self.ok("project", "create", "mine", "--repository", str(self.repo), "--tracker", "linear",
+                "--scope", "assignee=current_user")
+        self.assertIn("No trigger is on, so nothing is watched.", self.command("board", "mine")[1])
+        self.ok("project", "triggers", "mine", "--on", "my review")
+        self.issues = [issue("UIB-1"), issue("UIB-2", assignee="other")]
+        project_watch.poll(NOW)                                      # UIB-1 is held; UIB-2 is not for the developer
+
+        printed = self.command("board", "mine")[1].splitlines()
+
+        self.assertEqual(printed[:-1], [
+            "Project mine: every ticket assigned to the developer.",
+            "",
+            "Triggers:",
+            "- my progress: off. a ticket moved to In Progress, assigned to the developer: a check decides what to start; "
+            "comments on its tickets are sorted by a check.",
+            "- my review: ON. a ticket moved to In Review, assigned to the developer, by someone else: starts /review-task "
+            "(opus, high); comments on its tickets are sorted by a check.",
+            "",
+            'Under "my review" now:',
+            '- UIB-1 "Title of UIB-1" https://linear.app/x/UIB-1: waits for the developer\'s word to start, event 1',
+            "",
+        ])
+        self.assertRegex(printed[-1], r"^The tracker was read at \S+; watching is not running\.$")
+
     def test_ticket_that_leaves_a_trigger_is_told_once_with_what_stays_under_it(self) -> None:
         self.watched_project()
         self.issues = [issue(f"UIB-{number}", minutes_ago=30) for number in (1, 2, 3)]
@@ -1213,7 +1239,7 @@ run:
             '- UIB-2 "Title of UIB-2" https://linear.app/x/UIB-2: review ended without a report, event 2',
         ])
         self.assertEqual(last.splitlines()[1:], ['Left: UIB-2 "Title of UIB-2" is now Done, closed. https://linear.app/x/UIB-2',
-                                                 "No ticket is under a trigger of the project now."])
+                                                 'Under "my review" now:', "- none"])
         history = {item["ticket"]: item["last_event"] for item in self.ok("status")["tickets"]}
         self.assertTrue(history["UIB-1"].endswith("closed in the tracker: Done"))
         self.assertNotIn("UIB-2", history)                           # no record here: none is made for a note

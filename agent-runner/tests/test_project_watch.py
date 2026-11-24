@@ -452,6 +452,33 @@ class ProjectWatchTests(unittest.TestCase):
         self.assertIn("A check sorted this event as `author_answered`.", call["prompt"])
         self.assertEqual(call["argv"][call["argv"].index("--model") + 1], "claude-sonnet-5-5")
 
+    def test_comments_of_one_reading_are_one_event_and_a_quiet_run_tells_nobody(self) -> None:
+        self.watched_project()
+        self.reviewed("UIB-1")
+        self.commented = [commented("UIB-1", [comment("c2", 6, "and the test is missing", user="me"),
+                                              comment("c1", 5, "I would rename this", user="me")])]
+
+        found = project_watch.poll(NOW + timedelta(minutes=10))["new"]
+
+        self.assertEqual(len(found), 1)
+        self.assertTrue(found[0]["what"].endswith("#c2 (and 1 more before it)"))
+        packet = Path(found[0]["check_dir"], "packet.md").read_text()
+        self.assertIn("Comment 1 of 2", packet)
+        self.assertIn("<<<\nI would rename this\n>>>", packet)
+        self.assertIn("Written from the current user's own account: yes", packet)
+
+        self.run_check("own_review")
+        project_watch.cycle(read_tracker=False)
+        self.wait_for_runs()
+        with patch.object(sys, "stdin", io.StringIO("remarks recorded")):
+            self.ok("report", "add", "--project", "billing", "--ticket", "UIB-1", "--kind", "note")
+        with patch.object(project_watch, "_tell") as tell:
+            project_watch.cycle(read_tracker=False)
+
+        tell.assert_not_called()
+        self.assertEqual(self.by_id()[1]["state"], "finished")
+        self.assertIn("the project chat is not told", self.ok("trigger", "list")["triggers"][1]["starts"]["own_review"])
+
     def test_check_that_says_noise_or_nothing_usable_starts_no_run(self) -> None:
         self.watched_project()
         self.reviewed("UIB-1")

@@ -38,6 +38,7 @@ run:
       review run takes them into account. Start nothing.
     model: haiku
     effort: low
+    quiet: true                         # only a record; the project chat is not told
   author_answered:
     prompt: |
       Report which review points the author closed, which stay open, and the

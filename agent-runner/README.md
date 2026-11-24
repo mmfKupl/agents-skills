@@ -381,14 +381,16 @@ agent-projects pause                                 # and: agent-projects resum
 - Comments are read only for tickets that a chat on this machine reviewed or worked
   on, taken from the ticket records, and that are still open. The pull request is
   the GitHub link Linear holds for the ticket, read through `gh`. A comment counts
-  from the moment its trigger was turned on, once. Agent reports (`$develop-please:`),
+  from the moment its trigger was turned on, once, and the comments that came in
+  since the last reading of a ticket are one event. Agent reports (`$develop-please:`),
   bot commands (`/e2e-preview`), and bots are left out when the entry says
   `skip: agent_comment`. Such a ticket goes to the project where a chat worked on it,
   else to the one that names it, else to the one that covers its Linear project.
 - An entry with no `then` goes through the trigger's `check`: the loop writes a packet
   (the event, the ticket, its status history, its record here, the last report) and
   runs the read-only role `project-check` on the check's model. The outcome it picks
-  names the run. An outcome that is `skip` starts nothing; an answer that is no
+  names the run. A run with `quiet: true` only records something, so the project chat
+  is not told when it ends. An outcome that is `skip` starts nothing; an answer that is no
   outcome of the trigger fails the event, and `watch start` sends it to the check
   again. The packet and the answer are in `runs/<date>-<ticket>-check-<id>`.
 - A move is acted on only after two minutes, so that a chat that took the ticket has

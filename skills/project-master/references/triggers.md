@@ -84,6 +84,8 @@ run:
 - `run` holds one entry per outcome. `command` is a skill call and `prompt` is plain
   instructions; `{ticket}` becomes the ticket's id. `model` and `effort` are separate
   fields. `skip` means: record one line and start nothing.
+- `quiet: true` in a run means that the project chat is not told when the run ends,
+  for a run that only records something. A run that fails is always passed on.
 - Model names: `haiku`, `sonnet`, `opus`, `fable`, or their Codex names `luna`,
   `terra`, `sol`, `astra`. The name decides which application runs the chat. Effort is
   `low`, `medium`, `high`, or `xhigh`.
@@ -98,7 +100,8 @@ How the script judges an event:
   and the move that put it there fits the entry. One move counts once; a ticket that
   leaves the status and comes back counts again.
 - A comment counts from the moment its trigger was turned on, and only for an open
-  ticket.
+  ticket. The comments that came in since the last reading of a ticket are one event,
+  so a discussion starts one check and one run, not one per message.
 - The first reading after a trigger is turned on, and the first after a pause, start
   nothing: what matched is held for the developer.
 

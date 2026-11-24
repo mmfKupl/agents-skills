@@ -533,6 +533,12 @@ On 2026-11-24 the developer asked for four more things, all written the same day
 - A summary once a day per project (`agent-projects watch digest`).
 - Cleanup: events that are long over are forgotten with their folders, and working
   copies of chats that recorded a ticket are removed once the ticket is closed.
+- A sidebar section per project, on by default and possible to turn off: "по
+  умолчанию проджект мастер новый делал так что он двигал себя в сайдбаре в новую
+  секцию и все чаты что создавал тоже в этой секции лежали". Each chat files
+  itself, because that needs no approval. It works where the application gives the
+  tool, which is the Claude desktop app; a chat reached through Remote Control has
+  only tags, and a chat started from the shell has nothing.
 
 Left from the reviews:
 - About 22 lines that can be cut, and two commands nobody needs daily

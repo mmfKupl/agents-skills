@@ -393,10 +393,15 @@ text under them is in. Before sending, check that no heading or field is missing
 <each thing this review showed could be better in this skill, the repository's instructions, or its checks: what happened, what to change, and where; or none>
 ```
 
-Fill Suggestions as
+Suggestions are only for friction this review showed in the workflow and the tooling: a
+command or context that was hard to find, an instruction that was wrong or stale, a
+mistake a check could have caught, or a correction the user says they have given
+before. Remarks about the reviewed change stay in Findings and in Simpler code and
+tests. Prefer a lint rule, type, test, or CI check; propose a written rule only when no
+tool could catch it. Trace each to a specific moment of this review and change nothing
+yourself.
 [`../develop-task/references/suggestions.md`](../develop-task/references/suggestions.md)
-says: only friction this review showed in the workflow and the tooling. Remarks about
-the reviewed change stay in Findings and in Simpler code and tests.
+has the full rules.
 
 Severity is `P0` critical, `P1` blocks the merge, `P2` should be fixed, or `P3`
 minor; order findings by it. The verdict follows from them: `not ready` with any

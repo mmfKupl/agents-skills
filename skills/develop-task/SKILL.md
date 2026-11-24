@@ -669,7 +669,11 @@ who did not follow the run: plain words, no workflow terms.
 <each thing this run showed could be better in this skill, the repository's instructions, or its checks: what happened, what to change, and where; or none>
 ```
 
-Fill Suggestions as [`references/suggestions.md`](references/suggestions.md) says: only
-friction this run showed, never remarks about the change itself.
+Suggestions are only for friction this run showed: a command or context that was hard to
+find, an instruction that was wrong or stale, a mistake a check could have caught, or a
+correction the user says they have given before. They are never remarks about the change
+itself. Prefer a lint rule, type, test, or CI check; propose a written rule only when no
+tool could catch it. Trace each to a specific moment of this run and change nothing
+yourself. [`references/suggestions.md`](references/suggestions.md) has the full rules.
 
 Keep the final response concise and concrete.

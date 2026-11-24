@@ -708,10 +708,9 @@ On 2026-11-24 the developer asked for four more things, all written the same day
   between tool calls, so a question under every report would hold back the next
   news until the developer answers. No suggested replies and no link that sends
   text are documented. So the text about a report ends with the words to write,
-  "open UIB-123", and no question is asked. Not known yet: whether the
-  application shows those words as grey suggested text in the empty message box
-  of a chat on the VM, which would make it one key, and how it shows the
-  question's options.
+  "open UIB-123", and no question is asked. The developer looked at a trial chat
+  on the VM that showed such a text and decided: "кнопок нет. давай тогла без
+  этого". No button is built.
 
 Left from the reviews:
 - About 22 lines that can be cut, and two commands nobody needs daily

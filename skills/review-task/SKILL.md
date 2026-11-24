@@ -97,10 +97,11 @@ report the delegation gap; never silently downgrade.
 3. Reconstruct intent from the request, ticket, PR, commits, OpenSpec, and acceptance criteria. Report missing business requirements as uncertainty; do not invent them.
 4. Map changed files, subsystems, contracts, state flow, persistence, runtime paths, and likely failure modes.
 5. Collect existing validation evidence first. Run only missing focused validation that can change confidence, preferring narrow checks or temporary probes over broad suites.
-6. Delegate when useful: `$diff-review` (fresh diff pass), `repo-practice-review` (local conventions and helpers), `best-practice-review` (engineering risks, weak precedent), `test-review` (coverage and e2e/smoke strategy), `code-simplicity-review` (scope creep, simpler approaches). If agents are technically unavailable, do their checks manually and say so.
-7. In `standalone` mode, run the fresh diff pass (`$diff-review`) twice for a large change: two agents started in parallel from the same packet, neither shown the other's result. A change is large when it has more than 20 changed files or more than 500 changed lines, added plus removed, not counting generated files, lock files, and snapshots. One pass over a large change misses real problems, and a second independent pass finds different ones.
-8. Correlate all evidence yourself; specialist output is evidence, not the verdict. The result is a list of candidate findings. A problem that two passes or specialists report is one candidate.
-9. Verify the candidates (Finding verification) before any of them reaches the report.
+6. In `standalone` mode, always start two specialists, in parallel with the rest of the review: `code-simplicity-review` on the diff (what the change can lose or do more simply) and `test-review` on the implemented change (whether its tests prove the requested behavior, and which are brittle, duplicate, or tied to the implementation). Simpler code and tests says what to give them and where their results go.
+7. Delegate when useful: `$diff-review` (fresh diff pass), `repo-practice-review` (local conventions and helpers), `best-practice-review` (engineering risks, weak precedent). If agents are technically unavailable, do their checks manually, the two of step 6 included, and say so.
+8. In `standalone` mode, run the fresh diff pass (`$diff-review`) twice for a large change: two agents started in parallel from the same packet, neither shown the other's result. A change is large when it has more than 20 changed files or more than 500 changed lines, added plus removed, not counting generated files, lock files, and snapshots. One pass over a large change misses real problems, and a second independent pass finds different ones.
+9. Correlate all evidence yourself; specialist output is evidence, not the verdict. The result is a list of candidate findings. A problem that two passes or specialists report is one candidate.
+10. Verify the candidates (Finding verification) before any of them reaches the report.
 
 ## Coverage and baseline verification
 
@@ -168,10 +169,46 @@ layout regressions; and security, authorization, tenant isolation, secret exposu
 or unsafe external calls.
 
 Also check, yourself when no specialist covers it: mismatch with stated requirements or
-acceptance criteria; tests that overfit the implementation, miss the actual regression,
-duplicate coverage, or are brittle; unnecessary abstractions, scope expansion, dead code,
-or custom logic where repository helpers or libraries exist; and deviation from
-repository practice without a justified reason.
+acceptance criteria, and deviation from repository practice without a justified reason.
+
+Tests that overfit the implementation, miss the actual regression, duplicate coverage,
+or are brittle, and unnecessary abstractions, scope expansion, dead code, or custom
+logic where repository helpers or libraries exist, belong to the two specialists of
+Workflow step 6. In `embedded` mode check them yourself.
+
+## Simpler code and tests
+
+A change can be correct and still larger than it needs to be, or covered by tests that
+prove little. The developer wants to see that in every review, apart from the
+findings, so in `standalone` mode the report always has the section Simpler code and
+tests.
+
+Give both specialists the same packet: the requirements as you reconstructed them, as
+a numbered list they can cite; the diff and the base revision; and the validation
+evidence you collected. Ask `code-simplicity-review` for its cut list and
+`test-review` for its notes on test quality and coverage.
+
+What goes into the section, each item with file and line and the exact action:
+
+- **Code:** code the change added that can be deleted, merged, inlined, or replaced
+  with a named existing helper while the requested behavior stays, with about how
+  many lines go. A smaller way that would change a requirement belongs here too, with
+  the requirement it would change.
+- **Tests:** a test the change added that duplicates another, tests a helper instead
+  of the behavior, would still pass if the changed code did nothing, or is brittle;
+  and a requested behavior that no test proves. Say what to delete, rewrite, or add.
+
+Rules:
+
+- Only what this change added or changed. Older code is not a subject.
+- An item must make the change smaller or its tests more truthful. A naming, style,
+  or layout preference stays out of the report, as before.
+- Check each item against the code before it goes in: that the helper exists and does
+  the same, that the other test still proves the behavior, that nothing else calls
+  what is cut. Drop what you cannot confirm. No finding verifier is needed.
+- Put the largest gain first, and merge items that are one change.
+- The section never changes the verdict. A claim that something behaves wrongly is a
+  candidate finding and goes through Finding verification, whoever raised it.
 
 ## Evidence Standards
 
@@ -190,6 +227,9 @@ Not a finding:
 - a style, naming, or structure preference with no failure behind it;
 - a failure that needs an input or state nothing can produce;
 - a missing test or guard for behavior nobody asked for.
+
+A way to make the change smaller, and a remark on what its tests prove, are not
+findings either. They go to Simpler code and tests.
 
 Explain each finding plainly: one finding per item, what happens today and what
 goes wrong, with a concrete example, in the user's vocabulary rather than internal
@@ -335,6 +375,10 @@ text under them is in. Before sending, check that no heading or field is missing
 - **How it was confirmed** — <the check that was run and its result; or the code path that was traced, and why no check was run>
 - **Fix direction** — <one or two sentences, not a full plan unless asked>
 
+### Simpler code and tests
+- **Code:** <each place the change can be smaller or simpler: file and line, what to delete, merge, inline, or replace with which existing helper, and about how many lines go; or none>
+- **Tests:** <each added test that is duplicate, brittle, tied to the implementation, or would pass if the changed code did nothing, and each requested behavior no test proves: file and line, and what to do; or none>
+
 ### Checked and not checked
 - **Run in this review:** <checks and their results>
 - **Reused:** <passed checks cited, with commit and result>
@@ -351,7 +395,8 @@ minor; order findings by it. The verdict follows from them: `not ready` with any
 `P0` or `P1`, `ready after fixes` with `P2` findings and nothing higher, `ready`
 with no findings or only `P3`, and `cannot tell` when a missing requirement or an
 unchecked risk decides the answer. With no findings, write `none` under Findings
-and still fill in the other sections.
+and still fill in the other sections. Simpler code and tests does not enter the
+verdict.
 
 The first three sections are what the developer reads to remember the task, so
 write them for someone who knows the product but has not seen this code and does

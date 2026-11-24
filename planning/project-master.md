@@ -539,6 +539,13 @@ On 2026-11-24 the developer asked for four more things, all written the same day
   itself, because that needs no approval. It works where the application gives the
   tool, which is the Claude desktop app; a chat reached through Remote Control has
   only tags, and a chat started from the shell has nothing.
+- Suggestions in every skill: "в скиле develop-task была секция с "что можно
+  улучшить". я бы такое добавил во все скилы". Every report ends with what the run
+  showed could be better in the skill or the tooling; the rules are in
+  `skills/develop-task/references/suggestions.md`. For the project this means: a
+  filed report carries the section, the project chat says in one line how many
+  suggestions it holds, and the project chat adds a `Suggestions:` line of its own
+  only in an answer where friction showed.
 
 Left from the reviews:
 - About 22 lines that can be cut, and two commands nobody needs daily

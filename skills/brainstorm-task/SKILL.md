@@ -378,6 +378,16 @@ revision summary if a baseline exists, then the canonical scope; for a new scope
 canonical scope. The
 recommendation is a working conclusion, not user approval.
 
+## Suggestions
+
+End the answer that returns the result, which is the approved canonical scope, the Spike
+findings, or the autopilot report, with `### Suggestions`, as
+[`../develop-task/references/suggestions.md`](../develop-task/references/suggestions.md)
+says: what this run showed could be better in this skill, the repository's instructions,
+or its checks, or `none`. It comes after the scope and is never part of it: keep it out
+of a checkpoint, a scope document, and a ticket. Under embedded discovery the outer
+workflow writes it.
+
 ## Revision summary
 
 Show `Changes from previous version` from the audited change ledger, not a

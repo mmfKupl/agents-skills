@@ -75,4 +75,8 @@ Report:
 - important findings;
 - which suggestions were applied or rejected;
 - verification rerun after changes;
-- remaining risk, if any.
+- remaining risk, if any;
+- Suggestions, when the user asked for this review directly: what this run showed
+  could be better in this skill, the repository's instructions, or its checks, as
+  [`../develop-task/references/suggestions.md`](../develop-task/references/suggestions.md)
+  says, or `none`. They are not the review's remarks about the diff.

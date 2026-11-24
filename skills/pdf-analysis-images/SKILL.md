@@ -53,6 +53,10 @@ bash /Users/kupl/.codex/skills/pdf-analysis-images/scripts/run-pdf-analysis-imag
 ```
 
 3. Report the command summary from the script. Mention dependency failures clearly.
+   When the run showed friction, such as a path the wrapper did not find, end the
+   answer with a line `Suggestions:`, as
+   [`../develop-task/references/suggestions.md`](../develop-task/references/suggestions.md)
+   says.
 
 ## Behavior
 

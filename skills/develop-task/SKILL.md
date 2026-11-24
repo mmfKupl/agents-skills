@@ -666,14 +666,10 @@ who did not follow the run: plain words, no workflow terms.
 <one line per item: Execution Profile and writer; model policy and any jobs whose requested model was capped; preflight and postflight results and cycle count; Reduction Pass cuts applied and declined, and lines removed; size against the budget and any widening main made with its reason; implementation-contract revisions and their approving preflight jobs; replans or promotions; delegation backend, routing matrix, and vendor choice; then the Agent Usage summary>
 
 ### Suggestions
-<improvement suggestions, or none>
+<each thing this run showed could be better in this skill, the repository's instructions, or its checks: what happened, what to change, and where; or none>
 ```
 
-Suggestions are only for friction this run showed: a command or context that was hard to
-find, an instruction that was wrong or stale, a mistake a check could have caught, or a
-correction the user says they have given before. For each, say what happened, what to
-change, and where. Prefer a lint rule, type, test, or CI check; propose a written rule
-only when no tool could catch it. Trace each to a specific moment of this run and change
-nothing yourself.
+Fill Suggestions as [`references/suggestions.md`](references/suggestions.md) says: only
+friction this run showed, never remarks about the change itself.
 
 Keep the final response concise and concrete.

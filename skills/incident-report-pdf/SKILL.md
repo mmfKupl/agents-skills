@@ -52,6 +52,10 @@ The renderer expects all required keys from [`references/field-mapping.md`](./re
 - Keep the incident date field format as `DD-Mon-YYYY`.
 - Keep the tone factual and concise.
 - Reflect the final resolved state if ticket comments change the original interpretation.
+- Keep suggestions out of the PDF. When the run showed friction, such as a field the
+  mapping does not cover, end the chat answer with a line `Suggestions:`, as
+  [`../develop-task/references/suggestions.md`](../develop-task/references/suggestions.md)
+  says.
 
 ## Resources
 

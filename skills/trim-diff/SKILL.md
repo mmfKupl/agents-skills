@@ -51,4 +51,8 @@ Report:
 - cuts applied, with production and test lines removed;
 - cuts skipped, with the reason for each;
 - requirement-changing cuts left for the user, if any;
-- checks rerun and their results.
+- checks rerun and their results;
+- Suggestions: what this run showed could be better in this skill, the repository's
+  instructions, or its checks, as
+  [`../develop-task/references/suggestions.md`](../develop-task/references/suggestions.md)
+  says, or `none`.

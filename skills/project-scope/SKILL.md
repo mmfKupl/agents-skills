@@ -68,6 +68,11 @@ A command with no ticket files nothing; say so in one line. The report is never 
 back or shortened because of these steps. If one of them fails, say which in one line
 and carry on.
 
+The report ends with `Suggestions`, as
+[`../develop-task/references/suggestions.md`](../develop-task/references/suggestions.md)
+says. When the command's skill has that section, put friction from this skill's steps
+there too; when it has none, add the section.
+
 ## Project rules
 
 These apply on top of the command's own rules.

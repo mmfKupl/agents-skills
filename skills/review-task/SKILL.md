@@ -388,7 +388,15 @@ text under them is in. Before sending, check that no heading or field is missing
 - **Dropped claims:** <each rejected claim and what rejected it: a verifier and its reason, or your own check with the command and its output; one item each>
 - **Older problems:** <each confirmed problem that was there before this PR and where, one line each; follow-ups only>
 - **How the review ran:** <agents used with model and effort, or the manual fallback>
+
+### Suggestions
+<each thing this review showed could be better in this skill, the repository's instructions, or its checks: what happened, what to change, and where; or none>
 ```
+
+Fill Suggestions as
+[`../develop-task/references/suggestions.md`](../develop-task/references/suggestions.md)
+says: only friction this review showed in the workflow and the tooling. Remarks about
+the reviewed change stay in Findings and in Simpler code and tests.
 
 Severity is `P0` critical, `P1` blocks the merge, `P2` should be fixed, or `P3`
 minor; order findings by it. The verdict follows from them: `not ready` with any

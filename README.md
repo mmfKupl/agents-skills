@@ -58,6 +58,11 @@ the preferred Python 3.10+ interpreter is not discoverable as `python3.12`,
   `$skill` to `/skill`, and Luna/Terra/Sol/Astra to `haiku`/`sonnet`/`opus`/`fable`. `develop-task` uses `agent-runner` by default here too,
   starting `claude -p` for Claude models; asking for subagents ("используй сабагентов") switches it to
   Claude subagents. This needs `install-skills.sh` as well, which installs the runner and role files.
+- Every skill except `chat-title` and `ticket-title` ends its report with `Suggestions`: what
+  the run showed could be better in the skill itself, the repository's instructions, or its
+  checks. A skill with a report template has the section last, with `none` when there is
+  nothing; a skill that only answers adds a `Suggestions:` line when there is something. The
+  rules are in `skills/develop-task/references/suggestions.md`.
 - `develop-task` runs every job on the vendor that hosts the chat: Claude in Claude Code, GPT in
   Codex. Only the user's words send the run elsewhere: "матрица Codex" moves every job to that
   vendor, and "с кросс-ревью" sends postflight and diagnosis to the other vendor. Both

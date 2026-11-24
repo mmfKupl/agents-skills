@@ -139,6 +139,15 @@ stand, and capture one or two variants. Show them with the proposal, say they ar
 mockups, and commit nothing from that worktree. A mockup needs no inspector: look at it
 yourself before showing it.
 
+## Suggestions
+
+Friction in getting the evidence, such as a stand that would not start, a sign-in step
+that a reference got wrong, or a tool that could not record, goes into the
+`Suggestions` of the workflow that called this skill. When the developer asked for the
+evidence directly, end the answer with a line `Suggestions:`, as
+[`../develop-task/references/suggestions.md`](../develop-task/references/suggestions.md)
+says.
+
 ## Repository specifics
 
 In the UI Bakery monorepo, read [`references/ui-bakery.md`](references/ui-bakery.md): its

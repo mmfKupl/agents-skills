@@ -73,3 +73,7 @@ machines, when the developer asks or says yes to the offer:
 - Never put a key, a token, or a person's private data into a trigger.
 - Do not turn a trigger on, change a project, or start a run unless the developer
   said so in this chat.
+- When the run showed friction, such as a file the check refused although the
+  reference allows it, end the answer with a line `Suggestions:`, as
+  [`../develop-task/references/suggestions.md`](../develop-task/references/suggestions.md)
+  says.

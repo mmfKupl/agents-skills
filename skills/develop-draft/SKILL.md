@@ -243,6 +243,13 @@ for a developer who did not follow the run: plain words, no workflow terms.
 
 ### Details
 <preflight approval or Fast exemption, final-review decision, correction rounds, roles, actual models and efforts, and token usage when the runtime supplies it>
+
+### Suggestions
+<each thing this run showed could be better in this skill, the repository's instructions, or its checks: what happened, what to change, and where; or none>
 ```
+
+Fill Suggestions as
+[`../develop-task/references/suggestions.md`](../develop-task/references/suggestions.md)
+says: only friction this run showed, never remarks about the prototype itself.
 
 Never invent telemetry or build accounting.

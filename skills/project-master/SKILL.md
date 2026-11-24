@@ -175,7 +175,8 @@ that line arrives, or when the developer asks:
 - read the report, at the path from the line or from `agent-projects status`;
 - tell the developer the outcome in one or two lines, then what is needed from them,
   then the path of the report. Do not retell the rest: what was checked, the details,
-  and the remarks stay in the report;
+  and the remarks stay in the report. When the report's `Suggestions` section holds
+  any, add one line that says how many, so that the developer knows to read them;
 - pass on each question from the step in full, with its choices and a recommendation,
   because the developer decides from it. Send the answer back to that chat or tell
   the developer to answer there;
@@ -284,6 +285,13 @@ and failed `trigger_events` first. If the project has triggers and `watching` is
 `running`, say so in one line.
 
 Do not re-read the folder or the tracker for a message that is not about status.
+
+## Suggestions
+
+This chat has no final report. When a turn showed friction in this skill, in
+`agent-projects`, or in a trigger, end that answer with a line `Suggestions:`, as
+[`../develop-task/references/suggestions.md`](../develop-task/references/suggestions.md)
+says. Write nothing when there was none.
 
 ## Tracker rules
 

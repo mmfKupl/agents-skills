@@ -43,7 +43,10 @@ Other chats message a chat by the name they see, which is not always the title t
 chat asked for.
 
 - **Claude Code.** `ListAgents` starts with the line `This session is <name> [code]`.
-  The name is the text before the bracketed code.
+  The name is the text before the bracketed code. The application may give the chat
+  another title later, and its name changes with it. So the watching script does not
+  trust the name on record: before each message it asks which name the chat with
+  this id has now.
 - **Otherwise.** The chat's title.
 
 ## Message another chat on this machine

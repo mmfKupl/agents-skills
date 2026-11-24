@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import os
+import subprocess
 import sys
 import tempfile
 import threading
@@ -227,6 +228,25 @@ class AgentProjectsTests(unittest.TestCase):
         status = self.ok("status", "--project", "billing")["tickets"][0]
         self.assertEqual(status["last_report"], second["report"])
         self.assertIn("review report:", status["last_event"])
+
+    def test_report_copy_puts_the_report_where_the_application_can_open_it(self) -> None:
+        self.create_project()
+        report = self.ok("report", "add", "--project", "billing", "--ticket", "UIB-1", "--kind", "review",
+                         stdin="the review")["report"]
+        work = self.home.parent / "work"
+        work.mkdir()
+        subprocess.run(["git", "init", "-q", str(work)], check=True)
+
+        for _ in range(2):
+            copy = Path(self.ok("report", "copy", report, "--cwd", str(work))["copy"])
+
+        self.assertEqual((copy.parent, copy.read_text()), (work.resolve() / ".agent-reports", "the review\n"))
+        self.assertEqual((work / ".git" / "info" / "exclude").read_text().count(".agent-reports/\n"), 1)
+        self.assertEqual(subprocess.run(["git", "-C", str(work), "status", "--short"], stdout=subprocess.PIPE).stdout, b"")
+        plain = self.home.parent / "plain"
+        plain.mkdir()
+        self.assertTrue(Path(self.ok("report", "copy", report, "--cwd", str(plain))["copy"]).is_file())   # no repository
+        self.assertEqual(self.run_command("report", "copy", str(work / ".git" / "config"), "--cwd", str(work))[0], 2)
 
     def test_report_add_refuses_an_empty_report_and_an_unknown_project(self) -> None:
         self.create_project()

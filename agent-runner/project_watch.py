@@ -43,6 +43,7 @@ RUN_LIMIT = 3
 # An event that is over, with its folders, is forgotten after this many days.
 KEEP_DAYS = 30
 # When the project chat is closed, a new one is started at most this often.
+RESEND_HOURS = 1
 TAKEOVER_HOURS = 6
 # Status types that mean a ticket is over: Done, Canceled, Won't do, Duplicate.
 CLOSED_TYPES = ("completed", "canceled", "duplicate")
@@ -610,9 +611,10 @@ def paused() -> str | None:
 def _read_state(root: Path) -> dict[str, Any]:
     path = root / "watch.yaml"
     state = projects._load_mapping(path) if path.is_file() else {}
-    for key in ("events", "problems"):
+    for key in ("events", "problems", "messages"):
         state.setdefault(key, [])
-    for key in ("baseline", "since", "read_until", "closed_tickets", "seen", "undelivered", "takeover", "digest"):
+    for key in ("baseline", "since", "read_until", "closed_tickets", "seen", "undelivered", "takeover", "digest",
+                "unsent"):
         # `baseline` and `closed_tickets` were lists in the first version of this file.
         if not isinstance(state.get(key), dict):
             state[key] = {}
@@ -1015,27 +1017,60 @@ def _finish(event: dict[str, Any], root: Path, quiet: bool) -> str | None:
     return f"{label} failed: {event['note']}. `agent-projects watch start {event['id']}` starts it again."
 
 
-def _tell(root: Path, project_name: str, project: dict[str, Any], text: str) -> None:
-    """Pass a line to the project chat. Only a chat can message a chat, so a small one does it."""
+def _tell(root: Path, project_name: str, project: dict[str, Any], text: str) -> dict[str, Any]:
+    """Pass a line to the project chat. Only a chat can message a chat, so a small one
+    does it. Return what `_unsent` needs to read afterwards whether it did."""
     prompt = (
         "Send one message to another chat on this machine, then stop.\n\n"
         "1. The tool is SendMessage. If it is not loaded, load it with ToolSearch: `select:SendMessage,ListAgents`.\n"
         f"2. Send the text between the two lines of dashes, unchanged, to the chat named \"{project['chat']['title']}\".\n"
-        "3. If the tool refuses or finds no such chat, run ListAgents once and answer with what it showed. "
-        "Try nothing else.\n\n"
+        "3. If the tool refuses or finds no such chat, run ListAgents once. Try nothing else.\n"
+        "4. Answer with one line: `sent` when the tool accepted the message, otherwise `not sent:` and what the "
+        "tool and ListAgents said.\n\n"
         f"---\n{text}\n---\n"
     )
     run_dir = _fresh(projects._project_dir(root, project_name) / "runs" / f"{_stamp()[:10]}-message")
-    _spawn_chat(project["repository"], "haiku", "low", prompt, run_dir)
+    return {"pid": _spawn_chat(project["repository"], "haiku", "low", prompt, run_dir), "run_dir": str(run_dir)}
 
 
-def _live_chats() -> set[str] | None:
-    """The Claude Code chats that run on this machine, by session id; None when they
-    cannot be listed."""
+def _send(root: Path, state: dict[str, Any], project_name: str, project: dict[str, Any], name: str | None,
+          lines: list[dict[str, Any]], text: str) -> None:
+    """Tell the project chat under the name it has now, and remember the small chat that
+    does it. The name on record goes stale when the application gives the chat a title."""
+    chat = {**project["chat"], "title": name or project["chat"]["title"]}
+    message = _tell(root, project_name, {**project, "chat": chat}, text)
+    if message:
+        state["messages"].append({**message, "project": project_name, "lines": lines})
+
+
+def _unsent(state: dict[str, Any]) -> list[str]:
+    """Take back the lines whose small chat ended without sending them, so that they are
+    tried again later, and return a problem line for each."""
+    problems, running = [], []
+    for message in state["messages"]:
+        if _alive(message["pid"], message["run_dir"]):
+            running.append(message)
+            continue
+        try:
+            turns = projects._load_mapping(Path(message["run_dir"]) / "chat.yaml").get("turns") or [{}]
+            answer = " ".join(Path(str(turns[-1].get("result"))).read_text(encoding="utf-8").split())
+        except (ProjectsError, OSError):
+            answer = "the small chat gave no answer"
+        if not answer.lower().startswith("sent"):
+            state["undelivered"].setdefault(message["project"], []).extend(message["lines"])
+            state["unsent"][message["project"]] = _stamp()
+            problems.append(f"a line did not reach the project chat of {message['project']} and is kept: {answer[:200]}")
+    state["messages"] = running
+    return problems
+
+
+def _live_chats() -> dict[str, str] | None:
+    """The Claude Code chats that run on this machine: the name each has now, by session
+    id; None when they cannot be listed."""
     try:
         listed = subprocess.run([run_chat._binary("claude"), "agents", "--json"], stdin=subprocess.DEVNULL,
                                 stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, timeout=30)
-        return {str(row.get("sessionId")) for row in json.loads(listed.stdout)}
+        return {str(row.get("sessionId")): str(row.get("name") or "") for row in json.loads(listed.stdout)}
     except (manifest.ManifestError, OSError, ValueError, AttributeError, TypeError, subprocess.TimeoutExpired):
         return None
 
@@ -1057,17 +1092,19 @@ def _takeover(root: Path, project_name: str, project: dict[str, Any]) -> None:
                        cwd=project["repository"], stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT, timeout=120)
 
 
-def _deliver(root: Path, state: dict[str, Any], project_name: str, text: str, live: set[str] | None) -> str | None:
+def _deliver(root: Path, state: dict[str, Any], project_name: str, text: str,
+             live: dict[str, str] | None) -> str | None:
     """Send a line to the project chat. When that chat is closed, keep the line and
     start a chat that takes the project over; the line follows once that chat is up.
     Return a problem to report, if any."""
     try:
         _, project = projects._load_project(root, project_name)
         chat = project.get("chat") or {}
+        line = {"at": _stamp(), "text": text}
         if chat.get("host") == "claude" and chat.get("title") and (live is None or chat.get("id") in live):
-            _tell(root, project_name, project, text)
+            _send(root, state, project_name, project, (live or {}).get(chat.get("id")), [line], text)
             return None
-        state["undelivered"].setdefault(project_name, []).append({"at": _stamp(), "text": text})
+        state["undelivered"].setdefault(project_name, []).append(line)
         recently = _stamp(datetime.now(timezone.utc) - timedelta(hours=TAKEOVER_HOURS))
         if live is not None and state["takeover"].get(project_name, "") < recently:
             state["takeover"][project_name] = _stamp()
@@ -1077,20 +1114,25 @@ def _deliver(root: Path, state: dict[str, Any], project_name: str, text: str, li
         return f"could not tell the project chat of {project_name}: {error}"
 
 
-def _flush(root: Path, state: dict[str, Any], live: set[str] | None) -> None:
+def _flush(root: Path, state: dict[str, Any], live: dict[str, str] | None) -> None:
     """Send the lines that waited for a project chat, once its chat runs again. A chat
-    that has just been started gets five minutes first: until then it cannot notify."""
+    that has just been started gets five minutes first: until then it cannot notify.
+    After a send that failed, the next try waits, so that a chat that cannot be reached
+    is not tried every minute."""
     settled = _stamp(datetime.now(timezone.utc) - timedelta(minutes=5))
+    retried = _stamp(datetime.now(timezone.utc) - timedelta(hours=RESEND_HOURS))
     for project_name, waiting in list(state["undelivered"].items()):
         try:
             _, project = projects._load_project(root, project_name)
         except ProjectsError:
             continue
         chat = project.get("chat") or {}
-        if not waiting or live is None or chat.get("id") not in live or state["takeover"].get(project_name, "") > settled:
+        if (not waiting or live is None or chat.get("id") not in live
+                or state["takeover"].get(project_name, "") > settled or state["unsent"].get(project_name, "") > retried):
             continue
         lines = "\n".join(f"- {item['at']} {item['text']}" for item in waiting)
-        _tell(root, project_name, project, f"{len(waiting)} lines waited while the project chat was closed:\n{lines}")
+        _send(root, state, project_name, project, live[chat["id"]], waiting,
+              f"{len(waiting)} lines did not reach the project chat earlier:\n{lines}")
         del state["undelivered"][project_name]
 
 
@@ -1311,7 +1353,7 @@ def cycle(read_tracker: bool = True) -> list[str]:
                            f"`agent-projects watch list --project {name}` shows them, and `watch dismiss` drops any.")
                     for name, count in fresh.items() if count > limit]
         to_tell += _digests(state, now)
-        problems = list(state["problems"])
+        problems = list(state["problems"]) + _unsent(state)
         if to_tell or state["undelivered"]:
             live = _live_chats()
             for project_name, line in to_tell:

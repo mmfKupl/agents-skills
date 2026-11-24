@@ -117,7 +117,7 @@ class ProjectWatchTests(unittest.TestCase):
         self.addCleanup(patcher.stop)
         self.addCleanup(self.wait_for_runs)
         # The project chat on record ("project-chat") runs, unless a test closes it.
-        self.live: set[str] | None = {"project-chat"}
+        self.live: dict[str, str] | None = {"project-chat": "project: Billing"}
         patcher = patch.object(project_watch, "_live_chats", lambda: self.live)
         patcher.start()
         self.addCleanup(patcher.stop)
@@ -523,7 +523,7 @@ class ProjectWatchTests(unittest.TestCase):
         self.wait_for_runs()
         with patch.object(sys, "stdin", io.StringIO("remarks recorded")):
             self.ok("report", "add", "--project", "billing", "--ticket", "UIB-1", "--kind", "note")
-        with patch.object(project_watch, "_tell") as tell:
+        with patch.object(project_watch, "_tell", return_value=None) as tell:
             project_watch.cycle(read_tracker=False)
 
         tell.assert_not_called()
@@ -691,7 +691,7 @@ class ProjectWatchTests(unittest.TestCase):
         (self.home / "tickets" / "UIB-1.md").write_text("not a ticket record")
         self.issues.append(issue("UIB-2", minutes_ago=30))
 
-        with patch.object(project_watch, "_tell"):
+        with patch.object(project_watch, "_tell", return_value=None):
             project_watch.cycle()
             self.wait_for_runs()
             project_watch.cycle()
@@ -725,7 +725,7 @@ class ProjectWatchTests(unittest.TestCase):
         self.wait_for_runs()
         self.ok("ticket", "take", "UIB-1", "--workflow", "review", "--chat", "claude-session-1")
 
-        with patch.object(project_watch, "_tell"):
+        with patch.object(project_watch, "_tell", return_value=None):
             project_watch.cycle()
 
         self.assertEqual(self.states(), {"UIB-1": "failed"})
@@ -742,7 +742,7 @@ class ProjectWatchTests(unittest.TestCase):
         other = SimpleNamespace(returncode=0, stdout="/usr/sbin/cron -f\n")
 
         self.assertEqual(self.ok("watch", "dismiss", "2")["events"][0]["state"], "dismissed")
-        with patch.object(project_watch, "_tell"), patch.object(project_watch.subprocess, "run", return_value=other):
+        with patch.object(project_watch, "_tell", return_value=None), patch.object(project_watch.subprocess, "run", return_value=other):
             project_watch.cycle()
 
         self.assertEqual(self.states(), {"UIB-1": "finished", "UIB-2": "dismissed"})
@@ -860,7 +860,7 @@ run:
         self.issues = [issue(f"UIB-{number}", minutes_ago=30) for number in range(1, 6)]
         os.environ["FAKE_MODE"] = "slow"
 
-        with patch.object(project_watch, "_tell") as tell:
+        with patch.object(project_watch, "_tell", return_value=None) as tell:
             project_watch.cycle()
 
         self.assertEqual(sorted(self.states().values()), ["started"] * 3 + ["waiting"] * 2)
@@ -878,11 +878,12 @@ run:
         self.watched_project()
         self.issues = [issue("UIB-1", minutes_ago=30)]
         os.environ["FAKE_MODE"] = "crash"
-        project_watch.cycle()
+        with patch.object(project_watch, "_tell", return_value=None):
+            project_watch.cycle()
         self.wait_for_runs()
-        self.live = set()                                      # the project chat is closed
+        self.live = {}                                         # the project chat is closed
 
-        with patch.object(project_watch, "_takeover") as takeover, patch.object(project_watch, "_tell") as tell:
+        with patch.object(project_watch, "_takeover") as takeover, patch.object(project_watch, "_tell", return_value=None) as tell:
             project_watch.cycle(read_tracker=False)
             project_watch.cycle(read_tracker=False)
 
@@ -891,14 +892,50 @@ run:
         kept = self.ok("status", "--project", "billing")["undelivered"]["billing"]
         self.assertIn("UIB-1: the review run", kept[0]["text"])
 
-        self.live = {"project-chat"}                           # a chat is up again, started long enough ago
+        self.live = {"project-chat": "project: Billing"}       # a chat is up again, started long enough ago
         with project_watch._state() as state:
             state["takeover"]["billing"] = project_watch._stamp(NOW - timedelta(minutes=30))
-        with patch.object(project_watch, "_tell") as tell:
+        with patch.object(project_watch, "_tell", return_value=None) as tell:
             project_watch.cycle(read_tracker=False)
 
-        self.assertIn("1 lines waited while the project chat was closed:", tell.call_args.args[3])
+        self.assertIn("1 lines did not reach the project chat earlier:", tell.call_args.args[3])
         self.assertNotIn("undelivered", self.ok("status", "--project", "billing"))
+
+    def test_line_goes_to_the_name_the_project_chat_has_now(self) -> None:
+        self.watched_project()
+        self.issues = [issue("UIB-1", minutes_ago=30)]
+        self.live = {"project-chat": "A title the application gave"}
+
+        with patch.object(project_watch, "_tell", return_value=None) as tell:
+            project_watch.cycle()
+
+        self.assertEqual(tell.call_args.args[2]["chat"]["title"], "A title the application gave")
+        self.assertEqual(self.ok("project", "show", "billing")["chat"]["title"], "project: Billing")
+
+    def test_line_whose_sending_failed_is_kept_and_tried_again_after_an_hour(self) -> None:
+        self.watched_project()
+        self.issues = [issue("UIB-1", minutes_ago=30)]
+        project_watch.cycle()                                  # the small chat answers something other than `sent`
+        self.wait_for_runs()
+
+        with patch.object(project_watch, "_tell", return_value=None) as tell:
+            lines = project_watch.cycle(read_tracker=False)
+            project_watch.cycle(read_tracker=False)
+
+        start = 'UIB-1: the review run of the trigger "my review" has started, as event 1.'
+        self.assertIn("problem: a line did not reach the project chat of billing and is kept: answer to: Send one", lines[-1])
+        self.assertEqual([item["text"] for item in self.ok("status", "--project", "billing")["undelivered"]["billing"]][0], start)
+        self.assertNotIn(start, [call.args[3] for call in tell.call_args_list])       # not tried again at once
+
+        with project_watch._state() as state:
+            state["unsent"]["billing"] = project_watch._stamp(NOW - timedelta(hours=2))
+        os.environ["FAKE_MODE"] = "sent"
+        project_watch.cycle(read_tracker=False)
+        self.wait_for_runs()
+        project_watch.cycle(read_tracker=False)
+
+        self.assertNotIn("undelivered", self.ok("status", "--project", "billing"))
+        self.assertEqual(project_watch._read_state(self.home)["messages"], [])
 
     def test_new_project_chat_is_started_with_a_fixed_text(self) -> None:
         self.project()
@@ -913,7 +950,7 @@ run:
         self.watched_project()
         self.assertEqual(self.ok("watch", "digest", "--at", "00:00", "--timezone", "Europe/Warsaw"),
                          {"daily_summary": "00:00 Europe/Warsaw"})
-        with patch.object(project_watch, "_tell") as tell:
+        with patch.object(project_watch, "_tell", return_value=None) as tell:
             project_watch.cycle()
         tell.assert_not_called()                               # nothing happened yet
 
@@ -922,7 +959,7 @@ run:
         self.wait_for_runs()
         with project_watch._state() as state:
             state["digest"]["last"] = {}
-        with patch.object(project_watch, "_tell") as tell:
+        with patch.object(project_watch, "_tell", return_value=None) as tell:
             project_watch.cycle(read_tracker=False)
             project_watch.cycle(read_tracker=False)
 
@@ -939,7 +976,7 @@ run:
         self.issues = [issue("UIB-1", minutes_ago=30)]
         project_watch.cycle()
         self.wait_for_runs()
-        with patch.object(project_watch, "_tell"):
+        with patch.object(project_watch, "_tell", return_value=None):
             project_watch.cycle(read_tracker=False)
         run_dir = Path(self.by_id()[1]["run_dir"])
         long_ago = project_watch._stamp(NOW - timedelta(days=40))
@@ -965,7 +1002,7 @@ run:
         for ticket, name, chat in (("UIB-1", "uib-1-review", "gone"), ("UIB-2", "bridge-cse_1", "gone"), ("UIB-3", "uib-3-dev", "alive")):
             self.ok("ticket", "take", ticket, "--workflow", "review", "--cwd", str(copies[name]), "--chat", chat)
             self.ok("ticket", "release", ticket, "--chat", chat)
-        self.live = {"project-chat", "alive"}
+        self.live = {"project-chat": "project: Billing", "alive": "review: UIB-2"}
         self.closed = {"UIB-1", "UIB-2", "UIB-3"}
 
         lines = project_watch.cycle()
@@ -1026,7 +1063,7 @@ run:
 
         with patch.object(sys, "stdin", io.StringIO("review report")):
             self.ok("report", "add", "--project", "billing", "--ticket", "UIB-1", "--kind", "review")
-        with patch.object(project_watch, "_tell") as tell:
+        with patch.object(project_watch, "_tell", return_value=None) as tell:
             project_watch.cycle()
 
         report = self.home / "project-billing" / "reports" / f"{project_watch._stamp()[:10]}-UIB-1-review.md"
@@ -1044,7 +1081,7 @@ run:
         project_watch.cycle()
         self.wait_for_runs()
 
-        with patch.object(project_watch, "_tell") as tell:
+        with patch.object(project_watch, "_tell", return_value=None) as tell:
             lines = project_watch.cycle()
 
         event = self.ok("status", "--project", "billing")["trigger_events"][0]
@@ -1067,7 +1104,7 @@ run:
         waiting = threading.Thread(target=lambda: said.append(project_watch.wait(1)))
 
         with patch.object(agent_projects, "WAIT_SECONDS", 0.01), patch.object(agent_projects, "GRACE_SECONDS", 0.01), \
-                patch.object(project_watch, "_tell") as tell:
+                patch.object(project_watch, "_tell", return_value=None) as tell:
             project_watch.cycle()
             waiting.start()
             time.sleep(0.2)
@@ -1086,7 +1123,7 @@ run:
         self.issues = [issue("UIB-1")]
         project_watch.poll(NOW)                                      # held: it matched before watching began
         self.ok("watch", "start", "1")
-        with patch.object(project_watch, "_tell") as tell:
+        with patch.object(project_watch, "_tell", return_value=None) as tell:
             project_watch.cycle(read_tracker=False)
             tell.assert_not_called()
 

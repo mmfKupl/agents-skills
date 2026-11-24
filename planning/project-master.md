@@ -571,6 +571,23 @@ On 2026-11-24 the developer asked for four more things, all written the same day
   on the VM: the desktop app lists a background command of a Remote Control chat
   under Background tasks with a timer and a stop button, the chat is woken when
   the command ends by itself, and it is not woken when it stops the command.
+- Lines reach a project chat that got a new title. On 2026-11-24 the lines about
+  two finished reviews were lost: the project chat had recorded the name
+  `bridge-cse-…-db`, the application then titled it "Ревью из Liner в
+  project-master", and the small chat that sends a line found no chat under the
+  old name. The developer passed on the project chat's suggestion: "стоит брать
+  текущее имя чата по id и сохранять строку, если отправка не удалась". The
+  script now takes the chat's current name from `claude agents --json` by its id
+  before each message, reads the small chat's answer (`sent` or `not sent`), and
+  keeps a line that was not sent, to try again an hour later.
+- A report the developer can open: "еще есть проблема с отчетами. я вот не могу
+  их нормально открыть посмотерть". The application opens only files inside a
+  chat's working directory, and reports lie in the project folder outside it.
+  `agent-projects report copy <path>` copies a report into `.agent-reports` of
+  the working directory and has git ignore that folder through the local exclude
+  file; the project chat links the copy. `SendUserFile` delivers a file card
+  from a Remote Control chat, but the developer's screenshot of that test showed
+  the file pane failing on the path, so the card is not used.
 
 Left from the reviews:
 - About 22 lines that can be cut, and two commands nobody needs daily

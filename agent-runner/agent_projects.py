@@ -8,6 +8,8 @@ import contextlib
 import fcntl
 import os
 import re
+import shutil
+import subprocess
 import sys
 import tempfile
 import time
@@ -30,6 +32,8 @@ REPORT_KIND = re.compile(r"[a-z][a-z0-9-]*")
 WAIT_SECONDS = 5.0
 TAKE_SECONDS = 900.0
 GRACE_SECONDS = 300.0
+# Where `report copy` puts a report inside a chat's working directory.
+COPIES = ".agent-reports"
 
 
 class ProjectsError(ValueError):
@@ -374,6 +378,33 @@ def report_add(project: str, ticket: str, kind: str, source: str | None) -> dict
     return {"ticket": ticket, "project": project, "report": str(target)}
 
 
+def report_copy(source: str, cwd: str | None) -> dict[str, Any]:
+    """Copy a filed report into the calling chat's working directory: the application
+    shows the developer only files that lie there, and reports lie outside it. Git is
+    told to leave the copies out of the repository's changes."""
+    root = _require_home().resolve()
+    path = Path(source).expanduser().resolve()
+    if root not in path.parents or not path.is_file():
+        raise ProjectsError(f"{source} is not a file in {root}")
+    folder = Path(cwd or os.getcwd()).resolve() / COPIES
+    folder.mkdir(exist_ok=True)
+    copy = folder / path.name
+    shutil.copyfile(path, copy)
+
+    def git(*arguments: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(["git", "-C", str(folder), *arguments], stdout=subprocess.PIPE,
+                              stderr=subprocess.DEVNULL, text=True, timeout=30)
+
+    # 1 means a repository that does not ignore the copy yet. The local exclude file does
+    # it without changing a tracked file, and working copies of one repository share it.
+    if git("check-ignore", "-q", str(copy)).returncode == 1:
+        exclude = (folder / git("rev-parse", "--git-common-dir").stdout.strip() / "info" / "exclude").resolve()
+        exclude.parent.mkdir(exist_ok=True)
+        with exclude.open("a", encoding="utf-8") as handle:
+            handle.write(f"{COPIES}/\n")
+    return {"copy": str(copy)}
+
+
 def status(project: str | None) -> dict[str, Any]:
     root = _require_home()
     if project:
@@ -468,6 +499,10 @@ def _argument_parser() -> argparse.ArgumentParser:
 
     report = commands.add_parser("report", help="file a report into a project").add_subparsers(
         dest="action", required=True)
+    copy = report.add_parser("copy", help="copy a filed report into the working directory, where the application "
+                                          "can open it")
+    copy.add_argument("path")
+    copy.add_argument("--cwd", help="the chat's working directory, when it is not the current one")
     add = report.add_parser("add", help="save a report; reads standard input without --file")
     add.add_argument("--project", required=True)
     add.add_argument("--ticket", required=True)
@@ -512,6 +547,8 @@ def run(args: argparse.Namespace) -> dict[str, Any] | str:
         if args.action == "wait":
             return ticket_wait(args.ticket)
         return ticket_show(args.ticket)
+    if args.action == "copy":
+        return report_copy(args.path, args.cwd)
     return report_add(args.project, args.ticket, args.kind, args.file)
 
 

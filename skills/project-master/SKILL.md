@@ -44,7 +44,8 @@ agents-skills repository.
 - `project create | show | list | chat`: projects.
 - `ticket take | release | note | show`: who works on a ticket, and its history.
 - `ticket wait`, `watch wait`: last while work goes; see Showing work that is going.
-- `report add`: file a report into a project.
+- `report add`: file a report into a project. `report copy`: put a filed report where
+  the developer can open it; see Results.
 - `status [--project <name>]`: every ticket with who holds it, its last event, and its
   last report; the trigger events that are not over; whether watching runs.
 - `trigger list`, `project triggers`, `watch poll | list | start | dismiss | install`,
@@ -203,7 +204,10 @@ that line arrives, or when the developer asks:
 
 - read the report, at the path from the line or from `agent-projects status`;
 - tell the developer the outcome in one or two lines, then what is needed from them,
-  then the path of the report. Do not retell the rest: what was checked, the details,
+  then the report as a file they can open. The application opens only files inside
+  this chat's working directory, and reports lie outside it: run
+  `agent-projects report copy <path>` and give the `copy` path it prints, never the
+  path in the project folder. Do not retell the rest: what was checked, the details,
   and the remarks stay in the report. When the report's `Suggestions` section holds
   any, add one line that says how many, so that the developer knows to read them;
 - pass on each question from the step in full, with its choices and a recommendation,
@@ -301,9 +305,12 @@ message: "Started by the watching script". Then:
 - record this chat as the project's chat, as step 1 of Setting up says, and answer in
   one line that this chat now manages the project. Skip the list of tickets and the
   question about triggers: nobody is here to read them;
-- a few minutes later a message arrives that starts with "lines waited while the
-  project chat was closed". Treat each line as Results says, in one answer, and
-  notify the developer once.
+- a few minutes later a message arrives that says "lines did not reach the project
+  chat earlier". Treat each line as Results says, in one answer, and notify the
+  developer once.
+
+The same message comes to a chat that was not closed, when sending a line to it
+failed: the script keeps such a line and tries again an hour later.
 
 `undelivered` in the status lists lines that have reached no chat yet. Show them
 first when the developer asks where things stand.

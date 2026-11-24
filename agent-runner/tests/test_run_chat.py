@@ -32,7 +32,7 @@ if mode == "crash":
     sys.exit(3)
 print(json.dumps({{
     "type": "result", "subtype": "error_during_execution" if mode == "error" else "success",
-    "is_error": mode == "error", "result": "it broke" if mode == "error" else "answer to: " + prompt,
+    "is_error": mode == "error", "result": "it broke" if mode == "error" else "sent" if mode == "sent" else "answer to: " + prompt,
     "session_id": "claude-session-1", "total_cost_usd": 0.25,
     "usage": {{"input_tokens": 10, "cache_read_input_tokens": 600, "cache_creation_input_tokens": 90,
               "output_tokens": 40}},

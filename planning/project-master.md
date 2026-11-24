@@ -713,7 +713,10 @@ On 2026-11-24 the developer asked for four more things, all written the same day
   so does a check that found nothing to start. The trigger need not be on in the
   project. The UI Bakery notes name `my progress` for this. Not changed: what
   each outcome of `my progress` starts, so a small and clear ticket still gets a
-  report with the command and no development.
+  report with the command and no development. Offered the choice to send such a
+  ticket straight to development, the developer kept the report: "да гуд".
+  Which triggers are on in a project plays no part for a ticket sent by hand:
+  that only says what the script watches in the tracker.
 - A button that opens the chat of the agent. The developer asked the same day
   for a button in the text about finished work, "чтобы я на неё нажал и
   автоматически в чат отправилось \"открой мне этого агента\"". The Claude Code

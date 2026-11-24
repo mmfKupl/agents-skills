@@ -163,14 +163,21 @@ The developer may send only a ticket. Then:
 2. If the record shows that another chat holds the ticket, tell the developer which
    chat, for what, and since when, and start nothing until they say so. A record
    older than a day may belong to a chat that died; say that too.
-3. Decide the step. The developer's own words win: when they named the step, use it.
-   - `$review-task`: the work is implemented and waits for the developer's review.
-   - `$brainstorm-task`: the developer wants to understand or plan the task, or the
-     ticket does not yet say what to build.
-   - Development: the ticket says what to build. Use the development command of the
-     repository, or `$develop-draft` when the developer asks for a quick prototype.
-4. If two steps fit, or it is unclear what is wanted, ask one question. Otherwise
-   start without asking.
+3. Find the step. The developer's own words win, but only words that name a step: a
+   review, a plan or brainstorm, development, a prototype. "Take it", "let's do
+   these", and a bare ticket name no step.
+   - A step is named: use it. `$review-task`, `$brainstorm-task`, the development
+     command of the repository, or `$develop-draft` for a quick prototype.
+   - No step is named, and the work is implemented and waits for the developer's
+     review: `$review-task`.
+   - No step is named, and the ticket wants work: do not choose between a plan and
+     development yourself. Send the ticket through the check of the trigger that
+     sorts new work, as "Through a trigger's check" says. Repository notes name
+     that trigger; without notes it is the trigger in `agent-projects trigger list`
+     whose check sorts new work. It need not be on in the project. Only when the
+     machine has no such trigger, choose yourself: `$brainstorm-task` when the
+     ticket does not yet say what to build, development when it does.
+4. If it is unclear what is wanted, ask one question. Otherwise start without asking.
 5. Start the step, as the next section says.
 6. Start the background command for the step, as Showing work that is going says.
 7. Show the line under `say` in the answer of `watch add`. It names the ticket, the
@@ -210,6 +217,24 @@ going already, tell the developer and start nothing.
 
 One run per step. Never run the step inside this chat or in a subagent: this chat
 must stay short, and only a run of its own can be opened later as a chat.
+
+### Through a trigger's check
+
+For a ticket with no step named, the trigger's check decides, as it does for a ticket
+that the tracker reports. A cheap model reads the ticket, its status history, and its
+record on this machine, sorts it into one of the trigger's outcomes, and what that
+outcome names starts: for example a plan for a large or unclear ticket, and a short
+report with the command to start for a small one.
+
+```bash
+agent-projects watch add billing UIB-123 --trigger "my progress" <<'EOF'
+<the developer's own words about the ticket, or nothing>
+EOF
+```
+
+The answer has the event's `id` and the line to show under `say`. What the check
+picked comes as news, and so does a check that found nothing to start. Start no other
+step for the ticket meanwhile, and several tickets get one command each.
 
 ### A chat in the sidebar instead
 

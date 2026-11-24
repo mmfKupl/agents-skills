@@ -697,6 +697,23 @@ On 2026-11-24 the developer asked for four more things, all written the same day
     same for every trigger, and half of the messages have no trigger.
   - Left to the chat's own words: a question to the developer, an answer that
     these texts do not cover, and a problem with a command.
+- A ticket sent by hand with no step named goes through a trigger's check. The
+  developer on 2026-11-24, about a project chat that had `my progress` on: "я
+  сказал \"давай делать два тикета\" и я ожидал что будет так, что как для
+  тригера my progress будет анализ что делать с тикетом от хайку и потом запуск
+  что хайку сказал, но в итоге они пошли на разработку". The chat had taken
+  "давай делать 6667 и 6666" as development and queued `develop-please` for
+  both, on opus: by the skill it chose the step itself, and a check ran only for
+  what the tracker reported. Now only words that name a step count as naming it.
+  For any other ticket that wants work the chat runs `agent-projects watch add
+  <project> <ticket> --trigger "<trigger>"`: the script reads the ticket from
+  Linear, writes the same packet as for a status change, and the trigger's check
+  (haiku for `my progress`) sorts it; what the outcome names starts, with the
+  developer's words under the command. What the check picked comes as news, and
+  so does a check that found nothing to start. The trigger need not be on in the
+  project. The UI Bakery notes name `my progress` for this. Not changed: what
+  each outcome of `my progress` starts, so a small and clear ticket still gets a
+  report with the command and no development.
 - A button that opens the chat of the agent. The developer asked the same day
   for a button in the text about finished work, "чтобы я на неё нажал и
   автоматически в чат отправилось \"открой мне этого агента\"". The Claude Code

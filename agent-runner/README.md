@@ -355,6 +355,7 @@ agent-projects watch start 3 4                       # let the loop start held e
 agent-projects watch add billing UIB-123 <<'EOF'     # queue a step the developer asked for
 $review-task UIB-123
 EOF
+agent-projects watch add billing UIB-123 --trigger "my progress" < /dev/null   # let that trigger's check sort it
 agent-projects board billing                         # the state of the project, as text to show as it is
 agent-projects board billing UIB-123                 # one ticket in full, with its last report
 agent-projects news billing                          # what happened since the project chat last asked

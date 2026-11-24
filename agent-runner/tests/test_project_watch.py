@@ -146,6 +146,10 @@ class ProjectWatchTests(unittest.TestCase):
                  "state": {"type": "completed", "name": "Done"} if f"UIB-{number}" in self.closed
                  else {"type": "started", "name": "In Progress"}}
                 for number in numbers], "pageInfo": {"hasNextPage": False, "endCursor": None}}}
+        if "number" in variables["filter"] and "state" not in variables["filter"]:     # one ticket, read in full
+            numbers = variables["filter"]["number"]["in"]
+            nodes = [item for item in self.issues if int(item["identifier"].split("-")[1]) in numbers]
+            return {"issues": {"nodes": nodes, "pageInfo": {"hasNextPage": False, "endCursor": None}}}
         self.queries.append(variables or {})
         statuses = variables["filter"]["state"]["name"]["in"]
         nodes = [item for item in self.issues if item["state"]["name"] in statuses]
@@ -1321,6 +1325,51 @@ run:
         history = {item["ticket"]: item["last_event"] for item in self.ok("status")["tickets"]}
         self.assertTrue(history["UIB-1"].endswith("closed in the tracker: Done"))
         self.assertNotIn("UIB-2", history)                           # no record here: none is made for a note
+
+    def test_ticket_sent_by_hand_can_go_through_a_triggers_check_like_one_the_tracker_reported(self) -> None:
+        self.project(watched=False)
+        project_watch.cycle(read_tracker=False)
+        self.issues = [issue("UIB-5", status="Todo", assignee=None), issue("UIB-6", status="Todo")]
+
+        def add(ticket: str, *options: str, words: str = "let us do it\n") -> tuple[int, str, str]:
+            with patch.object(sys, "stdin", io.StringIO(words)):
+                return self.command("watch", "add", "billing", ticket, "--trigger", *options)
+
+        self.assertIn("no trigger named 'nope'", add("UIB-5", "nope")[2])
+        self.assertIn("UIB-9 was not found in the tracker", add("UIB-9", "my progress")[2])
+        self.assertIn("do not go with --trigger", add("UIB-5", "my progress", "--model", "opus")[2])
+
+        code, stdout, stderr = add("UIB-5", "my progress")           # the trigger need not be on in the project
+        self.assertEqual(code, 0, stderr)
+        answer = yaml.safe_load(stdout)
+        self.assertEqual((answer["events"][0]["state"], answer["say"]), (
+            "checking", '[UIB-5](https://linear.app/x/UIB-5) "Title of UIB-5": a check decides what to start. '
+            "What it starts will be said here."))
+        packet = Path(answer["events"][0]["check_dir"], "packet.md").read_text()
+        self.assertIn("UIB-5 was sent to the project chat by the developer, who wrote: let us do it.", packet)
+        self.assertIn("Description of UIB-5", packet)
+
+        with patch.object(project_watch, "_tell", return_value=None) as tell:
+            check, _ = self.run_check("new_work_large")
+            self.assertEqual(self.states(), {"UIB-5": "waiting"})
+            tell.assert_not_called()
+            project_watch.cycle(read_tracker=False)                  # what the check picked starts, and that is news
+            self.assertIn("the new_work_large run of the trigger", tell.call_args.args[3])
+            self.wait_for_runs()
+        self.assertIn("haiku", " ".join(check.commands[0]))
+        call = next(item for item in map(json.loads, self.log.read_text().splitlines()) if "--worktree" in item["argv"])
+        self.assertTrue(call["prompt"].startswith("/project-scope billing /brainstorm-task autopilot UIB-5\nlet us do it\n\n"
+                                                  'Started by the trigger "my progress"'))
+        self.assertEqual(self.news()[0], '[UIB-5](https://linear.app/x/UIB-5) "Title of UIB-5": new work large is going '
+                                         '(the check of the trigger "my progress" chose this)')
+
+        add("UIB-6", "my progress")                                  # a check that finds nothing to do says so
+        with patch.object(project_watch, "_tell", return_value=None) as tell:
+            self.run_check("noise")
+        self.assertIn('UIB-6: the check of the trigger "my progress" sorted it as noise, which starts nothing.',
+                      [call.args[3] for call in tell.call_args_list])
+        self.assertIn('[UIB-6](https://linear.app/x/UIB-6) "Title of UIB-6": the check of the trigger "my progress" found '
+                      "nothing to start (noise)", self.news())
 
     def test_filed_report_is_news_with_its_own_words_and_the_ticket_can_be_shown_again(self) -> None:
         self.project()

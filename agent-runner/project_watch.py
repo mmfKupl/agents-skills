@@ -67,6 +67,8 @@ SECTIONS = {"what this pr does", "why it is needed", "how it works", "verdict", 
             "what changed", "how to see it", "what works", "limits"}
 WHO = ("current_user", "not_current_user")
 STATUS, COMMENT, PULL = "status_changed", "comment_added", "pr_review_or_comment"
+# What an event is, when the developer sent its ticket to the project chat and a trigger's check sorts it.
+HAND = "sent_by_hand"
 # The fields an entry of each kind may hold, besides `source` and `event`.
 ENTRY_FIELDS = {
     ("linear", STATUS): {"to", "from", "assignee", "actor", "skip", "then"},
@@ -1030,6 +1032,9 @@ def _start(event: dict[str, Any], root: Path, triggers: dict[str, dict[str, Any]
         text = (run.get("command") or run["prompt"]).strip().replace("{ticket}", event["ticket"])
         if "command" in run:
             text = sigil + text.lstrip("/$")
+        if event.get("words"):
+            # What the developer wrote when they sent the ticket to the project chat.
+            text += f"\n{event['words']}"
         origin = ("Started from the project chat, where the developer asked for it.\n" if "asked" in event else
                   f"Started by the trigger \"{event['trigger']}\": {event['ticket']} was {event['what']}.\n"
                   + (f"A check sorted this event as `{event['run']}`.\n" if event.get("check_dir") else ""))
@@ -1306,7 +1311,8 @@ def _where(state: dict[str, Any], root: Path, name: str, ticket: str,
               and not (event["state"] == "finished" and _quiet(event, triggers))]
     if events:
         event = max(events, key=lambda item: item["id"])
-        key = {"held": "where_held", "waiting": "where_waiting", "checking": "where_checking", "started": "where_started",
+        sorting = "where_sorting" if event.get("entry") in (STATUS, HAND) else "where_checking"
+        key = {"held": "where_held", "waiting": "where_waiting", "checking": sorting, "started": "where_started",
                "failed": "where_failed", "finished": "where_no_report" if event.get("note") else "where_ready"}[event["state"]]
         words = say(key, step=_step(event, triggers))
         return (say("where_open", where=words, chat=event["chat"]) if event.get("chat") else words), event
@@ -1531,7 +1537,14 @@ def _news_item(item: dict[str, Any], state: dict[str, Any], root: Path, project:
         if event is None or event["state"] not in MOVING_STATES:
             return None, []  # it is over by now, and its end is news of its own
         line = _line(event["ticket"], event.get("title"), event.get("url"), say("where_started", step=_step(event, triggers)))
-        return (say("news_started", line=line, trigger=event["trigger"]) if event.get("trigger") else line), _showing([event])
+        told = "news_sorted" if event.get("entry") == HAND else "news_started"
+        return (say(told, line=line, trigger=event["trigger"]) if event.get("trigger") else line), _showing([event])
+    if kind == "nothing":
+        if event is None:
+            return None, []
+        return _line(event["ticket"], event.get("title"), event.get("url"), say(
+            "where_nothing_to_start", trigger=event["trigger"], outcome=_step(event, triggers))), [
+            f"stop the background command that shows {event['ticket']}, if this chat runs one"]
     if kind == "ready":
         # The run that filed it. A run that only keeps a record is no news.
         run = next((other for other in reversed(state["events"])
@@ -1781,6 +1794,13 @@ def cycle(read_tracker: bool = True) -> list[str]:
             except Exception as error:  # noqa: BLE001 - one broken event must not stop the rest
                 event.update(state="failed", note=f"the watching script failed on this event: "
                                                   f"{type(error).__name__}: {error}"[:300])
+            if before == "checking" and event.get("entry") == HAND and event["state"] in ("skipped", "failed"):
+                # The developer asked and nothing will start: they are told why.
+                to_tell.append((event["project"], f"{event['ticket']}: the check of the trigger \"{event['trigger']}\" "
+                                + (f"sorted it as {event.get('run')}, which starts nothing." if event["state"] == "skipped"
+                                   else f"failed: {event.get('note')}")))
+                fresh_news.append((event["project"], {"kind": "nothing" if event["state"] == "skipped" else "failed",
+                                                      "event": event["id"]}))
             if event["state"] != before:
                 did = f"check picked {event.get('run')}, now" if before == "checking" else f"{event['run']} run"
                 lines.append(f"{event['ticket']}: {did} {event['state']}" + (f" ({event['note']})" if event.get("note") else ""))
@@ -1971,6 +1991,60 @@ def digest(at: str | None, zone: str | None, off: bool) -> dict[str, Any]:
         return {"daily_summary": f"{chosen['at']} {chosen.get('timezone') or 'UTC'}" if chosen.get("at") else "off"}
 
 
+def _queue_asked(project: str, ticket: str, event: dict[str, Any], packet: Any = None) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Record an event that the developer asked for, unless nothing would start it or
+    the ticket has one going. Return the event and the answer of the command."""
+    root = projects._require_home()
+    with _state() as state:
+        watching = _watching(state)
+        if watching != "running":
+            raise ProjectsError(f"watching is {watching}, and it is what starts a run; "
+                                + ("`agent-projects resume` lets it start runs again" if paused()
+                                   else "`agent-projects watch install` keeps it running"))
+        going = next((other for other in state["events"] if other["project"] == project and other["ticket"] == ticket
+                      and other["state"] in MOVING_STATES), None)
+        if going:
+            raise ProjectsError(f"{ticket} has event {going['id']} going already ({going.get('run') or 'a check'}, "
+                                f"{going['state']}); `agent-projects watch dismiss {going['id']}` drops it")
+        state["next_id"] = state.get("next_id", 0) + 1
+        event = {"id": state["next_id"], "key": f"asked|{ticket}|{state['next_id']}", "project": project, "ticket": ticket,
+                 "found": _stamp(), **event}
+        if packet:
+            stem = re.sub(r"[^a-z0-9-]+", "-", f"{ticket}-check-{event['id']}".lower())
+            folder = _fresh(projects._project_dir(root, project) / "runs" / f"{_stamp()[:10]}-{stem}")
+            folder.mkdir(parents=True)
+            (folder / "packet.md").write_text(packet(event), encoding="utf-8")
+            event["check_dir"] = str(folder)
+        state["events"].append(event)
+        return event, {"events": [_public(event)], "queue": _queue(state), "watching": watching}
+
+
+def add_sorted(project: str, ticket: str, words: str, trigger: str, title: str | None, url: str | None) -> dict[str, Any]:
+    """Send a ticket that the developer handed to the project chat through a trigger's
+    check, as if the tracker had reported it: a cheap model sorts it into one of the
+    trigger's outcomes, and what that outcome names starts. `words` is what the
+    developer wrote about the ticket."""
+    root = projects._require_home()
+    projects._load_project(root, project)
+    ticket = projects._ticket_id(ticket)
+    triggers, _ = load_triggers()
+    chosen = triggers.get(trigger)
+    if chosen is None:
+        raise ProjectsError(f"no trigger named {trigger!r}; `agent-projects trigger list` shows them")
+    if not chosen.get("check"):
+        raise ProjectsError(f"the trigger {trigger!r} has no check that sorts a ticket; name the step instead")
+    found = [node for ticket_filter in _ticket_filters([ticket]) for node in _pages(ISSUES_QUERY, ticket_filter)]
+    if not found:
+        raise ProjectsError(f"{ticket} was not found in the tracker")
+    issue, words = found[0], " ".join(words.split())[:1000]
+    event, answer = _queue_asked(project, ticket, {
+        "trigger": trigger, "run": None, "title": title or issue.get("title"), "url": url or issue.get("url"),
+        "what": "sent to the project chat by the developer" + (f", who wrote: {words}" if words else ""),
+        "state": "checking", "entry": HAND, **({"words": words} if words else {}),
+    }, packet=lambda event: _packet(chosen, event, issue, [], root))
+    return {**answer, "say": say("asked_sorting", line=_line(ticket, event["title"], event["url"], say("where_sorting")))}
+
+
 def add_run(project: str, ticket: str, text: str, model: str | None, effort: str | None, title: str | None,
             url: str | None) -> dict[str, Any]:
     """Queue a step that the developer asked for in the project chat. It runs the way a
@@ -1997,30 +2071,15 @@ def add_run(project: str, ticket: str, text: str, model: str | None, effort: str
     problem = _model_problem(model, effort)
     if problem:
         raise ProjectsError(problem)
-    with _state() as state:
-        watching = _watching(state)
-        if watching != "running":
-            raise ProjectsError(f"watching is {watching}, and it is what starts a run; "
-                                + ("`agent-projects resume` lets it start runs again" if paused()
-                                   else "`agent-projects watch install` keeps it running"))
-        going = next((event for event in state["events"] if event["project"] == project and event["ticket"] == ticket
-                      and event["state"] in MOVING_STATES), None)
-        if going:
-            raise ProjectsError(f"{ticket} has event {going['id']} going already ({going.get('run') or 'a check'}, "
-                                f"{going['state']}); `agent-projects watch dismiss {going['id']}` drops it")
-        state["next_id"] = state.get("next_id", 0) + 1
-        event = {
-            "id": state["next_id"], "key": f"asked|{ticket}|{state['next_id']}", "project": project, "trigger": None,
-            "run": skill.group(1), "ticket": ticket, "title": title, "url": url, "what": "asked for by the developer",
-            "found": _stamp(), "state": "waiting", "asked": {"command": text, "model": model, "effort": effort},
-            # The chat that asked knows of the run, so its start is not told to it.
-            "known": True,
-        }
-        state["events"].append(event)
-        queue = _queue(state)
-        where = say("where_starting" if queue["running"] < queue["limit"] else "where_waiting", step=_step(event, triggers))
-        return {"events": [_public(event)], "queue": queue, "watching": watching,
-                "say": say("asked", line=_line(ticket, title, url, where), model=model, effort=effort)}
+    event, answer = _queue_asked(project, ticket, {
+        "trigger": None, "run": skill.group(1), "title": title, "url": url, "what": "asked for by the developer",
+        "state": "waiting", "asked": {"command": text, "model": model, "effort": effort},
+        # The chat that asked knows of the run, so its start is not told to it.
+        "known": True,
+    })
+    queue = answer["queue"]
+    where = say("where_starting" if queue["running"] < queue["limit"] else "where_waiting", step=_step(event, triggers))
+    return {**answer, "say": say("asked", line=_line(ticket, title, url, where), model=model, effort=effort)}
 
 
 def wait(number: int) -> str:
@@ -2239,6 +2298,8 @@ def add_commands(commands: Any, project: Any) -> None:
                                           "call and the developer's words come on standard input")
     adding.add_argument("project")
     adding.add_argument("ticket")
+    adding.add_argument("--trigger", help="let this trigger's check sort the ticket and start what it picks; "
+                                          "standard input then holds only the developer's words, or nothing")
     adding.add_argument("--model", help="by default what a trigger gives the same skill, otherwise "
                                         f"{DEFAULT_RUN[0]}")
     adding.add_argument("--effort", help=f"by default what a trigger gives the same skill, otherwise {DEFAULT_RUN[1]}")
@@ -2282,7 +2343,12 @@ def run(args: argparse.Namespace) -> dict[str, Any] | str:
     if args.action == "list":
         return events(args.project, args.all)
     if args.action == "add":
-        return add_run(args.project, args.ticket, sys.stdin.read(), args.model, args.effort, args.title, args.url)
+        text = "" if sys.stdin.isatty() else sys.stdin.read()
+        if args.trigger:
+            if args.model or args.effort:
+                raise ProjectsError("--model and --effort do not go with --trigger: the trigger names them for each outcome")
+            return add_sorted(args.project, args.ticket, text, args.trigger, args.title, args.url)
+        return add_run(args.project, args.ticket, text, args.model, args.effort, args.title, args.url)
     if args.action in ("start", "dismiss"):
         return decide(args.ids, "waiting" if args.action == "start" else "dismissed")
     if args.action == "wait":

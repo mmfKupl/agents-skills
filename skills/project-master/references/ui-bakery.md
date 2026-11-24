@@ -11,6 +11,12 @@ Load this reference only after repository evidence identifies the UI Bakery mono
     review. Show it; start a review only when the developer asks.
   - `In Progress`, assigned to the developer: work is wanted. Decide between
     `$brainstorm-task` and development.
+- A ticket that the developer sends for work without naming the step goes through
+  the check of the ready trigger `my progress`, whatever its status and whether or
+  not that trigger is on in the project:
+  `agent-projects watch add <project> <ticket> --trigger "my progress"`. The check
+  sorts it as large or unclear work, small work, feedback on work done here, or a
+  continuation, and starts what the trigger names for that.
 - The ready trigger `my review` covers the first of these statuses: it starts
   `$review-task` when someone else moved the ticket to `In Review` and the ticket is
   assigned to the developer.

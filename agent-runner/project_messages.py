@@ -32,6 +32,7 @@ DEFAULTS: dict[str, Any] = {
     "where_waiting": "{step} is in the queue",
     "where_starting": "{step} is starting",
     "where_checking": "a comment is being sorted",
+    "where_sorting": "a check decides what to start",
     "where_started": "{step} is going",
     "where_failed": "{step} failed",
     "where_ready": "{step} report is ready",
@@ -78,6 +79,9 @@ DEFAULTS: dict[str, Any] = {
     # News of a project: `agent-projects news <project>`.
     "news_none": "Nothing new.",
     "news_started": '{line} (started by the trigger "{trigger}")',
+    "news_sorted": '{line} (the check of the trigger "{trigger}" chose this)',
+    # Stands where a ticket's line says where the ticket is.
+    "where_nothing_to_start": 'the check of the trigger "{trigger}" found nothing to start ({outcome})',
     "left_closed": '{ticket} "{title}" is closed ({status}).',
     "left_moved": '{ticket} "{title}" left: it is now {status}, assigned to {assignee}.',
     "arrived": 'New: {ticket} "{title}".',
@@ -92,6 +96,7 @@ DEFAULTS: dict[str, Any] = {
 
     # The line a command answers with under `say`.
     "asked": "{line}, on {model}, {effort}. The outcome will come here.",
+    "asked_sorting": "{line}. What it starts will be said here.",
     "trigger_now_on": 'The trigger "{trigger}" is on.',
     "trigger_now_off": 'The trigger "{trigger}" is off.',
     "held_head": "These tickets match already and did not start by themselves:",

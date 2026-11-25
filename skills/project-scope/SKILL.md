@@ -45,7 +45,9 @@ anything else. It maps `$skill` to `/skill`.
 4. When the command reaches its final report, or stops blocked:
    - file the report, with the same text the developer gets, on standard input:
      `agent-projects report add --project <project> --ticket <ticket> --kind <review|brainstorm|develop|draft>`;
-   - release the ticket: `agent-projects ticket release <ticket> --result "<one line: the outcome>"`;
+   - release the ticket: `agent-projects ticket release <ticket> --result "<one line: the outcome>"`.
+     Write the line in the language of the report: the project chat shows it to the
+     developer as it is, as the outcome of the step;
    - tell the project chat in one line, as
      [`../project-master/references/hosts.md`](../project-master/references/hosts.md)
      says: `<ticket>: <kind> report ready, <the outcome in a few words>. <path>`. Run

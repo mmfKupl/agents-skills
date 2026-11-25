@@ -109,7 +109,10 @@ DEFAULTS: dict[str, Any] = {
     "left_moved": '{ticket} "{title}" left: it is now {status}, assigned to {assignee}.',
     "arrived": 'New: {ticket} "{title}".',
     "burst": "{count} new events are in the queue, and at most {limit} runs go at once. Say which to drop, if any.",
-    "summary_head": "Daily summary for {project}:",
+    # Every piece of news starts the same way: what it is about, what happened, and
+    # whether the developer is needed.
+    "changed_head": "{project} · tickets changed · new: {new}, left: {left}",
+    "summary_head": "{project} · daily summary · wait for your answer: {asks}",
     "summary_finished": "- finished: {ticket} ({step})",
     "summary_failed": "- failed: {ticket} ({step}): {note}",
     "summary_held": "- wait for your word: {tickets}",

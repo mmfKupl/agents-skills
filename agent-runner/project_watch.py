@@ -1291,7 +1291,8 @@ def _summary(state: dict[str, Any], project_name: str, since: str, triggers: dic
             cost += sum(float(turn.get("cost_usd") or 0) for turn in record.get("turns") or [])
         except (ProjectsError, OSError, TypeError, ValueError):
             continue
-    lines = [say("summary_head", project=project_name)]
+    lines = [say("summary_head", project=project_name,
+                 asks=len(_asks(state, projects.home(), project_name, copy=False)))]
     lines += [say("summary_finished", ticket=event["ticket"], step=_step(event, triggers)) for event in finished]
     lines += [say("summary_failed", ticket=event["ticket"], step=_step(event, triggers), note=event.get("note"))
               for event in failed]
@@ -1589,7 +1590,7 @@ def _card(state: dict[str, Any], root: Path, project: str, ticket: str, triggers
     return _tidy(lines), chat
 
 
-def _asks(state: dict[str, Any], root: Path, project: str) -> list[tuple[str, Any, Any, str]]:
+def _asks(state: dict[str, Any], root: Path, project: str, copy: bool = True) -> list[tuple[str, Any, Any, str]]:
     """The tickets whose last report in the project asks the developer something, as rows
     for a list. A question counts as answered once the ticket's history has a decision or
     a closing after that report, or a newer report."""
@@ -1614,7 +1615,8 @@ def _asks(state: dict[str, Any], root: Path, project: str) -> list[tuple[str, An
         count = max(1, len(re.findall(r"(?m)^\s*[0-9]+[.)]\s", needs)))
         kind = str(last.get("kind") or "")
         rows.append((ticket, known.get("title"), known.get("url"),
-                     say("where_asks", step=names.get(kind, kind or say("step_unknown")), count=count, link=_copy(str(last["path"])))))
+                     say("where_asks", step=names.get(kind, kind or say("step_unknown")), count=count,
+                         link=_copy(str(last["path"])) if copy else str(last["path"]))))
     return rows
 
 
@@ -1698,7 +1700,8 @@ def _news_item(item: dict[str, Any], state: dict[str, Any], root: Path, project:
         lines += [say("arrived", ticket=_tick(by_id[number]["ticket"], by_id[number].get("url")),
                       title=_title(by_id[number].get("title"))) for number in item.get("arrived") or [] if number in by_id]
         under, events = _under(state, root, project, triggers)
-        return _tidy([*lines, "", *under] if under else lines).strip(), _showing(events)
+        head = say("changed_head", project=project, new=len(lines) - len(item.get("left") or []), left=len(item.get("left") or []))
+        return _tidy([head, *lines, "", *under] if under else [head, *lines]).strip(), _showing(events)
     if kind == "burst":
         return say("burst", count=item["count"], limit=item["limit"]), []
     if kind == "text":

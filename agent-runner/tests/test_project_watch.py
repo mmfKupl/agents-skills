@@ -1007,7 +1007,7 @@ run:
             project_watch.cycle(read_tracker=False)
 
         texts = [call.args[3] for call in tell.call_args_list]
-        summaries = [text for text in texts if text.startswith("Daily summary for billing:")]
+        summaries = [text for text in texts if text.startswith("billing · daily summary · wait for your answer: 0")]
         self.assertEqual(len(summaries), 1)
         self.assertIn("- finished: UIB-1 (review)", summaries[0])
         self.assertIn("- cost of the runs that ended: $0.25", summaries[0])
@@ -1275,6 +1275,7 @@ run:
         self.assertEqual(tell.call_args.args[3], "Tickets changed in billing. New: UIB-2.")
         # What the developer reads comes from the script, ready to show.
         self.assertEqual(self.news(), [
+            "billing · tickets changed · new: 1, left: 0",
             'New: [UIB-2](https://linear.app/x/UIB-2) "Title of UIB-2".',
             "",
             f"{self.words('my review')['heading']}:",
@@ -1320,8 +1321,8 @@ run:
         heading = f"{self.words('my review')['heading']}:"
         with patch.object(project_watch, "_tell", return_value=None) as tell:
             project_watch.cycle()
-            # Three new tickets, a blank line, the heading and the three under the trigger, then the chat's part.
-            self.assertEqual(len(self.news()), 13)
+            # The head, three new tickets, a blank line, the heading and the three under the trigger, then the chat's part.
+            self.assertEqual(len(self.news()), 14)
             self.wait_for_runs()
             self.reviewed("UIB-1")                                   # it has a history on this machine
             self.issues, self.closed = [issue("UIB-2", minutes_ago=30)], {"UIB-1"}     # one closed, one moved on
@@ -1342,7 +1343,8 @@ run:
             heading,
             '- [UIB-2](https://linear.app/x/UIB-2) "Title of UIB-2": review ended without a report',
         ])
-        self.assertEqual(self.news()[:4], ['[UIB-2](https://linear.app/x/UIB-2) "Title of UIB-2" is closed (Done).', "",
+        self.assertEqual(self.news()[:5], ["billing · tickets changed · new: 0, left: 1",
+                                           '[UIB-2](https://linear.app/x/UIB-2) "Title of UIB-2" is closed (Done).', "",
                                            heading, "- none"])
         history = {item["ticket"]: item["last_event"] for item in self.ok("status")["tickets"]}
         self.assertTrue(history["UIB-1"].endswith("closed in the tracker: Done"))

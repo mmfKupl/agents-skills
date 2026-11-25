@@ -3,8 +3,12 @@
 # сочиняет. Английские тексты и список скобок для каждого: agent-runner/project_messages.py.
 # Свой вариант любого текста на одной машине: ~/agent-projects/messages.yaml.
 # Проверить файл: agent-projects init, строка messages.
-# Выделение пишется здесь же маркдауном: **жирным** то, что глаз должен найти первым
-# (состояние тикета, заголовки), _курсивом_ подсказки. Чат показывает его как есть.
+# Оформление пишется здесь же маркдауном, чат показывает его как есть. Что берём:
+# **жирный** для того, что глаз должен найти первым, _курсив_ для подсказок, таблица
+# для списка тикетов, галочки для «включён / выключен» и «готово / нет», ~~зачёркнутый~~
+# для тикета, который ушёл, линия --- между частями сообщения.
+# Что не берём: цитаты (тускло), плашки [!NOTE] (некрасиво), блок кода для текста,
+# сворачиваемый блок (приложение его не рисует).
 
 # Как называется шаг: по скиллу, который он запускает, или по виду отчёта.
 # Слово стоит перед «идёт», «в очереди», «: отчёт готов», поэтому в именительном падеже.
@@ -37,6 +41,8 @@ where_sorting: "проверка решает, что запустить"
 where_started: "{step} идёт"
 where_failed: "{step}: ошибка"
 where_ready: "{step}: отчёт готов"
+# То же в списке тикетов: отчёт открывается прямо из строки.
+where_ready_link: "{step}: [отчёт готов]({link})"
 where_no_report: "{step}: закончено без отчёта"
 where_chat: "над ним работает чат: {chats}"
 where_nothing: "ничего не запущено"
@@ -50,16 +56,19 @@ covers_assignee: "все тикеты, назначенные на тебя"
 covers_none: "тикеты пока не названы"
 covers_and: " и "
 board_triggers: "**Триггеры:**"
-trigger_on: "- **{trigger}: включён.** {about}"
-trigger_off: "- {trigger}: выключен. {about}"
+trigger_on: "- [x] **{trigger}:** {about}"
+trigger_off: "- [ ] {trigger}: {about}"
 under: "**Под «{trigger}» сейчас:**"
 under_heading: "**{heading}:**"
-item: "- {line}"
+# Список тикетов таблицей: шапка и одна строка. Вместо {ticket}, {title}, {where}
+# можно взять {line}, готовую строку о тикете, и убрать шапку: получится обычный список.
+list_head: "| Тикет | Название | Состояние |\n|---|---|---|"
+item: "| {ticket} | {title} | {where} |"
 none: "- ничего"
 board_unwatched: "Ни один триггер не включён, поэтому за трекером никто не следит."
 board_other: "**Ещё не закончено:**"
-board_read: "_Трекер прочитан {time}; слежение {watching}._"
-board_never: "_Трекер ещё не читался; слежение {watching}._"
+board_read: "---\n\n_Трекер прочитан {time}; слежение {watching}._"
+board_never: "---\n\n_Трекер ещё не читался; слежение {watching}._"
 watching_running: "работает"
 watching_stopped: "не работает"
 watching_paused: "на паузе с {time}"
@@ -67,9 +76,9 @@ board_next: "Дальше пришли номер тикета или скажи
 
 # Один тикет целиком: agent-projects board <проект> <тикет>, и новость о готовом отчёте.
 card_outcome: "**Итог:** {text}"
-card_needs: "**Нужно от тебя:**"
-card_no_needs: "От тебя ничего не нужно."
-card_report: "**Отчёт:** [{name}]({link})"
+card_needs: "---\n\n**Нужно от тебя:**"
+card_no_needs: "---\n\nОт тебя ничего не нужно."
+card_report: "---\n\n**Отчёт:** [{name}]({link})"
 card_suggestions: "· предложений в отчёте: {count}"
 card_failed: "**Причина:** {note}"
 card_again: "_Напиши «запусти {ticket} ещё раз», чтобы повторить._"
@@ -83,14 +92,14 @@ news_none: "Ничего нового."
 news_started: "{line} (запустил триггер «{trigger}»)"
 news_sorted: "{line} (так решила проверка триггера «{trigger}»)"
 where_nothing_to_start: "проверка триггера «{trigger}» решила, что запускать нечего ({outcome})"
-left_closed: "**Закрыт:** {ticket} «{title}» ({status})."
-left_moved: "**Ушёл:** {ticket} «{title}», теперь {status}, назначен на {assignee}."
+left_closed: "~~{ticket} «{title}»~~ закрыт ({status})."
+left_moved: "~~{ticket} «{title}»~~ ушёл: теперь {status}, назначен на {assignee}."
 arrived: "**Новый:** {ticket} «{title}»."
 burst: "В очереди {count} новых событий, а одновременно идёт не больше {limit}. Скажи, какие снять, если они не нужны."
 summary_head: "**Сводка за день по {project}:**"
-summary_finished: "- закончено: {ticket} ({step})"
-summary_failed: "- ошибка: {ticket} ({step}): {note}"
-summary_held: "- ждут твоего слова: {tickets}"
+summary_finished: "- [x] {ticket}: {step}, готово"
+summary_failed: "- [ ] {ticket}: {step}, ошибка: {note}"
+summary_held: "- [ ] ждут твоего слова: {tickets}"
 summary_going: "- идёт сейчас: {running}; в очереди: {queued}"
 summary_skipped: "- пропущено или разобрано как шум: {count}"
 summary_cost: "- стоимость законченных запусков: ${cost}"

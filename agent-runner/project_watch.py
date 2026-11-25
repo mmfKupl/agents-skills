@@ -892,11 +892,11 @@ def poll(now: datetime | None = None) -> dict[str, Any]:
         held = [_public(event) for event in state["events"] if event["state"] == "held"]
     waiting = [event for event in state["events"] if event["state"] == "held"]
     asked = ([say("held_head"),
-              *(say("item", line=_line(event["ticket"], event.get("title"), event.get("url"),
-                                       say("where_held", step=_step(event, triggers)))) for event in waiting),
+              *_list([(event["ticket"], event.get("title"), event.get("url"), say("where_held", step=_step(event, triggers)))
+                      for event in waiting]),
               say("held_ask")] if waiting else [])
     return {"polled": _stamp(now), "new": [_public(event) for event in new], "held": held,
-            **({"say": "\n".join(asked)} if asked else {}),
+            **({"say": _tidy(asked)} if asked else {}),
             **({"left": {name: items for name, items in left.items() if items}} if any(left.values()) else {}),
             **({"problems": problems} if problems else {})}
 
@@ -1347,9 +1347,24 @@ def _step(event: dict[str, Any], triggers: dict[str, dict[str, Any]]) -> str:
             or (str(event["run"]).replace("_", " ") if event.get("run") else say("step_unknown")))
 
 
-def _where(state: dict[str, Any], root: Path, name: str, ticket: str,
-           triggers: dict[str, dict[str, Any]]) -> tuple[str, dict[str, Any] | None]:
-    """Where a ticket stands on this machine, in a few words, and the event that says so."""
+def _tidy(lines: list[str]) -> str:
+    """Lines as one text, with no more than one empty line in a row."""
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(lines))
+
+
+def _list(rows: list[tuple[str, Any, Any, str]]) -> list[str]:
+    """Tickets as a list: one line each, under the head that the words give, such as the
+    head of a table. A table needs an empty line on both sides."""
+    head = say("list_head")
+    lines = [say("item", line=_line(ticket, title, url, where), ticket=_tick(ticket, url),
+                 title=_title(title) if title else "", where=where) for ticket, title, url, where in rows]
+    return ["", *head.splitlines(), *lines, ""] if head else lines
+
+
+def _where(state: dict[str, Any], root: Path, name: str, ticket: str, triggers: dict[str, dict[str, Any]],
+           link: bool = False) -> tuple[str, dict[str, Any] | None]:
+    """Where a ticket stands on this machine, in a few words, and the event that says so.
+    With `link`, a report that is ready can be opened from those words."""
     events = [event for event in state["events"] if event["project"] == name and event["ticket"] == ticket
               and event["state"] not in ("skipped", "dismissed")
               and not (event["state"] == "finished" and _quiet(event, triggers))]
@@ -1359,6 +1374,15 @@ def _where(state: dict[str, Any], root: Path, name: str, ticket: str,
         key = {"held": "where_held", "waiting": "where_waiting", "checking": sorting, "started": "where_started",
                "failed": "where_failed", "finished": "where_no_report" if event.get("note") else "where_ready"}[event["state"]]
         words = say(key, step=_step(event, triggers))
+        if link and key == "where_ready":
+            try:
+                filed = [str(item.get("path")) for item in
+                         projects._load_ticket(projects._ticket_path(root, ticket), ticket)[0]["reports"]
+                         if item.get("project") == name and str(item.get("at", "")) >= event.get("started", "")]
+            except (ProjectsError, KeyError):
+                filed = []
+            if filed and Path(filed[-1]).is_file():
+                words = say("where_ready_link", step=_step(event, triggers), link=_copy(filed[-1]))
         return (say("where_open", where=words, chat=event["chat"]) if event.get("chat") else words), event
     try:
         holders = [projects._who(holder) for holder in projects._load_ticket(projects._ticket_path(root, ticket), ticket)[0]["taken"]]
@@ -1382,12 +1406,14 @@ def _under(state: dict[str, Any], root: Path, name: str,
             continue
         lines.append(say("under_heading", heading=document["heading"]) if document.get("heading")
                      else say("under", trigger=trigger))
-        items = [item for item in state["board"].get(name, []) if item["trigger"] == trigger]
-        for item in items:
-            words, event = _where(state, root, name, item["ticket"], triggers)
-            lines.append(say("item", line=_line(item["ticket"], item["title"], item["url"], words)))
+        rows = []
+        for item in state["board"].get(name, []):
+            if item["trigger"] != trigger:
+                continue
+            words, event = _where(state, root, name, item["ticket"], triggers, link=True)
+            rows.append((item["ticket"], item["title"], item["url"], words))
             events += [event] if event else []
-        lines += [] if items else [say("none")]
+        lines += _list(rows) if rows else [say("none")]
     return lines, events
 
 
@@ -1561,15 +1587,16 @@ def board(project: str, ticket: str | None = None, first: bool = False) -> str:
     other = {event["ticket"]: event for event in state["events"]
              if event["project"] == project and event["state"] in OPEN_STATES and event["ticket"] not in listed}
     if other:
-        lines += ["", say("board_other")]
+        rows = []
         for event in other.values():
-            words, newest = _where(state, root, project, event["ticket"], triggers)
-            lines.append(say("item", line=_line(event["ticket"], event.get("title"), event.get("url"), words)))
+            words, newest = _where(state, root, project, event["ticket"], triggers, link=True)
+            rows.append((event["ticket"], event.get("title"), event.get("url"), words))
             events += [newest] if newest else []
+        lines += ["", say("board_other"), *_list(rows)]
     lines += ["", say("board_read", time=_clock(state["polled"]), watching=_watching_words(state)) if state.get("polled")
               else say("board_never", watching=_watching_words(state))]
     lines += ["", say("board_next")] if first else []
-    return "\n".join(lines) + _for_chat(_showing(events))
+    return _tidy(lines) + _for_chat(_showing(events))
 
 
 def _news_item(item: dict[str, Any], state: dict[str, Any], root: Path, project: str,
@@ -1610,7 +1637,7 @@ def _news_item(item: dict[str, Any], state: dict[str, Any], root: Path, project:
         lines += [say("arrived", ticket=_tick(by_id[number]["ticket"], by_id[number].get("url")),
                       title=_title(by_id[number].get("title"))) for number in item.get("arrived") or [] if number in by_id]
         under, events = _under(state, root, project, triggers)
-        return "\n".join([*lines, "", *under] if under else lines), _showing(events)
+        return _tidy([*lines, "", *under] if under else lines).strip(), _showing(events)
     if kind == "burst":
         return say("burst", count=item["count"], limit=item["limit"]), []
     if kind == "text":

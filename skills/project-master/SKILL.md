@@ -87,6 +87,13 @@ Write in your own words only what no command prints: a question to the developer
 answer to a question that these texts do not cover, and a problem with a command.
 Keep that to two lines.
 
+When your own answer needs more than two lines, give it the look of those texts:
+bold for what the developer should find first, a table for several tickets, a task
+list for what is done and what is not, strikethrough for what no longer holds, and a
+horizontal rule between its parts. The developer finds a quote block dull and a
+callout (`> [!NOTE]`) ugly, a code block suits only commands and code, and the
+application does not draw a collapsible block: use none of these for prose.
+
 The words are in `messages.yaml` next to this skill, and a trigger's own words are in
 its file. When the developer wants a message worded differently, change it there, in
 the agents-skills repository, and never by wording an answer differently here.

@@ -738,6 +738,22 @@ On 2026-11-24 the developer asked for four more things, all written the same day
   outcome of a step got a label of its own. A notification keeps plain text,
   and a title that is cut ends with "…". The English texts in the code stay
   plain: the developer's file decides the look.
+- The look of the texts follows what the developer picked. On 2026-11-25 they
+  were shown eight ways to format a message in the application and answered each:
+  a quote block "не нравится. тускло", a GitHub callout "не красиво выглядит", a
+  code block "для каких-то вещей может подойти но не очень", a table "норм норм",
+  a rule "линия разделителя норм, можно юзать где-то", a task list and
+  strikethrough "тоже хорошая тема", a collapsible block "не работает"; then
+  "давай по моим комментам адаптируй шаблоны и ответы". The Russian file now
+  prints a list of tickets as a table, triggers as a task list (ticked when on),
+  the daily summary as a task list, a ticket that left struck through, and a rule
+  before "Нужно от тебя", before the report, and before the line on when the
+  tracker was read. The skill tells the project chat to use the same means in its
+  own longer answers and none of the rejected ones.
+- A ready report opens from the list. The developer the same day, with a
+  screenshot of the list of tickets in review: "и вот еще мне отчет тут ссылкой
+  не выдался". In a list, "report is ready" is now a link to the copy of the
+  report in the chat's folder; before, only the text about one ticket linked it.
 - A button that opens the chat of the agent. The developer asked the same day
   for a button in the text about finished work, "чтобы я на неё нажал и
   автоматически в чат отправилось \"открой мне этого агента\"". The Claude Code

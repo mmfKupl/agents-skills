@@ -1451,6 +1451,21 @@ run:
         self.assertEqual(set(yaml.safe_load(ready.read_text())), set(project_messages.DEFAULTS))
         self.assertNotEqual(texts["news_none"], project_messages.DEFAULTS["news_none"])
 
+        # In that language a list of tickets is a table, and a ready report opens from its line.
+        self.watched_project()
+        self.issues = [issue("UIB-1", minutes_ago=30)]
+        with patch.object(project_watch, "_tell", return_value=None):
+            project_watch.cycle()
+            self.wait_for_runs()
+            with patch.object(sys, "stdin", io.StringIO("### Verdict\nready\n")):
+                self.ok("report", "add", "--project", "billing", "--ticket", "UIB-1", "--kind", "review")
+            project_watch.cycle(read_tracker=False)
+        shown = self.command("board", "billing")[1]
+        name = f"{project_watch._stamp()[:10]}-UIB-1-review.md"
+        self.assertIn("\n\n| Тикет | Название | Состояние |\n|---|---|---|\n| [UIB-1](https://linear.app/x/UIB-1) | Title of UIB-1 | "
+                      f"ревью: [отчёт готов](.agent-reports/{name}) |\n\n", shown)
+        self.assertNotIn("\n\n\n", shown)
+
         own = self.root / "messages.yaml"
         own.write_text('ticket: "{nobody}: {ticket}"\nno_such_text: x\nnews_none: "All quiet."\nsteps:\n  review: look\n')
         os.environ[project_messages.MESSAGES_VARIABLE] = os.pathsep.join([str(ready), str(own)])

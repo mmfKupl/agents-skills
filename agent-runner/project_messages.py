@@ -38,6 +38,8 @@ DEFAULTS: dict[str, Any] = {
     "where_started": "{step} is going",
     "where_failed": "{step} failed",
     "where_ready": "{step} report is ready",
+    # The same in a list of tickets, where the report can be opened from the line.
+    "where_ready_link": "{step} [report]({link}) is ready",
     "where_no_report": "{step} ended without a report",
     "where_chat": "a chat works on it: {chats}",
     "where_nothing": "nothing started here",
@@ -55,6 +57,9 @@ DEFAULTS: dict[str, Any] = {
     "trigger_off": "- {trigger}: off. {about}",
     "under": 'Under "{trigger}" now:',
     "under_heading": "{heading}:",
+    # A list of tickets: what stands over it, such as the head of a table, and one
+    # ticket in it. `{line}` is the ticket's whole line; a table takes the parts.
+    "list_head": "",
     "item": "- {line}",
     "none": "- none",
     "board_unwatched": "No trigger is on, so nothing is watched.",
@@ -119,6 +124,9 @@ DEFAULTS: dict[str, Any] = {
     "notify_summary": "The daily summary for {project} is in the chat",
 }
 
+# Slots that a text may use although the English one does not.
+MORE_SLOTS = {"item": {"ticket", "title", "where"}}
+
 _cache: dict[str, Any] = {}
 
 
@@ -160,13 +168,14 @@ def load() -> tuple[dict[str, Any], list[str]]:
             elif not isinstance(default, str) or not isinstance(value, str):
                 problems.append(f"{path}: `{key}` is not a text that the scripts use")
             else:
+                allowed = _slots(default) | MORE_SLOTS.get(key, set())
                 try:
-                    extra = sorted(_slots(value) - _slots(default))
+                    extra = sorted(_slots(value) - allowed)
                 except ValueError:
                     extra = ["a brace that opens or closes nothing"]
                 if extra:
                     problems.append(f"{path}: `{key}` has {extra[0]}, which the scripts do not fill; "
-                                    f"it may use {', '.join(sorted(_slots(default))) or 'no slots'}")
+                                    f"it may use {', '.join(sorted(allowed)) or 'no slots'}")
                 else:
                     texts[key] = value
     return texts, problems

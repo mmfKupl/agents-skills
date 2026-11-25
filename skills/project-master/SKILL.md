@@ -198,7 +198,10 @@ The developer may send only a ticket. Then:
    step, and the model and effort it runs on.
 
 Record each decision the developer makes about a ticket:
-`agent-projects ticket note <ticket> "decision: <what they decided>"`.
+`agent-projects ticket note <ticket> "decision: <what they decided>"`. Do it as soon as
+they answer the questions of a report, also when the answer is "not now" or "no longer
+matters": the board lists a ticket under "wait for your answer" until its history has
+a decision after that report, and the developer reads that list to see what is left.
 
 ## Starting a step
 

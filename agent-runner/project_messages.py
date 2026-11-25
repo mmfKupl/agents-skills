@@ -66,6 +66,9 @@ DEFAULTS: dict[str, Any] = {
     "none": "- none",
     "board_unwatched": "No trigger is on, so nothing is watched.",
     "board_other": "Also not over:",
+    # Tickets whose last report asks the developer something that has no answer on record.
+    "board_asks": "Wait for your answer:",
+    "where_asks": "{step}: {count} questions in the [report]({link})",
     "board_read": "The tracker was read at {time}; watching is {watching}.",
     "board_never": "The tracker has not been read yet; watching is {watching}.",
     "watching_running": "running",

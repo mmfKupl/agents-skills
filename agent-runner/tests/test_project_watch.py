@@ -1430,6 +1430,13 @@ run:
         self.assertEqual(self.news(), ["Nothing new."])
         self.assertEqual(self.command("board", "billing", "UIB-7")[1].rstrip("\n").splitlines(), [*card, opening])
         self.assertEqual(self.command("board", "billing", "UIB-9")[1].strip(), "UIB-9 has no record on this machine.")
+        # The board says that this report still waits for an answer, until a decision is on record.
+        waits = ("Wait for your answer:\n- [UIB-7](https://linear.app/x/issue/UIB-7) \"Limits\": review: 1 questions in the "
+                 f"[report](.agent-reports/{name})")
+        self.assertIn(waits, self.command("board", "billing")[1])
+        time.sleep(1.1)
+        self.ok("ticket", "note", "UIB-7", "decision: publish it")
+        self.assertNotIn("Wait for your answer", self.command("board", "billing")[1])
 
         with patch.object(sys, "stdin", io.StringIO("$review-task UIB-7\n")):   # once more: the earlier verdict is not its outcome
             again = self.ok("watch", "add", "billing", "UIB-7", "--title", "Limits", "--about", "after the fixes")

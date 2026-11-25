@@ -836,6 +836,15 @@ On 2026-11-24 the developer asked for four more things, all written the same day
   the agent's chat. "там где тикет нужны еще ссылки на тикеты, не забывай. и
   ссылки на пры если есть пр. вариант 2 мне больше нравится". No rules inside a
   piece any more.
+- The board says what waits for the developer. On 2026-11-25, after
+  `/project-master` printed a board with nothing under the trigger while a report
+  with four questions stood above it: "я хочу чтобы если я выводил этот /project
+  master то он как-то прошлые запросы на меня тоже выводил, вот выше есть что-то,
+  что от меня нужно, и я бы хотел рефрешнуть командой и понять это". The board
+  now lists each ticket whose last report in the project asks something, with the
+  number of questions and a link to the report, until the ticket's history has a
+  decision or a closing after that report. The chat records the decision when the
+  developer answers.
 - A button that opens the chat of the agent. The developer asked the same day
   for a button in the text about finished work, "чтобы я на неё нажал и
   автоматически в чат отправилось \"открой мне этого агента\"". The Claude Code

@@ -1589,6 +1589,35 @@ def _card(state: dict[str, Any], root: Path, project: str, ticket: str, triggers
     return _tidy(lines), chat
 
 
+def _asks(state: dict[str, Any], root: Path, project: str) -> list[tuple[str, Any, Any, str]]:
+    """The tickets whose last report in the project asks the developer something, as rows
+    for a list. A question counts as answered once the ticket's history has a decision or
+    a closing after that report, or a newer report."""
+    titles = {item["ticket"]: item for item in [*state["events"], *state["board"].get(project, [])] if item.get("title")}
+    names = messages.texts()["steps"]
+    rows = []
+    for path in sorted((root / "tickets").glob("*.md")):
+        try:
+            meta, history = projects._load_ticket(path, path.stem)
+        except ProjectsError:
+            continue
+        filed = [item for item in meta.get("reports") or [] if item.get("project") == project]
+        if not filed or not Path(str(filed[-1].get("path"))).is_file():
+            continue
+        last = filed[-1]
+        needs = _section(Path(str(last["path"])).read_text(encoding="utf-8", errors="replace"), "Needs from you")
+        later = [line for line in history.splitlines() if line[2:22] > str(last.get("at", "")) and line.startswith("- ")]
+        if not _says_something(needs) or any("decision:" in line or "closed in the tracker" in line for line in later):
+            continue
+        ticket = str(meta.get("ticket") or path.stem).upper()
+        known = titles.get(ticket, {})
+        count = max(1, len(re.findall(r"(?m)^\s*[0-9]+[.)]\s", needs)))
+        kind = str(last.get("kind") or "")
+        rows.append((ticket, known.get("title"), known.get("url"),
+                     say("where_asks", step=names.get(kind, kind or say("step_unknown")), count=count, link=_copy(str(last["path"])))))
+    return rows
+
+
 def board(project: str, ticket: str | None = None) -> str:
     """The state of a project, or of one of its tickets, as text that its chat shows as it
     is. It is made here, with no model, so that it reads the same every time."""
@@ -1620,9 +1649,13 @@ def board(project: str, ticket: str | None = None) -> str:
             rows.append((event["ticket"], event.get("title"), event.get("url"), words))
             events += [newest] if newest else []
         lines += ["", say("board_other"), *_list(rows)]
+    asks = _asks(state, root, project)
+    lines += ["", say("board_asks"), *_list(asks)] if asks else []
     lines += ["", say("board_read", time=_clock(state["polled"]), watching=_watching_words(state)) if state.get("polled")
               else say("board_never", watching=_watching_words(state))]
-    return _tidy(lines) + _for_chat(_showing(events))
+    return _tidy(lines) + _for_chat([*_showing(events), *(
+        f"to show the questions of {row[0]} again: agent-projects board {project} {row[0]}; once the developer has "
+        f"answered them: agent-projects ticket note {row[0]} \"decision: <what they decided>\"" for row in asks)])
 
 
 def _news_item(item: dict[str, Any], state: dict[str, Any], root: Path, project: str,

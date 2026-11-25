@@ -107,8 +107,11 @@ the agents-skills repository, and never by wording an answer differently here.
 
 On the first `$project-master` in a chat:
 
-1. Look for the project with `agent-projects project list`. An error saying that the
-   folder does not exist means there are no projects yet. If the developer named a
+1. Run `agent-projects init`, also when the project exists and this chat manages it
+   already: it is safe to repeat, and it sets on this machine what a newer version of
+   the tooling needs, such as the rule for what this chat keeps when it is compacted.
+   Say nothing about it unless a line of its answer reports a problem. Then look for
+   the project with `agent-projects project list`. If the developer named a
    project the list shows, read it with `project show`, record this chat as the
    project's chat with the `project chat` command of step 3, file this chat into the
    project's sidebar section as step 3 says, and go to step 4. A project has one

@@ -401,10 +401,34 @@ def news_take(root: Path, project: str) -> list[dict[str, Any]]:
     return items
 
 
+def ticket_links(root: Path) -> dict[str, str]:
+    """Where the tickets of each team open in the tracker, by the team's key. Learned from
+    the addresses that the watching script has seen, so it is empty before the first one."""
+    try:
+        seen = (root / "watch.yaml").read_text(encoding="utf-8")
+    except OSError:
+        return {}
+    return {key.upper(): base for base, key in re.findall(r"(https://[\w./-]+/issue/)([A-Za-z][A-Za-z0-9]*)-[0-9]+", seen)}
+
+
+def linked(text: str, links: dict[str, str]) -> str:
+    """The text with each ticket number as a link to the ticket. Code, addresses, and
+    numbers that are links already stay as they are."""
+    if not links:
+        return text
+    keys = "|".join(re.escape(key) for key in sorted(links, key=len, reverse=True))
+    skipped = r"```.*?```|`[^`\n]*`|\[[^\]\n]*\]\([^)\n]*\)|https?://\S+"
+    return re.sub(rf"({skipped})|(?<![\w/-])({keys})-([0-9]+)(?![\w-])",
+                  lambda found: found.group(1) or f"[{found.group(2)}-{found.group(3)}]"
+                                                  f"({links[found.group(2)]}{found.group(2)}-{found.group(3)})",
+                  text, flags=re.DOTALL)
+
+
 def report_copy(source: str, cwd: str | None) -> dict[str, Any]:
     """Copy a filed report into the calling chat's working directory: the application
     shows the developer only files that lie there, and reports lie outside it. Git is
-    told to leave the copies out of the repository's changes."""
+    told to leave the copies out of the repository's changes. In the copy, ticket
+    numbers are links; the filed report stays as it was written."""
     root = _require_home().resolve()
     path = Path(source).expanduser().resolve()
     if root not in path.parents or not path.is_file():
@@ -413,6 +437,10 @@ def report_copy(source: str, cwd: str | None) -> dict[str, Any]:
     folder.mkdir(exist_ok=True)
     copy = folder / path.name
     shutil.copyfile(path, copy)
+    if path.suffix == ".md":
+        # In the copy the developer reads, a ticket number opens the ticket.
+        with contextlib.suppress(OSError, UnicodeDecodeError):
+            copy.write_text(linked(path.read_text(encoding="utf-8"), ticket_links(root)), encoding="utf-8")
 
     def git(*arguments: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(["git", "-C", str(folder), *arguments], stdout=subprocess.PIPE,

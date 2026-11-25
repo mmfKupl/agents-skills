@@ -80,6 +80,11 @@ there too; when it has none, add the section.
 
 These apply on top of the command's own rules.
 
+- In the report and in the line for the project chat, a ticket's number is a link to
+  the ticket in the tracker, such as `[UIB-123](https://linear.app/<workspace>/issue/UIB-123)`.
+  The copy of a report that the developer opens gets these links from the script as
+  well, so a bare number there is not a fault.
+
 - Write nothing to the tracker or to a pull request unless the developer says so in
   this chat, or the command's own workflow owns that write, as `$develop-please` owns
   the status and the reports of the ticket it develops.

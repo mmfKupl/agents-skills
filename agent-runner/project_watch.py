@@ -1535,8 +1535,9 @@ def _card(state: dict[str, Any], root: Path, project: str, ticket: str, triggers
             # The one line with which the step gave the ticket back.
             given = re.findall(r"released by .*? \((?:claude|codex)\): (.+)", history)
             outcome = given[-1].strip() if given else ""
-        lines += [say("card_outcome", text=outcome)] if outcome else []
-        needs = _section(text, "Needs from you")
+        links = projects.ticket_links(root)
+        lines += [say("card_outcome", text=projects.linked(outcome, links))] if outcome else []
+        needs = projects.linked(_section(text, "Needs from you"), links)
         lines += ["", say("card_needs"), needs] if _says_something(needs) else ["", say("card_no_needs")]
         suggestions = _section(text, "Suggestions")
         count = max(1, len(re.findall(r"(?m)^\s*(?:[-*]|\d+[.)])\s+\S", suggestions))) if _says_something(suggestions) else 0

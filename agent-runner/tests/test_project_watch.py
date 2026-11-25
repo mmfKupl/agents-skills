@@ -1433,6 +1433,24 @@ run:
         self.assertEqual(self.command("board", "billing", "UIB-7")[1].splitlines()[:2], [
             'UIB-7 "Limits": review-task is in the queue', f"Earlier report: [{name}](.agent-reports/{name})"])
 
+    def test_ticket_numbers_become_links_in_the_copy_of_a_report_and_nowhere_they_would_break(self) -> None:
+        links = {"UIB": "https://linear.app/x/issue/"}
+        text = ("UIB-7, PR #12. See `UIB-8` and [UIB-9](https://linear.app/x/issue/UIB-9/words), "
+                "https://linear.app/x/issue/UIB-10/slug, COM-3, UTF-8.\n```\nUIB-11\n```\n")
+        self.assertEqual(agent_projects.linked(text, links), text.replace(
+            "UIB-7, PR", "[UIB-7](https://linear.app/x/issue/UIB-7), PR"))
+        self.assertEqual(agent_projects.linked(text, {}), text)               # no address known yet: nothing changes
+
+        self.watched_project()
+        self.issues = [dict(issue("UIB-1", minutes_ago=30), url="https://linear.app/x/issue/UIB-1/title")]
+        project_watch.poll(NOW)                                              # the script has now seen where tickets open
+        with patch.object(sys, "stdin", io.StringIO("UIB-1 builds on UIB-2.\n")):
+            report = self.ok("report", "add", "--project", "billing", "--ticket", "UIB-1", "--kind", "review")["report"]
+        copy = self.ok("report", "copy", report)["copy"]
+        self.assertEqual(Path(copy).read_text(), "[UIB-1](https://linear.app/x/issue/UIB-1) builds on "
+                                                 "[UIB-2](https://linear.app/x/issue/UIB-2).\n")
+        self.assertEqual(Path(report).read_text(), "UIB-1 builds on UIB-2.\n")   # the filed report is not touched
+
     def test_sections_of_a_report_are_found_however_their_headings_are_written(self) -> None:
         text = "**Verdict:**\nready\n\nNeeds from you\nnone\n\n## Suggestions\nnone\n"
         self.assertEqual(project_watch._section(text, "Verdict"), "ready")

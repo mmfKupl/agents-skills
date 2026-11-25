@@ -767,6 +767,14 @@ On 2026-11-24 the developer asked for four more things, all written the same day
   ticket that left is named with a bold word instead of being struck through.
   This takes back the task list and the strikethrough picked from the samples
   earlier that day.
+- Ticket numbers in a report are links. The developer on 2026-11-25, with a
+  screenshot of a report that began "UIB-6544, PR #7675 (автор AdamKorzun)": "и в
+  отчетах можно сделать чтобы номера тикетов шли со ссылкой". The script does it
+  when it copies a report to where the developer opens it, and in the verdict and
+  the questions that it shows from the report: a number of a team whose tracker
+  address it has seen becomes a link, while code, addresses, and existing links
+  stay as they are. The filed report is not changed. `$project-scope` also asks
+  the step to write the links itself.
 - A ready report opens from the list. The developer the same day, with a
   screenshot of the list of tickets in review: "и вот еще мне отчет тут ссылкой
   не выдался". In a list, "report is ready" is now a link to the copy of the

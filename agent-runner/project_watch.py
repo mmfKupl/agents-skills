@@ -1562,7 +1562,7 @@ def _card(state: dict[str, Any], root: Path, project: str, ticket: str, triggers
     return "\n".join(lines), chat
 
 
-def board(project: str, ticket: str | None = None, first: bool = False) -> str:
+def board(project: str, ticket: str | None = None) -> str:
     """The state of a project, or of one of its tickets, as text that its chat shows as it
     is. It is made here, with no model, so that it reads the same every time."""
     root = projects._require_home()
@@ -1576,11 +1576,11 @@ def board(project: str, ticket: str | None = None, first: bool = False) -> str:
     covers = [say("covers_linear", name=scope["linear_project"])] if scope.get("linear_project") else []
     covers += [say("covers_tickets", tickets=", ".join(str(item) for item in scope["tickets"]))] if scope.get("tickets") else []
     covers += [say("covers_assignee")] if scope.get("assignee") == WHO[0] else []
-    lines = [say("board_project", project=project, covers=say("covers_and").join(covers) or say("covers_none")),
-             "", say("board_triggers")]
-    lines += [say("trigger_on" if name in on else "trigger_off", trigger=name,
-                  about=str(trigger.get("about") or _brief(trigger)).rstrip(".") + ".")
-              for name, trigger in sorted(triggers.items())]
+    lines = [say("board_project", project=project, covers=say("covers_and").join(covers) or say("covers_none"))]
+    # Only the triggers that are on: the others change nothing for the developer.
+    listed_on = [say("trigger_on", trigger=name, about=str(triggers[name].get("about") or _brief(triggers[name])).rstrip(".") + ".")
+                 for name in sorted(on) if name in triggers]
+    lines += ["", say("board_triggers"), *listed_on] if listed_on else []
     under, events = _under(state, root, project, triggers)
     lines += ["", *(under or [say("board_unwatched")])]
     listed = {item["ticket"] for item in state["board"].get(project, [])}
@@ -1595,7 +1595,6 @@ def board(project: str, ticket: str | None = None, first: bool = False) -> str:
         lines += ["", say("board_other"), *_list(rows)]
     lines += ["", say("board_read", time=_clock(state["polled"]), watching=_watching_words(state)) if state.get("polled")
               else say("board_never", watching=_watching_words(state))]
-    lines += ["", say("board_next")] if first else []
     return _tidy(lines) + _for_chat(_showing(events))
 
 
@@ -2355,7 +2354,8 @@ def add_commands(commands: Any, project: Any) -> None:
                                               "show the developer as it is")
     shown.add_argument("project")
     shown.add_argument("ticket", nargs="?", help="print this ticket in full: where it stands and its last report")
-    shown.add_argument("--first", action="store_true", help="end with the line on what to send next")
+    # A chat that read an earlier version of the skill still passes it.
+    shown.add_argument("--first", action="store_true", help=argparse.SUPPRESS)
     commands.add_parser("news", help="print what happened in a project since its chat last asked, as text to show "
                                      "the developer as it is; reading empties the list").add_argument("project")
     commands.add_parser("pause", help="stop reading the tracker and starting runs; running ones finish")
@@ -2404,7 +2404,7 @@ def run(args: argparse.Namespace) -> dict[str, Any] | str:
     if args.command == "trigger":
         return trigger_list(args.project) if args.action == "list" else trigger_check(args.file)
     if args.command == "board":
-        return board(args.project, args.ticket, args.first)
+        return board(args.project, args.ticket)
     if args.command == "news":
         return news(args.project)
     if args.command == "pause":

@@ -149,8 +149,8 @@ On the first `$project-master` in a chat:
    For the chat's name use the one other chats see, which
    [`references/hosts.md`](references/hosts.md) says how to read. A title this chat
    asked for may not have been applied.
-4. Answer with `agent-projects board <project> --first`, shown as What the developer
-   reads says, and start nothing. Turn on only what the developer chose, as Triggers
+4. Answer with `agent-projects board <project>`, shown as What the developer reads
+   says, and start nothing. Turn on only what the developer chose, as Triggers
    says.
 
 A later message in the same chat continues the same project.
@@ -421,9 +421,10 @@ kept all the same, and `agent-projects news <project>` prints it.
 
 ## The board
 
-`agent-projects board <project>` prints what the project covers, its triggers and
-which are on, every ticket that is under a trigger now with where it stands, and what
-else is not over. Show it in the first answer of this chat and whenever the developer
+`agent-projects board <project>` prints what the project covers, the triggers that are
+on, every ticket that is under a trigger now with where it stands, and what else is
+not over. The triggers that are off are not on it: `agent-projects trigger list
+--project <project>` shows them when the developer asks which there are. Show it in the first answer of this chat and whenever the developer
 asks where things stand.
 
 The developer's other tickets do not belong on it. A ticket that is under no trigger

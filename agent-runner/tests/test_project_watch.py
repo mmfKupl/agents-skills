@@ -1295,21 +1295,19 @@ run:
         self.issues = [issue("UIB-1"), issue("UIB-2", assignee="other")]
         project_watch.poll(NOW)                                      # UIB-1 is held; UIB-2 is not for the developer
 
-        printed = self.command("board", "mine", "--first")[1].splitlines()
+        printed = self.command("board", "mine", "--first")[1].splitlines()     # the flag of an earlier skill still passes
 
-        self.assertEqual(printed[:9], [
+        self.assertEqual(printed[:7], [
             "Project mine: every ticket assigned to you.",
             "",
             "Triggers:",
-            f"- my progress: off. {self.words('my progress')['about']}.",     # a trigger says in its own words what it does
-            f"- my review: ON. {self.words('my review')['about']}.",
+            f"- my review: {self.words('my review')['about']}.",    # only what is on, in the trigger's own words
             "",
             f"{self.words('my review')['heading']}:",
             '- [UIB-1](https://linear.app/x/UIB-1) "Title of UIB-1": review waits for your word to start',
-            "",
         ])
-        self.assertRegex(printed[9], r"^The tracker was read at \d{4}-\d\d-\d\d \d\d:\d\d UTC; watching is not running\.$")
-        self.assertEqual(printed[10:], ["", "Send a ticket, or say which trigger to turn on or off."])
+        self.assertRegex(printed[8], r"^The tracker was read at \d{4}-\d\d-\d\d \d\d:\d\d UTC; watching is not running\.$")
+        self.assertEqual(len(printed), 9)                             # nothing follows that line
         # A trigger with no words of its own is described from its conditions.
         self.assertIn("a ticket moved to In Review, assigned to the developer, by someone else: starts /review-task",
                       project_watch._brief(project_watch.load_triggers()[0]["my review"]))

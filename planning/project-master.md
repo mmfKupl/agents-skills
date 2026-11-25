@@ -750,6 +750,15 @@ On 2026-11-24 the developer asked for four more things, all written the same day
   before "Нужно от тебя", before the report, and before the line on when the
   tracker was read. The skill tells the project chat to use the same means in its
   own longer answers and none of the rejected ones.
+- Triggers on the board: only those that are on, and nothing after the board.
+  The developer on 2026-11-25, with a screenshot in which the trigger that was on
+  stood ticked, grey, and struck through: "это странно выглядит. давай чтобы
+  трикеры писалить без галочек и без зачеркиваний. и показывать только те тригеры
+  что включены", and about the closing line "Дальше пришли номер тикета или скажи,
+  какой триггер включить или выключить": "и этот текст в конце не нужен". The
+  application draws a ticked item of a task list grey and struck through, so a
+  tick now stands only for what is done. The board lists the triggers that are on
+  as plain lines and ends with the line on when the tracker was read.
 - A ready report opens from the list. The developer the same day, with a
   screenshot of the list of tickets in review: "и вот еще мне отчет тут ссылкой
   не выдался". In a list, "report is ready" is now a link to the copy of the

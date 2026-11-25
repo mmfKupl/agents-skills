@@ -53,8 +53,8 @@ DEFAULTS: dict[str, Any] = {
     "covers_none": "no tickets named yet",
     "covers_and": " and ",
     "board_triggers": "Triggers:",
-    "trigger_on": "- {trigger}: ON. {about}",
-    "trigger_off": "- {trigger}: off. {about}",
+    # Only the triggers that are on are listed.
+    "trigger_on": "- {trigger}: {about}",
     "under": 'Under "{trigger}" now:',
     "under_heading": "{heading}:",
     # A list of tickets: what stands over it, such as the head of a table, and one
@@ -69,7 +69,6 @@ DEFAULTS: dict[str, Any] = {
     "watching_running": "running",
     "watching_stopped": "not running",
     "watching_paused": "paused since {time}",
-    "board_next": "Send a ticket, or say which trigger to turn on or off.",
 
     # One ticket in full: `agent-projects board <project> <ticket>`, and the news of a report.
     "card_outcome": "{text}",

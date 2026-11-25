@@ -128,6 +128,9 @@ thirteen commands this way.
 - Refused: git together with `cd`, a shell variable (also `$?`), a loop, or a
   here-document in the same command. The word "git" inside text that the command
   writes counts too, so a here-document that writes a packet is refused.
+- Refused as well: a command with no git in it that names a path holding those
+  letters, such as `.github/workflows/...`, next to `cd` or a variable. Write such a
+  command into a script file with the Write tool and run the script.
 - Runs: plain git commands, one or several in a row, from the working copy.
 
 So run git as commands of its own, with no `cd` and no variables in the same call,

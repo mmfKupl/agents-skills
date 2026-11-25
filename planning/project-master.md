@@ -366,7 +366,13 @@ in the sidebar is a launch with it.
 
 - Nothing is written to Linear or to a PR unless the developer says so.
 - A review always ends with an offer to post the review to the ticket.
-- Our skills never move statuses. In UI Bakery only `develop-please` does.
+- No skill moves a status by itself. In UI Bakery `develop-please` does it during
+  development, and the project chat does it when the developer asks there. Until
+  2026-11-25 the project chat was told never to: asked to return UIB-6544 to its
+  author, it changed the assignee and refused the status. The developer: "я
+  попросил перевести тикет мастера а он отказался, я не помню чтобы мы это ему
+  запрещали". Returning a ticket to its author in UI Bakery now means the
+  assignee and `In Progress` together.
 - The tracker depends on the repository. UI Bakery uses Linear. A repository
   with no tracker keeps its tasks in local files in the project folder.
 - Repository notes live in `skills/project-master/references/`, one file per

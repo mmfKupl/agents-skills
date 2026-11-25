@@ -39,6 +39,9 @@ How to capture on the preview:
 - Run it from `front` with `E2E_BASE_URL=<preview URL>`,
   `NODE_EXTRA_CA_CERTS=../.github/workflows/preview-hetzner/PREVIEW_CA_CERT.crt`, and
   `npx playwright test --config=projects/e2e/playwright.config.ts --workers=1 --output=<temporary directory> <spec>`.
+  Under Claude Code in a working copy of its own, put this command into a script
+  file and run the file: the certificate's path holds `.github`, and the command is
+  refused as one that names git (see the Claude Code notes of `$develop-task`).
 
 Storybook:
 

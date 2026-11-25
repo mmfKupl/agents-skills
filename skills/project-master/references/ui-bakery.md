@@ -23,8 +23,12 @@ Load this reference only after repository evidence identifies the UI Bakery mono
 - Development always runs as `$develop-please $develop-task <ticket>`. `$develop-please`
   lives in the UI Bakery repository and owns the ticket's status, the pull request,
   and the reports in Linear.
-- Only `$develop-please` moves a ticket's status. `$project-master` and
-  `$project-scope` never do.
+- No skill moves a ticket's status by itself: during development `$develop-please`
+  does, and `$project-master` does when the developer asks for it in its chat.
+  `$project-scope` never does.
+- "Return the ticket to its author" after a review means both steps: assign the
+  ticket to the author and move it to `In Progress`. When the author moves it back to
+  `In Review` for the developer, `my review` starts the next review.
 - Agents post in Linear under the developer's own account, with nothing that marks an
   agent. A comment that starts with `$develop-please:` is an agent's report, not the
   developer's words.

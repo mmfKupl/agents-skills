@@ -94,7 +94,7 @@ report the delegation gap; never silently downgrade.
 
 1. Identify the target: local diff, branch, commits, PR, ticket, or patch. Default to the current diff; ask only when several targets are equally plausible.
 2. Read repository instructions such as `AGENTS.md` and `git status --short --untracked-files=all`.
-3. Reconstruct intent from the request, ticket, PR, commits, OpenSpec, and acceptance criteria. Report missing business requirements as uncertainty; do not invent them.
+3. Reconstruct intent from the request, ticket, PR, commits, OpenSpec, and acceptance criteria. Report missing business requirements as uncertainty; do not invent them. When the same change was reviewed before (the ticket's record lists the report; otherwise look in the ticket and the PR), read that review and take each of its findings as a candidate: say for each whether it is fixed, still there, or no longer applies.
 4. Map changed files, subsystems, contracts, state flow, persistence, runtime paths, and likely failure modes.
 5. Collect existing validation evidence first. Run only missing focused validation that can change confidence, preferring narrow checks or temporary probes over broad suites.
 6. In `standalone` mode, always start two specialists, in parallel with the rest of the review: `code-simplicity-review` on the diff (what the change can lose or do more simply) and `test-review` on the implemented change (whether its tests prove the requested behavior, and which are brittle, duplicate, or tied to the implementation). Simpler code and tests says what to give them and where their results go.
@@ -152,6 +152,12 @@ evidence beyond manual inspection or existing e2e. Backend: focused API,
 service, migration, or integration checks via repository commands. Mutate
 production-like data only where explicitly safe for testing.
 
+Reach each new or changed control two ways: on a fresh load of its page, and after
+moving to it from other screens of the application with no reload. A page reached by
+navigation keeps what earlier screens loaded, such as styles and state, and can
+behave differently: a search that filtered on a fresh load did nothing after another
+screen had been opened first.
+
 In `standalone` mode, capture these checks as
 [`../visual-evidence/SKILL.md`](../visual-evidence/SKILL.md) describes, including its
 inspection of every screenshot and video, and give the developer the files in the chat;
@@ -187,6 +193,12 @@ Give both specialists the same packet: the requirements as you reconstructed the
 a numbered list they can cite; the diff and the base revision; and the validation
 evidence you collected. Ask `code-simplicity-review` for its cut list and
 `test-review` for its notes on test quality and coverage.
+
+Give each a limit in the packet: at most eight trial runs, where a trial run is one
+run of tests after a temporary change, such as removing a line to see whether a test
+fails. They spend the runs on the largest cut and the riskiest test first and name
+what they left unchecked. Without a limit, one review waited 37 and 32 minutes for
+them, most of it on such runs.
 
 What goes into the section, each item with file and line and the exact action:
 

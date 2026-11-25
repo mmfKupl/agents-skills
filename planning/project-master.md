@@ -822,6 +822,20 @@ On 2026-11-24 the developer asked for four more things, all written the same day
   now gives a run a few words that stand next to its step everywhere, and the
   skill has the chat say in one line of its own which request such a run carries
   out, and tell the developer at once when a request has to wait for a run.
+- Each piece of news stands apart. The developer on 2026-11-25: "когда приходит
+  новый ивент, то он смешивается в кашу с предыдущими и ничего не понятно. нужно
+  какой-то хедер и футер", "ну и раделять сообщния по разным тикетам тоже стоит".
+  Shown variants in the chat, they refused coloured marks ("иконки не нужно такие
+  делать"), larger headings and blank space (the application draws a heading like
+  bold text and collapses empty lines), a table as a frame, and a short form
+  without the questions ("супер коротко тоже плохо"), and picked this: a rule
+  before, between, and after the pieces of news; a bold first line with the
+  ticket as a link, what happened, and how many answers wait; the title and a link
+  to the pull request on the second line; the verdict; the questions in full; one
+  last line with the report, the number of suggestions, and the words that open
+  the agent's chat. "там где тикет нужны еще ссылки на тикеты, не забывай. и
+  ссылки на пры если есть пр. вариант 2 мне больше нравится". No rules inside a
+  piece any more.
 - A button that opens the chat of the agent. The developer asked the same day
   for a button in the text about finished work, "чтобы я на неё нажал и
   автоматически в чат отправилось \"открой мне этого агента\"". The Claude Code

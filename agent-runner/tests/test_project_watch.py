@@ -1382,8 +1382,8 @@ run:
         call = next(item for item in map(json.loads, self.log.read_text().splitlines()) if "--worktree" in item["argv"])
         self.assertTrue(call["prompt"].startswith("/project-scope billing /brainstorm-task autopilot UIB-5\nlet us do it\n\n"
                                                   'Started by the trigger "my progress"'))
-        self.assertEqual(self.news()[0], '[UIB-5](https://linear.app/x/UIB-5) "Title of UIB-5": new work large is going '
-                                         '(the check of the trigger "my progress" chose this)')
+        self.assertEqual(self.news()[:3], ["[UIB-5](https://linear.app/x/UIB-5) · new work large is going", "Title of UIB-5",
+                                           'The check of the trigger "my progress" chose this.'])
 
         add("UIB-6", "my progress")                                  # a check that finds nothing to do says so
         with patch.object(project_watch, "_tell", return_value=None) as tell:
@@ -1409,14 +1409,15 @@ run:
             project_watch.cycle(read_tracker=False)
 
         name = f"{project_watch._stamp()[:10]}-UIB-7-review.md"
-        card = ['[UIB-7](https://linear.app/x/issue/UIB-7) "Limits": review-task report is ready',
+        card = ["[UIB-7](https://linear.app/x/issue/UIB-7) · review-task report is ready · waits for your answers: 1",
+                "Limits",                                                   # the ticket, what happened, who is needed; then the title
+                "",
                 "ready after fixes: the limit is off by one.",              # the report's own words, not a retelling
                 "",
                 "Needs from you:",
                 "1. Publish the review? Recommended: yes.",
                 "",
-                f"Report: [{name}](.agent-reports/{name}) Suggestions in the report: 2.",
-                'Say "open UIB-7" to talk to the agent that did this.',
+                f'Report: [{name}](.agent-reports/{name}) · suggestions: 2 · say "open UIB-7" to talk to its agent',
                 "",
                 project_watch.CHAT_PART]
         opening = '- to open the chat of UIB-7 when the developer asks: agent-projects watch open 1 --title "<title>"'
@@ -1433,8 +1434,8 @@ run:
         with patch.object(sys, "stdin", io.StringIO("$review-task UIB-7\n")):   # once more: the earlier verdict is not its outcome
             again = self.ok("watch", "add", "billing", "UIB-7", "--title", "Limits", "--about", "after the fixes")
         self.assertIn('UIB-7 "Limits": review-task (after the fixes) is starting', again["say"])   # which run this is
-        self.assertEqual(self.command("board", "billing", "UIB-7")[1].splitlines()[:2], [
-            'UIB-7 "Limits": review-task (after the fixes) is in the queue', f"Earlier report: [{name}](.agent-reports/{name})"])
+        self.assertEqual(self.command("board", "billing", "UIB-7")[1].splitlines()[:4], [
+            "UIB-7 · review-task (after the fixes) is in the queue", "Limits", "", f"Earlier report: [{name}](.agent-reports/{name})"])
 
     def test_ticket_numbers_become_links_in_the_copy_of_a_report_and_nowhere_they_would_break(self) -> None:
         links = {"UIB": "https://linear.app/x/issue/"}

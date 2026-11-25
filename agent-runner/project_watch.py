@@ -1501,7 +1501,9 @@ def _copy(path: str) -> str:
 def _card(state: dict[str, Any], root: Path, project: str, ticket: str, triggers: dict[str, dict[str, Any]],
           report: str | None = None) -> tuple[str, list[str]]:
     """One ticket in full, as text for the developer, and what the chat does about it.
-    With `report`, the text is the news that this report was filed."""
+    With `report`, the text is the news that this report was filed. The first line says
+    which ticket, what happened, and whether the developer is needed; the title and the
+    pull request stand on the second."""
     words, event = _where(state, root, project, ticket, triggers)
     try:
         meta, history = projects._load_ticket(projects._ticket_path(root, ticket), ticket)
@@ -1516,58 +1518,75 @@ def _card(state: dict[str, Any], root: Path, project: str, ticket: str, triggers
     step = _step(event, triggers) if event else messages.texts()["steps"].get(kind or "", kind or say("step_unknown"))
     if report:
         words = say("where_ready", step=step)
-    lines, chat = [_line(ticket, known.get("title"), known.get("url"), words)], []
+    body: list[str] = []
+    tail: list[str] = []
+    files: list[str] = []
+    chat: list[str] = []
+    asked = 0
+    earlier = [say("card_earlier", name=Path(path).name, link=_copy(path))] if path and Path(path).is_file() else []
     over = event is not None and event["state"] not in MOVING_STATES
     if over and event["state"] == "failed" and not report:
-        lines += [say("card_failed", note=event.get("note") or "?"), say("card_again", ticket=ticket)]
+        body += [say("card_failed", note=event.get("note") or "?"), say("card_again", ticket=ticket)]
         chat.append(f"to run {ticket} again when the developer says so: agent-projects watch start {event['id']}")
-        lines += [say("card_earlier", name=Path(path).name, link=_copy(path))] if path and Path(path).is_file() else []
+        tail += earlier
     elif over and event["state"] == "finished" and event.get("note") and not report:
         try:
             last = (projects._load_mapping(Path(event["run_dir"]) / "chat.yaml").get("turns") or [{}])[-1].get("result")
         except (ProjectsError, OSError, KeyError):
             last = None
         if last and Path(str(last)).is_file():
-            lines.append(say("card_last", name=Path(str(last)).name, link=_copy(str(last))))
+            tail.append(say("card_last", name=Path(str(last)).name, link=_copy(str(last))))
     elif path and Path(path).is_file() and (report or event is None or event["state"] == "finished"):
         text = Path(path).read_text(encoding="utf-8")
-        outcome = next((body for body in (_section(text, name) for name in messages.texts()["outcome_sections"])
-                        if _says_something(body)), "")
+        links = projects.ticket_links(root)
+        outcome = next((found for found in (_section(text, name) for name in messages.texts()["outcome_sections"])
+                        if _says_something(found)), "")
         if not outcome:
             # The one line with which the step gave the ticket back.
             given = re.findall(r"released by .*? \((?:claude|codex)\): (.+)", history)
             outcome = given[-1].strip() if given else ""
-        links = projects.ticket_links(root)
-        lines += [say("card_outcome", text=projects.linked(outcome, links))] if outcome else []
+        body += [say("card_outcome", text=projects.linked(outcome, links))] if outcome else []
         needs = projects.linked(_section(text, "Needs from you"), links)
-        lines += ["", say("card_needs"), needs] if _says_something(needs) else ["", say("card_no_needs")]
+        if _says_something(needs):
+            asked = max(1, len(re.findall(r"(?m)^\s*[0-9]+[.)]\s", needs)))
+            body += ["", say("card_needs"), needs]
+        else:
+            body += ["", say("card_no_needs")]
         suggestions = _section(text, "Suggestions")
         count = max(1, len(re.findall(r"(?m)^\s*(?:[-*]|\d+[.)])\s+\S", suggestions))) if _says_something(suggestions) else 0
-        lines += ["", say("card_report", name=Path(path).name, link=_copy(path))
-                  + (" " + say("card_suggestions", count=count) if count else "")]
+        tail.append(say("card_report", name=Path(path).name, link=_copy(path)))
+        tail += [say("card_suggestions", count=count)] if count else []
         try:
             files = projects.report_copy(path, None).get("files") or []
         except (ProjectsError, OSError, subprocess.SubprocessError):
             files = []
-        lines += [say("card_files", files=" · ".join(f"[{Path(item).name}]({item})" for item in files))] if files else []
         if report:
             line = say("notify_ticket", ticket=ticket, where=words)
             chat += [f"stop the background command that shows {ticket}, if this chat runs one",
-                     "notify: " + (say("notify_needs", line=line) if _says_something(needs) else line)]
+                     "notify: " + (say("notify_needs", line=line) if asked else line)]
     else:
-        # While a later step goes, or after it failed, an earlier report is only named:
-        # its verdict would read as the outcome of that step.
-        lines += [say("card_earlier", name=Path(path).name, link=_copy(path))] if path and Path(path).is_file() else []
+        # While a later step goes, an earlier report is only named: its verdict would
+        # read as the outcome of that step.
+        tail += earlier
     if over and event.get("run_dir") and not event.get("chat"):
         try:
             record = projects._load_mapping(Path(event["run_dir"]) / "chat.yaml")
         except (ProjectsError, OSError):
             record = {}
         if record.get("vendor") == "claude" and record.get("session"):
-            lines.append(say("card_open", ticket=ticket))
+            tail.append(say("card_open", ticket=ticket))
             chat.append(f"to open the chat of {ticket} when the developer asks: "
                         f"agent-projects watch open {event['id']} --title \"<title>\"")
-    return "\n".join(lines), chat
+    head = say("card_head_needs" if asked else "card_head", ticket=_tick(ticket, known.get("url")), where=words, count=asked)
+    title = _title(known.get("title")) if known.get("title") else ""
+    pull = str((meta.get("links") or {}).get("pr") or "")
+    number = re.search(r"/pull/([0-9]+)", pull)
+    if number and re.fullmatch(r"https://[\w./-]+", pull):
+        title = say("card_title_pr", title=title, number=number.group(1), url=pull).strip(" ·")
+    lines = [head, *([title] if title else []), *(["", *body] if body else []),
+             *(["", say("card_join").join(tail)] if tail else []),
+             *([say("card_files", files=" · ".join(f"[{Path(item).name}]({item})" for item in files))] if files else [])]
+    return _tidy(lines), chat
 
 
 def board(project: str, ticket: str | None = None) -> str:
@@ -1614,9 +1633,11 @@ def _news_item(item: dict[str, Any], state: dict[str, Any], root: Path, project:
     if kind == "started":
         if event is None or event["state"] not in MOVING_STATES:
             return None, []  # it is over by now, and its end is news of its own
-        line = _line(event["ticket"], event.get("title"), event.get("url"), say("where_started", step=_step(event, triggers)))
+        head = say("card_head", ticket=_tick(event["ticket"], event.get("url")), where=say("where_started", step=_step(event, triggers)))
+        title = _title(event.get("title")) if event.get("title") else ""
         told = "news_sorted" if event.get("entry") == HAND else "news_started"
-        return (say(told, line=line, trigger=event["trigger"]) if event.get("trigger") else line), _showing([event])
+        return (say(told, line=head, title=title, trigger=event["trigger"]) if event.get("trigger")
+                else _tidy([head, title]).strip()), _showing([event])
     if kind == "nothing":
         if event is None:
             return None, []
@@ -1677,7 +1698,11 @@ def news(project: str) -> str:
         if text and text not in blocks:
             blocks.append(text)
             chat += todo
-    return ("\n\n".join(blocks) or say("news_none")) + _for_chat(chat)
+    # A rule before, between, and after: each piece of news stands apart from the rest
+    # of the chat's answer and from the next piece.
+    rule = say("news_rule")
+    shown = (f"{rule}\n\n" + f"\n\n{rule}\n\n".join(blocks) + f"\n\n{rule}") if rule and blocks else "\n\n".join(blocks)
+    return (shown or say("news_none")) + _for_chat(chat)
 
 
 def _digests(state: dict[str, Any], now: datetime, triggers: dict[str, dict[str, Any]]) -> list[tuple[str, str]]:

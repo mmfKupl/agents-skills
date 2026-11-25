@@ -76,24 +76,32 @@ watching_stopped: "не работает"
 watching_paused: "на паузе с {time}"
 
 # Один тикет целиком: agent-projects board <проект> <тикет>, и новость о готовом отчёте.
+# Первая строка: тикет, что случилось и нужен ли ты. Вторая: название и PR, если он есть.
+card_head: "**{ticket} · {where}**"
+card_head_needs: "**{ticket} · {where} · ждёт твоих ответов: {count}**"
+card_title_pr: "{title} · [PR #{number}]({url})"
+# Чем соединяются части последней строки: отчёт, предложения, как открыть чат агента.
+card_join: " · "
 card_outcome: "**Итог:** {text}"
-card_needs: "---\n\n**Нужно от тебя:**"
-card_no_needs: "---\n\nОт тебя ничего не нужно."
-card_report: "---\n\n**Отчёт:** [{name}]({link})"
-card_suggestions: "· предложений в отчёте: {count}"
+card_needs: "**Нужно от тебя:**"
+card_no_needs: "От тебя ничего не нужно."
+card_report: "Отчёт: [{name}]({link})"
+card_suggestions: "предложений: {count}"
 # Снимки и видео, которые называет отчёт: каждый ссылкой.
 card_files: "**Снимки из отчёта:** {files}"
 card_failed: "**Причина:** {note}"
 card_again: "_Напиши «запусти {ticket} ещё раз», чтобы повторить._"
 card_last: "**Последнее сообщение запуска:** [{name}]({link})"
 card_earlier: "**Предыдущий отчёт:** [{name}]({link})"
-card_open: "_Напиши «открой {ticket}», чтобы поговорить с агентом, который это сделал._"
+card_open: "«открой {ticket}», чтобы поговорить с агентом"
 card_none: "По {ticket} на этой машине записей нет."
 
 # Новости проекта: agent-projects news <проект>.
 news_none: "Ничего нового."
-news_started: "{line} (запустил триггер «{trigger}»)"
-news_sorted: "{line} (так решила проверка триггера «{trigger}»)"
+# Линия перед новостями, между ними и после: каждая новость стоит отдельно.
+news_rule: "---"
+news_started: "{line}\n{title}\nЗапустил триггер «{trigger}»."
+news_sorted: "{line}\n{title}\nТак решила проверка триггера «{trigger}»."
 where_nothing_to_start: "проверка триггера «{trigger}» решила, что запускать нечего ({outcome})"
 left_closed: "**Закрыт:** {ticket} «{title}» ({status})."
 left_moved: "**Ушёл:** {ticket} «{title}», теперь {status}, назначен на {assignee}."

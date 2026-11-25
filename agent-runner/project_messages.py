@@ -73,24 +73,33 @@ DEFAULTS: dict[str, Any] = {
     "watching_paused": "paused since {time}",
 
     # One ticket in full: `agent-projects board <project> <ticket>`, and the news of a report.
+    # First line: the ticket, what happened, and whether the developer is needed.
+    "card_head": "{ticket} · {where}",
+    "card_head_needs": "{ticket} · {where} · waits for your answers: {count}",
+    # Second line, when the ticket has a pull request; without one it is the title alone.
+    "card_title_pr": "{title} · [PR #{number}]({url})",
+    # What joins the parts of the last line: the report, its suggestions, how to open the chat.
+    "card_join": " · ",
     "card_outcome": "{text}",
     "card_needs": "Needs from you:",
     "card_no_needs": "Nothing is needed from you.",
     "card_report": "Report: [{name}]({link})",
-    "card_suggestions": "Suggestions in the report: {count}.",
+    "card_suggestions": "suggestions: {count}",
     # The screenshots and videos that the report names, each as a link.
     "card_files": "Files of the report: {files}",
     "card_failed": "Reason: {note}",
     "card_again": 'Say "start {ticket} again" to run it once more.',
     "card_last": "Its last message: [{name}]({link})",
     "card_earlier": "Earlier report: [{name}]({link})",
-    "card_open": 'Say "open {ticket}" to talk to the agent that did this.',
+    "card_open": 'say "open {ticket}" to talk to its agent',
     "card_none": "{ticket} has no record on this machine.",
 
     # News of a project: `agent-projects news <project>`.
     "news_none": "Nothing new.",
-    "news_started": '{line} (started by the trigger "{trigger}")',
-    "news_sorted": '{line} (the check of the trigger "{trigger}" chose this)',
+    # A line that stands before, between, and after the pieces of news; none when empty.
+    "news_rule": "",
+    "news_started": '{line}\n{title}\nStarted by the trigger "{trigger}".',
+    "news_sorted": '{line}\n{title}\nThe check of the trigger "{trigger}" chose this.',
     # Stands where a ticket's line says where the ticket is.
     "where_nothing_to_start": 'the check of the trigger "{trigger}" found nothing to start ({outcome})',
     "left_closed": '{ticket} "{title}" is closed ({status}).',

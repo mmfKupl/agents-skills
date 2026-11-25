@@ -3,7 +3,7 @@
 name: my review
 # Words for the developer, shown as they are: the trigger in one line. A run's `label` is how its step is called; a
 # run that starts a skill is called by the skill's words in ../messages.yaml.
-about: "Тикет перевели в In Review на тебя, и это сделал не ты: запускает ревью. Чужие новые комментарии к таким тикетам разбирает проверка"
+about: "Тикет перевели в In Review на тебя, и это сделал не ты: запускает ревью. Новые комментарии к таким тикетам разбирает проверка: запуск только на ответ автора или на твою явную просьбу"
 on_any:
   - source: linear
     event: status_changed
@@ -15,12 +15,10 @@ on_any:
   - source: linear
     event: comment_added
     ticket: reviewed_in_current_env     # a review of it is on record here
-    actor: not_current_user             # the developer's own comment starts nothing
     skip: agent_comment
   - source: github
     event: pr_review_or_comment
     ticket: reviewed_in_current_env
-    actor: not_current_user
     skip: agent_comment
 check:
   model: haiku
@@ -28,14 +26,30 @@ check:
   prompt: |
     Read the comment, the ticket's record on this machine, and the last review
     report. Answer with exactly one outcome:
-    - author_answered: the author replied to review points, or says the fixes
-      are pushed;
-    - noise: thanks, status chatter, bots, agent reports.
+    - own_request: the comment is from the current user's own account and
+      plainly asks an agent to do something on this ticket, such as "review it
+      again" or "check the migration too";
+    - author_answered: someone else replied to review points, or says the
+      fixes are pushed;
+    - noise: everything else. That includes the current user's own review
+      remarks, answers to the author, and notes that ask an agent for nothing,
+      also when the project chat posted them; thanks, status chatter, bots,
+      agent reports.
 run:
   review:
     command: /review-task {ticket}
     model: opus
     effort: high
+  own_request:
+    prompt: |
+      The current user asked for something in their own comment on the ticket.
+      Do what the comment asks and report the result. Change no code. Write to
+      the tracker or the pull request only what the comment asks for. When it
+      asks for a whole new review, report the command that starts one and
+      start nothing.
+    label: твоя просьба из комментария
+    model: sonnet
+    effort: medium
   author_answered:
     prompt: |
       Report which review points the author closed, which stay open, and the

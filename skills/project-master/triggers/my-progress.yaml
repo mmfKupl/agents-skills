@@ -35,6 +35,9 @@ check:
     - continuation: earlier work exists and the event adds a requirement or
       answers an open question;
     - noise: thanks, status chatter, bots, agent reports.
+    A comment from the current user's own account counts only when it plainly
+    asks for work on this ticket; their remarks to others, answers, and notes
+    are noise, also when the project chat posted them.
 run:
   new_work_large:
     command: /brainstorm-task autopilot {ticket}

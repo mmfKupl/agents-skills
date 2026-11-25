@@ -117,14 +117,22 @@ check:
   prompt: |
     Read the comment, the ticket's record in agent-projects, and the last
     review report. Answer with exactly one outcome:
-    - author_answered: the author replied to review points, or says the fixes
-      are pushed;
-    - noise: thanks, status chatter, bots, agent reports.
+    - own_request: the comment is from the current user's own account and
+      plainly asks an agent to do something on this ticket;
+    - author_answered: someone else replied to review points, or says the
+      fixes are pushed;
+    - noise: everything else, the current user's own remarks included.
 run:
   review:
     command: /review-task {ticket}
     model: opus
     effort: high
+  own_request:
+    prompt: |
+      Do what the current user's comment asks and report the result. Change
+      no code.
+    model: sonnet
+    effort: medium
   author_answered:
     prompt: |
       Report which review points the author closed, which stay open, and the
@@ -139,16 +147,16 @@ and `skills/project-master/references/triggers.md` is the format that agents rea
 The script refuses a file with anything it does not read, so that a misspelled
 condition never widens what a trigger starts.
 
-Until 2026-11-26 the check had a third outcome, `own_review`, which only recorded
-the developer's own remarks (chosen on 2026-11-23: their own comment usually means
-they have already looked, and a second review costs several agents on strong
-models). On 2026-11-26 a comment that the project chat posted for the developer
-went to the check and to that run, and the developer said: "так быть не должно.
-нужно првоерять кто оставил коммент и не разбирать мои комменты а только ответы
-на мои". The comment entries of `my review` now have `actor: not_current_user`:
-the developer's own comment makes no event, and the outcome is gone. `my progress`
-is unchanged: there the developer's own comment on work an agent did is review
-feedback.
+Until 2026-11-26 the developer's own comment was sorted as `own_review`, which
+only recorded it (chosen on 2026-11-23). On 2026-11-26 a comment that the
+project chat posted for the developer went through the check to that run, and
+the developer said first "не разбирать мои комменты", then: "давай оставим. и
+там и там. я могу и там и там попросить что-то сделать черезкоментарий в
+линере. главное чтобы это явно я просил чтото сделать по тикету. и хайку должен
+это проверит". So own comments still go to the check in both triggers, and the
+check starts a run only when the comment plainly asks an agent for something on
+the ticket (`own_request` in `my review`); own remarks, answers, and notes are
+noise.
 
 ### `my progress`
 

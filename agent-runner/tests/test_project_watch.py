@@ -507,7 +507,7 @@ class ProjectWatchTests(unittest.TestCase):
         self.assertEqual([(event["ticket"], event["state"], event["run"]) for event in found], [("UIB-1", "checking", None)])
         self.assertIn("commented on by Other at", found[0]["what"])
         packet = Path(found[0]["check_dir"], "packet.md").read_text()
-        self.assertIn("Outcomes, answer with exactly one: author_answered, noise", packet)
+        self.assertIn("Outcomes, answer with exactly one: own_request, author_answered, noise", packet)
         self.assertRegex(packet, r"<<<([0-9a-f]{12})\nFixed both points, please look again\n\1>>>")
         self.assertIn("Written from the current user's own account: no", packet)
         self.assertIn("review report text", packet)
@@ -531,14 +531,10 @@ class ProjectWatchTests(unittest.TestCase):
         self.assertIn("A check sorted this event as `author_answered`.", call["prompt"])
         self.assertEqual(call["argv"][call["argv"].index("--model") + 1], "claude-sonnet-5-5")
 
-    def test_own_comment_starts_nothing_and_goes_along_with_the_answer_to_it(self) -> None:
+    def test_own_comments_of_one_reading_are_one_event_that_the_check_may_sort_as_noise(self) -> None:
         self.watched_project()
         self.reviewed("UIB-1")
-        # The developer's own comments start nothing under "my review", also two of them.
-        self.commented = [commented("UIB-1", [comment("c1", 5, "I would rename this", user="me")])]
-        self.assertEqual(project_watch.poll(NOW + timedelta(minutes=7))["new"], [])
-        # An answer by someone else makes one event, with the developer's comment next to it.
-        self.commented = [commented("UIB-1", [comment("c2", 6, "renamed, look again"),
+        self.commented = [commented("UIB-1", [comment("c2", 6, "and the test is missing", user="me"),
                                               comment("c1", 5, "I would rename this", user="me")])]
 
         found = project_watch.poll(NOW + timedelta(minutes=10))["new"]
@@ -550,7 +546,10 @@ class ProjectWatchTests(unittest.TestCase):
         self.assertRegex(packet, r"<<<([0-9a-f]{12})\nI would rename this\n\1>>>")
         self.assertIn("Written from the current user's own account: yes", packet)
 
-        self.assertIn("only when someone else wrote it", self.ok("trigger", "list")["triggers"][1]["when"][1])
+        # The check is told whose comment it is, and remarks that ask an agent for nothing start no run.
+        self.assertIn("own_request: the comment is from the current user's own account", packet)
+        self.run_check("noise")
+        self.assertEqual(self.by_id()[1]["state"], "skipped")
 
     def test_check_that_says_noise_or_nothing_usable_starts_no_run(self) -> None:
         self.watched_project()
@@ -578,7 +577,7 @@ class ProjectWatchTests(unittest.TestCase):
         self.commented = [commented("UIB-1", [comment("c1", 5, "I would rename this, and the test is missing")], )]
 
         self.assertEqual([event["state"] for event in self.ok("resume")["new"]], ["checking"])
-        self.run_check("author_answered")
+        self.run_check("own_request")
 
         self.assertEqual(self.by_id()[1]["state"], "held")
         self.assertEqual(self.ok("watch", "start", "1")["events"][0]["state"], "waiting")
@@ -659,7 +658,7 @@ class ProjectWatchTests(unittest.TestCase):
         self.assertIn("a comment appears in Linear for a ticket that was reviewed on this machine", row["when"][1])
         self.assertEqual(row["starts_directly"], {"review": "/review-task {ticket} (opus, high)"})
         self.assertEqual(row["check"]["runs_on"], "haiku, low")
-        self.assertEqual(list(row["check"]["outcomes"]), ["author_answered", "noise"])
+        self.assertEqual(list(row["check"]["outcomes"]), ["own_request", "author_answered", "noise"])
         self.assertEqual(row["check"]["outcomes"]["noise"], "nothing; one line is recorded")
 
     def test_trigger_file_is_checked_before_it_is_saved(self) -> None:

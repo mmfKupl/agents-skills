@@ -1543,6 +1543,11 @@ def _card(state: dict[str, Any], root: Path, project: str, ticket: str, triggers
         count = max(1, len(re.findall(r"(?m)^\s*(?:[-*]|\d+[.)])\s+\S", suggestions))) if _says_something(suggestions) else 0
         lines += ["", say("card_report", name=Path(path).name, link=_copy(path))
                   + (" " + say("card_suggestions", count=count) if count else "")]
+        try:
+            files = projects.report_copy(path, None).get("files") or []
+        except (ProjectsError, OSError, subprocess.SubprocessError):
+            files = []
+        lines += [say("card_files", files=" · ".join(f"[{Path(item).name}]({item})" for item in files))] if files else []
         if report:
             line = say("notify_ticket", ticket=ticket, where=words)
             chat += [f"stop the background command that shows {ticket}, if this chat runs one",

@@ -76,6 +76,8 @@ DEFAULTS: dict[str, Any] = {
     "card_no_needs": "Nothing is needed from you.",
     "card_report": "Report: [{name}]({link})",
     "card_suggestions": "Suggestions in the report: {count}.",
+    # The screenshots and videos that the report names, each as a link.
+    "card_files": "Files of the report: {files}",
     "card_failed": "Reason: {note}",
     "card_again": 'Say "start {ticket} again" to run it once more.',
     "card_last": "Its last message: [{name}]({link})",

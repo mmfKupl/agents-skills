@@ -775,6 +775,19 @@ On 2026-11-24 the developer asked for four more things, all written the same day
   address it has seen becomes a link, while code, addresses, and existing links
   stay as they are. The filed report is not changed. `$project-scope` also asks
   the step to write the links itself.
+- Screenshots that a report names can be opened. The developer on 2026-11-25,
+  with a screenshot of a report that said "снимок `21-search-after-audit-logs.png`":
+  "вот еще в отчетах есть картинки, и не понятно где их смотреть и как. мб можно
+  вствалять как превью или опять же делать ссылкой?". The review had kept its
+  screenshots in a folder of its own choice inside the project's folder
+  (`evidence-UIB-6544/round-2`) and named them by file name only; the application
+  opens no file outside a chat's folder. When the script copies a report for
+  reading, it now copies each image or video that the report names and the
+  project's folder holds next to the copy, makes the name a link, and the text
+  about the report lists them as links. `$project-scope` tells a step to keep
+  such files in `files/<ticket>/` of the project's folder. Not done: a preview
+  inside the report, because it is not known whether the application draws an
+  image in a file it shows.
 - A ready report opens from the list. The developer the same day, with a
   screenshot of the list of tickets in review: "и вот еще мне отчет тут ссылкой
   не выдался". In a list, "report is ready" is now a link to the copy of the

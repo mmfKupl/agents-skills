@@ -80,6 +80,10 @@ there too; when it has none, add the section.
 
 These apply on top of the command's own rules.
 
+- Keep the screenshots, videos, and other files that the report names inside the
+  project's folder, in `files/<ticket>/` (`agent-projects project show` prints the
+  folder), and name each in the report by its file name. The project chat then gives
+  the developer a link to each; a file anywhere else cannot be opened from the report.
 - In the report and in the line for the project chat, a ticket's number is a link to
   the ticket in the tracker, such as `[UIB-123](https://linear.app/<workspace>/issue/UIB-123)`.
   The copy of a report that the developer opens gets these links from the script as

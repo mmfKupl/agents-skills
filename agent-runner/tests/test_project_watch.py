@@ -1451,6 +1451,26 @@ run:
                                                  "[UIB-2](https://linear.app/x/issue/UIB-2).\n")
         self.assertEqual(Path(report).read_text(), "UIB-1 builds on UIB-2.\n")   # the filed report is not touched
 
+    def test_screenshot_that_a_report_names_is_copied_with_it_and_linked(self) -> None:
+        self.project()
+        shots = self.home / "project-billing" / "files" / "UIB-1"
+        shots.mkdir(parents=True)
+        (shots / "01-roles.png").write_bytes(b"png")
+        written = "### Verdict\nready\n\n### Findings\nSee `01-roles.png`, not `99-gone.png` or /tmp/x/02.png.\n"
+        with patch.object(sys, "stdin", io.StringIO(written)):
+            report = self.ok("report", "add", "--project", "billing", "--ticket", "UIB-1", "--kind", "review")["report"]
+
+        copied = self.ok("report", "copy", report)
+
+        stem = Path(report).stem
+        self.assertEqual(copied["files"], [f".agent-reports/{stem}/01-roles.png"])
+        self.assertEqual((self.cwd / ".agent-reports" / stem / "01-roles.png").read_bytes(), b"png")
+        # A file the project does not hold, and a path somewhere else, stay as they were written.
+        self.assertIn(f"See [01-roles.png]({self.cwd}/.agent-reports/{stem}/01-roles.png), not `99-gone.png` or /tmp/x/02.png.",
+                      Path(copied["copy"]).read_text())
+        self.assertIn(f"Files of the report: [01-roles.png](.agent-reports/{stem}/01-roles.png)",
+                      self.command("board", "billing", "UIB-1")[1])
+
     def test_sections_of_a_report_are_found_however_their_headings_are_written(self) -> None:
         text = "**Verdict:**\nready\n\nNeeds from you\nnone\n\n## Suggestions\nnone\n"
         self.assertEqual(project_watch._section(text, "Verdict"), "ready")

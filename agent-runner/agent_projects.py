@@ -428,7 +428,8 @@ def report_copy(source: str, cwd: str | None) -> dict[str, Any]:
     """Copy a filed report into the calling chat's working directory: the application
     shows the developer only files that lie there, and reports lie outside it. Git is
     told to leave the copies out of the repository's changes. In the copy, ticket
-    numbers are links; the filed report stays as it was written."""
+    numbers are links, and so are the screenshots and videos that the report names and
+    the project's folder holds; the filed report stays as it was written."""
     root = _require_home().resolve()
     path = Path(source).expanduser().resolve()
     if root not in path.parents or not path.is_file():
@@ -437,10 +438,31 @@ def report_copy(source: str, cwd: str | None) -> dict[str, Any]:
     folder.mkdir(exist_ok=True)
     copy = folder / path.name
     shutil.copyfile(path, copy)
+    files: list[str] = []
     if path.suffix == ".md":
-        # In the copy the developer reads, a ticket number opens the ticket.
+        # In the copy the developer reads, a ticket number opens the ticket, and a
+        # screenshot that the report names opens too: it is copied next to the report.
         with contextlib.suppress(OSError, UnicodeDecodeError):
-            copy.write_text(linked(path.read_text(encoding="utf-8"), ticket_links(root)), encoding="utf-8")
+            text = linked(path.read_text(encoding="utf-8"), ticket_links(root))
+            project = next((parent for parent in path.parents if parent.parent == root and parent.name.startswith("project-")), None)
+
+            def shown(found: re.Match[str]) -> str:
+                name = found.group(2)
+                if found.group(1) or project is None:
+                    return found.group(0)
+                # The newest file of that name in the project's folder, wherever the step put it.
+                kept = sorted((item for item in project.rglob(name) if item.is_file()), key=lambda item: item.stat().st_mtime)
+                if not kept:
+                    return found.group(0)
+                target = folder / path.stem / name
+                target.parent.mkdir(exist_ok=True)
+                shutil.copyfile(kept[-1], target)
+                files.append(f"{COPIES}/{path.stem}/{name}")
+                return f"[{name}]({target})"
+
+            text = re.sub(r"(```.*?```|\[[^\]\n]*\]\([^)\n]*\)|https?://\S+)"
+                          r"|`?(?<![\w/.-])([\w][\w.-]*\.(?:png|jpe?g|gif|webp|webm|mp4))`?", shown, text, flags=re.DOTALL)
+            copy.write_text(text, encoding="utf-8")
 
     def git(*arguments: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(["git", "-C", str(folder), *arguments], stdout=subprocess.PIPE,
@@ -453,7 +475,7 @@ def report_copy(source: str, cwd: str | None) -> dict[str, Any]:
         exclude.parent.mkdir(exist_ok=True)
         with exclude.open("a", encoding="utf-8") as handle:
             handle.write(f"{COPIES}/\n")
-    return {"copy": str(copy)}
+    return {"copy": str(copy), **({"files": list(dict.fromkeys(files))} if files else {})}
 
 
 def status(project: str | None) -> dict[str, Any]:

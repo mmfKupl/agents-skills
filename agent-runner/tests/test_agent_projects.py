@@ -33,7 +33,9 @@ class AgentProjectsTests(unittest.TestCase):
         environment.update({agent_projects.HOME_VARIABLE: str(self.home), variable: chat_id,
                             "AGENT_PROJECTS_LINEAR_KEY_FILE": str(self.home.parent / "no-linear-key"),
                             # No file with other words for the developer, so the texts are the English ones.
-                            "AGENT_PROJECTS_MESSAGES": ""})
+                            "AGENT_PROJECTS_MESSAGES": "",
+                            # Never the settings of the Claude Code that runs these tests.
+                            "CLAUDE_CONFIG_DIR": str(self.home.parent / "no-claude")})
         patcher = patch.dict(os.environ, environment, clear=True)
         patcher.start()
         self.addCleanup(patcher.stop)
@@ -61,7 +63,7 @@ class AgentProjectsTests(unittest.TestCase):
         first = self.ok("init")
         self.assertEqual(first, {"home": str(self.home), "created": True, "projects": [],
                                  "linear": f"no key: {self.home.parent / 'no-linear-key'}", "watching": "not running",
-                                 "messages": "ok"})
+                                 "messages": "ok", "compaction": "no Claude Code on this machine"})
         self.assertTrue((self.home / "tickets").is_dir())
         self.assertTrue((self.home / "triggers").is_dir())
         self.assertFalse(self.ok("init")["created"])

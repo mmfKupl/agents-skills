@@ -798,6 +798,22 @@ On 2026-11-24 the developer asked for four more things, all written the same day
   screenshot of the list of tickets in review: "и вот еще мне отчет тут ссылкой
   не выдался". In a list, "report is ready" is now a link to the copy of the
   report in the chat's folder; before, only the text about one ticket linked it.
+- A compacted project chat forgets finished tickets. The developer on
+  2026-11-25: "для мастер агента я с ним могу общаться на счет тикетов и обсуждать
+  реализци. и тд, и мне для старых тикетов это обсуждение не нужно будет уже. и
+  можно было бы его выкинуть полность", and then: "надо сделать этот хук и конфиг
+  так, чтобы они при инициализации проекта проверялись стоят или нет, и если нет —
+  то ставились и работали бы именно для этих чатов". By the Claude Code
+  documentation read that day, only a `PreCompact` hook steers an automatic
+  compaction; it fires for a manual one too, and what it prints is added to the
+  instructions for the summary. `agent-projects init` sets the hook when it is
+  missing. The hook runs for every chat of the machine, and
+  `agent-projects compact-hint` prints something only for a chat on record as a
+  project's chat: keep the project, the developer's wishes, and the open
+  questions and decisions of the tickets in work, which it lists from the
+  script's own state; drop the rest. Codex has one compaction prompt for all
+  chats of a machine, so it is left alone. Not checked: how closely a summary
+  follows these instructions.
 - A button that opens the chat of the agent. The developer asked the same day
   for a button in the text about finished work, "чтобы я на неё нажал и
   автоматически в чат отправилось \"открой мне этого агента\"". The Claude Code

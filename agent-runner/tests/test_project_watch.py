@@ -109,6 +109,8 @@ class ProjectWatchTests(unittest.TestCase):
             "AGENT_RUNNER_CLAUDE_BIN": str(fake), "FAKE_LOG": str(self.log),
             # No file with other words, so the texts are the English ones.
             project_messages.MESSAGES_VARIABLE: "",
+            # Never the settings of the Claude Code that runs these tests.
+            "CLAUDE_CONFIG_DIR": str(self.root / "claude"),
         })
         patcher = patch.dict(os.environ, environment, clear=True)
         patcher.start()
@@ -1470,6 +1472,33 @@ run:
                       Path(copied["copy"]).read_text())
         self.assertIn(f"Files of the report: [01-roles.png](.agent-reports/{stem}/01-roles.png)",
                       self.command("board", "billing", "UIB-1")[1])
+
+    def test_compaction_of_a_project_chat_is_told_what_to_keep_and_other_chats_are_left_alone(self) -> None:
+        self.assertEqual(self.ok("init")["compaction"], "no Claude Code on this machine")
+        settings = self.root / "claude" / "settings.json"
+        settings.parent.mkdir()
+        settings.write_text('{"hooks": {"Stop": []}, "model": "x"}')
+        self.assertIn("set now", self.ok("init")["compaction"])              # `init` sets the hook where it is missing
+        self.assertEqual(self.ok("init")["compaction"], "set")
+        document = json.loads(settings.read_text())
+        self.assertEqual((document["model"], len(document["hooks"]["PreCompact"])), ("x", 1))
+        self.assertTrue(document["hooks"]["PreCompact"][0]["hooks"][0]["command"].endswith("agent-projects compact-hint"))
+
+        self.project()
+        self.issues = [issue("UIB-1")]
+        project_watch.poll(NOW)
+
+        def hint(session: str) -> str:
+            with patch.object(sys, "stdin", io.StringIO(json.dumps({"session_id": session, "trigger": "auto"}))):
+                return self.command("compact-hint")[1]
+
+        said = hint("project-chat")
+        self.assertIn('This chat manages the project "billing"', said)
+        self.assertIn("Tickets in work now: UIB-1.", said)
+        self.assertIn("Drop entirely: the discussion of every other ticket", said)
+        self.assertEqual(hint("some-other-chat").strip(), "")                # not a project chat: nothing is added
+        with patch.object(sys, "stdin", io.StringIO("not json")):
+            self.assertEqual(self.command("compact-hint")[:2], (0, "\n"))    # a broken input never stands in the way
 
     def test_sections_of_a_report_are_found_however_their_headings_are_written(self) -> None:
         text = "**Verdict:**\nready\n\nNeeds from you\nnone\n\n## Suggestions\nnone\n"

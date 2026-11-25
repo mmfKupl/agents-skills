@@ -1952,6 +1952,57 @@ def _watching(state: dict[str, Any]) -> str:
     return "running" if running else "not running"
 
 
+HOOK = "compact-hint"
+
+
+def compact_hint(payload: Any) -> str:
+    """What the summary of a project chat keeps and drops when Claude Code compacts the
+    chat. Claude Code runs this before each compaction, of every chat on the machine,
+    and adds what it prints to the instructions for the summary; for a chat that manages
+    no project it prints nothing."""
+    session = str((payload or {}).get("session_id") or "") if isinstance(payload, dict) else ""
+    root = projects.home()
+    if not session or not root.is_dir():
+        return ""
+    for name in projects._project_names(root):
+        if str((projects._load_project(root, name)[1].get("chat") or {}).get("id")) != session:
+            continue
+        state = _read_state(root)
+        going = sorted({item["ticket"] for item in state["board"].get(name, [])}
+                       | {event["ticket"] for event in state["events"]
+                          if event["project"] == name and event["state"] in OPEN_STATES})
+        return "\n".join([
+            f"This chat manages the project \"{name}\" with the project-master skill: it starts work on tickets and "
+            "passes the results to the developer. Everything about a ticket is kept in files outside this chat "
+            "(reports, the ticket's history, the developer's decisions), so the summary can be short.",
+            "Keep: which project this is; what the developer asked about how this chat should work; for each ticket in "
+            "work, the questions that still wait for the developer and what they decided; the background commands "
+            "that still run, with their event numbers.",
+            f"Tickets in work now: {', '.join(going) or 'none'}.",
+            "Drop entirely: the discussion of every other ticket, the text of reports and news that were shown, lists "
+            "of tickets, and the output of commands. Do not name the dropped tickets.",
+        ])
+    return ""
+
+
+def hook_install() -> str:
+    """Have Claude Code ask `compact_hint` before it compacts a chat, when it does not yet."""
+    settings = Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude") / "settings.json"
+    command = f"{Path(sys.executable).parent / 'agent-projects'} {HOOK}"
+    if not settings.parent.is_dir():
+        return "no Claude Code on this machine"
+    try:
+        document = json.loads(settings.read_text(encoding="utf-8")) if settings.is_file() else {}
+        groups = document.setdefault("hooks", {}).setdefault("PreCompact", [])
+        if any(str(hook.get("command", "")).endswith(f"agent-projects {HOOK}") for group in groups for hook in group.get("hooks", [])):
+            return "set"
+        groups.append({"hooks": [{"type": "command", "command": command, "timeout": 10}]})
+        projects._atomic_write(settings, json.dumps(document, indent=2) + "\n")
+        return f"set now, in {settings}"
+    except (OSError, ValueError, AttributeError, TypeError) as error:
+        return f"not set: {settings} could not be changed ({error})"
+
+
 def summary() -> dict[str, str]:
     """What `init` says about watching."""
     key = linear_key_file()
@@ -1964,7 +2015,9 @@ def summary() -> dict[str, str]:
             access = str(error)
     root = projects.home()
     return {"linear": access, "watching": _watching(_read_state(root) if root.is_dir() else {}),
-            "messages": "; ".join(messages.problems()) or "ok"}
+            "messages": "; ".join(messages.problems()) or "ok",
+            # What a project chat keeps when it is compacted.
+            "compaction": hook_install()}
 
 
 def project_triggers(name: str, on: list[str], off: list[str]) -> dict[str, Any]:
@@ -2364,6 +2417,8 @@ def add_commands(commands: Any, project: Any) -> None:
     shown.add_argument("--first", action="store_true", help=argparse.SUPPRESS)
     commands.add_parser("news", help="print what happened in a project since its chat last asked, as text to show "
                                      "the developer as it is; reading empties the list").add_argument("project")
+    commands.add_parser(HOOK, help="for Claude Code's PreCompact hook: print what the summary of a project chat "
+                                   "keeps and drops; reads the hook's input on standard input")
     commands.add_parser("pause", help="stop reading the tracker and starting runs; running ones finish")
     commands.add_parser("resume", help="watch again, and hold what came in meanwhile for the developer")
     watch = commands.add_parser("watch", help="read the tracker for triggers and start their runs").add_subparsers(
@@ -2413,6 +2468,11 @@ def run(args: argparse.Namespace) -> dict[str, Any] | str:
         return board(args.project, args.ticket)
     if args.command == "news":
         return news(args.project)
+    if args.command == HOOK:
+        try:
+            return compact_hint(json.loads(sys.stdin.read() or "{}"))
+        except Exception:  # noqa: BLE001 - a hook that fails would stand in the way of every compaction
+            return ""
     if args.command == "pause":
         return pause()
     if args.command == "resume":

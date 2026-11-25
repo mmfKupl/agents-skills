@@ -122,6 +122,21 @@ its row in the sidebar, and calls no model until a message arrives. A chat that 
 developer created in the application is not retired this way: it comes back on the
 next message.
 
+## What a project chat keeps when it is compacted
+
+A project chat lives for weeks, and the developer discusses many tickets in it. Once a
+ticket is over, that discussion is of no use: everything about a ticket is in files.
+
+- **Claude Code.** `agent-projects init` sets a `PreCompact` hook in Claude Code's
+  settings when it is missing and says so under `compaction`. Before a compaction,
+  asked for by hand or automatic, Claude Code runs `agent-projects compact-hint`,
+  which adds to the instructions for the summary: keep the project, the developer's
+  wishes about this chat, and the open questions and decisions of the tickets in
+  work; drop the discussion of every other ticket. For a chat that manages no project
+  the command prints nothing. Not checked yet on a real compaction.
+- **Codex.** Its compaction prompt is one setting for every chat of the machine
+  (`compact_prompt` in the configuration), so nothing is set for it.
+
 ## Keep the project's chats in one sidebar section
 
 When `agent-projects project show <project>` has `section: true`, each chat of the

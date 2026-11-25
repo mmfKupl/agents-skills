@@ -162,7 +162,9 @@ def _name(value: Any, fallback: str = "someone") -> str:
 
 def _title(value: Any) -> str:
     """A ticket's title as plain words, for the same reason as `_name`."""
-    return " ".join(re.sub(r"[^\w .,'()/:+&-]", " ", str(value or "")).split())[:80] or "no title"
+    plain = " ".join(re.sub(r"[^\w .,'()/:+&…-]", " ", str(value or "")).split())
+    # A cut title says that it is cut.
+    return (plain if len(plain) <= 80 else plain[:79].rstrip() + "…") or "no title"
 
 
 def _link(url: Any, ticket: str) -> str:
@@ -653,7 +655,7 @@ def _read_state(root: Path) -> dict[str, Any]:
     for key in ("events", "problems", "messages"):
         state.setdefault(key, [])
     for key in ("baseline", "since", "read_until", "closed_tickets", "seen", "undelivered", "takeover", "digest",
-                "unsent", "board"):
+                "unsent", "board", "woken"):
         # `baseline` and `closed_tickets` were lists in the first version of this file.
         if not isinstance(state.get(key), dict):
             state[key] = {}
@@ -1157,15 +1159,57 @@ def _unsent(state: dict[str, Any]) -> list[str]:
     return problems
 
 
-def _live_chats() -> dict[str, str] | None:
-    """The Claude Code chats that run on this machine: the name each has now, by session
-    id; None when they cannot be listed."""
+def _agents() -> list[dict[str, Any]] | None:
+    """The chats that Claude Code lists on this machine; None when they cannot be listed."""
     try:
         listed = subprocess.run([run_chat._binary("claude"), "agents", "--json"], stdin=subprocess.DEVNULL,
                                 stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, timeout=30)
-        return {str(row.get("sessionId")): str(row.get("name") or "") for row in json.loads(listed.stdout)}
-    except (manifest.ManifestError, OSError, ValueError, AttributeError, TypeError, subprocess.TimeoutExpired):
+        return [row for row in json.loads(listed.stdout) if isinstance(row, dict)]
+    except (manifest.ManifestError, OSError, ValueError, TypeError, subprocess.TimeoutExpired):
         return None
+
+
+def _runs(row: dict[str, Any]) -> bool:
+    """Whether a listed chat has a process. Claude Code keeps listing a chat that it
+    stopped for sitting idle, with no process and no status."""
+    return bool(row.get("pid") or row.get("status"))
+
+
+def _live_chats() -> dict[str, str] | None:
+    """The Claude Code chats that run on this machine: the name each has now, by session
+    id; None when they cannot be listed."""
+    rows = _agents()
+    return None if rows is None else {str(row.get("sessionId")): str(row.get("name") or "") for row in rows if _runs(row)}
+
+
+def _wake_chats(root: Path, state: dict[str, Any]) -> list[str]:
+    """Wake the project chats that Claude Code has stopped. It retires a chat started from
+    the shell after hours of sitting idle; the developer then sees the chat as
+    disconnected and cannot write to it, and no line reaches it. A woken chat keeps its
+    title and its place in the sidebar, and calls no model until a message arrives."""
+    stopped = {str(row.get("sessionId")): row for row in _agents() or [] if not _runs(row)}
+    lines = []
+    recently = _stamp(datetime.now(timezone.utc) - timedelta(hours=RESEND_HOURS))
+    for name in projects._project_names(root) if stopped else []:
+        try:
+            chat = projects._load_project(root, name)[1].get("chat") or {}
+        except ProjectsError:
+            continue
+        row = stopped.get(str(chat.get("id")))
+        if row is None or chat.get("host") != "claude" or state["woken"].get(name, "") > recently:
+            continue
+        # One try an hour: a chat that does not wake must not be tried every minute.
+        state["woken"][name] = _stamp()
+        try:
+            done = subprocess.run([run_chat._binary("claude"), "--bg", "--resume", str(chat["id"])], cwd=str(row.get("cwd")),
+                                  stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                                  timeout=120)
+            said = None if done.returncode == 0 else (done.stdout.strip().splitlines() or ["claude failed"])[-1]
+        except (manifest.ManifestError, OSError, subprocess.TimeoutExpired) as error:
+            said = str(error)
+        lines.append(f"problem: the chat of project {name} was stopped and did not wake: {said}" if said
+                     else f"project {name}: its chat had been stopped and was woken")
+    return lines
 
 
 def _takeover(root: Path, project_name: str, project: dict[str, Any]) -> None:
@@ -1465,7 +1509,7 @@ def _card(state: dict[str, Any], root: Path, project: str, ticket: str, triggers
             # The one line with which the step gave the ticket back.
             given = re.findall(r"released by .*? \((?:claude|codex)\): (.+)", history)
             outcome = given[-1].strip() if given else ""
-        lines += [outcome] if outcome else []
+        lines += [say("card_outcome", text=outcome)] if outcome else []
         needs = _section(text, "Needs from you")
         lines += ["", say("card_needs"), needs] if _says_something(needs) else ["", say("card_no_needs")]
         suggestions = _section(text, "Suggestions")
@@ -1473,7 +1517,7 @@ def _card(state: dict[str, Any], root: Path, project: str, ticket: str, triggers
         lines += ["", say("card_report", name=Path(path).name, link=_copy(path))
                   + (" " + say("card_suggestions", count=count) if count else "")]
         if report:
-            line = say("ticket_untitled", ticket=ticket, where=words)
+            line = say("notify_ticket", ticket=ticket, where=words)
             chat += [f"stop the background command that shows {ticket}, if this chat runs one",
                      "notify: " + (say("notify_needs", line=line) if _says_something(needs) else line)]
     else:
@@ -1557,8 +1601,9 @@ def _news_item(item: dict[str, Any], state: dict[str, Any], root: Path, project:
         if event is None:
             return None, []
         text, chat = _card(state, root, project, event["ticket"], triggers)
+        where = _where(state, root, project, event["ticket"], triggers)[0]
         return text, [*chat, f"stop the background command that shows {event['ticket']}, if this chat runs one",
-                      "notify: " + text.splitlines()[0].replace(_tick(event["ticket"], event.get("url")), event["ticket"])]
+                      "notify: " + say("notify_ticket", ticket=event["ticket"], where=where)]
     if kind == "changed":
         lines = [say("left_closed" if left["closed"] else "left_moved", ticket=_tick(left["ticket"], left.get("url")),
                      title=left["title"], status=left["status"], assignee=left["assignee"]) for left in item.get("left") or []]
@@ -1827,6 +1872,9 @@ def cycle(read_tracker: bool = True) -> list[str]:
             except (ProjectsError, OSError) as error:
                 state["problems"].append(f"news for {name} was not kept: {error}")
         problems = list(state["problems"]) + _unsent(state)
+        if read_tracker or to_tell or state["undelivered"]:
+            # First, so that a line finds its chat running.
+            lines += _wake_chats(root, state)
         if to_tell or state["undelivered"]:
             live = _live_chats()
             for project_name, line in to_tell:

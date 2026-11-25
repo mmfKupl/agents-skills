@@ -126,7 +126,13 @@ class ProjectWatchTests(unittest.TestCase):
         self.addCleanup(self.wait_for_runs)
         # The project chat on record ("project-chat") runs, unless a test closes it.
         self.live: dict[str, str] | None = {"project-chat": "project: Billing"}
+        self.real_live = project_watch._live_chats
         patcher = patch.object(project_watch, "_live_chats", lambda: self.live)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        # What Claude Code lists, as rows; None when a test does not look at it.
+        self.agents: list[dict] | None = None
+        patcher = patch.object(project_watch, "_agents", lambda: self.agents)
         patcher.start()
         self.addCleanup(patcher.stop)
 
@@ -955,6 +961,22 @@ run:
 
         self.assertNotIn("undelivered", self.ok("status", "--project", "billing"))
         self.assertEqual(project_watch._read_state(self.home)["messages"], [])
+
+    def test_project_chat_that_was_stopped_for_sitting_idle_is_woken_and_is_not_taken_for_running(self) -> None:
+        self.watched_project()
+        (self.root / "copy").mkdir()
+        stopped = {"sessionId": "project-chat", "name": "project: Billing", "cwd": str(self.root / "copy"), "state": "blocked"}
+        self.agents = [stopped, {"sessionId": "other", "name": "review: UIB-2", "pid": 7, "status": "idle"}]
+        self.assertEqual(self.real_live(), {"other": "review: UIB-2"})      # listed, with no process: it does not run
+
+        lines = project_watch.cycle()
+
+        self.assertIn("project billing: its chat had been stopped and was woken", lines)
+        call = json.loads(self.log.read_text().splitlines()[-1])
+        self.assertEqual((call["argv"], call["cwd"]), (["--bg", "--resume", "project-chat"], str(self.root / "copy")))
+        woken = len(self.log.read_text().splitlines())
+        project_watch.cycle()                                               # still listed as stopped: one try an hour
+        self.assertEqual(len(self.log.read_text().splitlines()), woken)
 
     def test_new_project_chat_is_started_with_a_fixed_text(self) -> None:
         self.project()

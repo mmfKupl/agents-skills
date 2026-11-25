@@ -717,6 +717,27 @@ On 2026-11-24 the developer asked for four more things, all written the same day
   ticket straight to development, the developer kept the report: "да гуд".
   Which triggers are on in a project plays no part for a ticket sent by hand:
   that only says what the script watches in the tracker.
+- A project chat that was stopped comes back by itself. On 2026-11-25 the
+  developer found the chat of `my-reviews` shown as "Remote Control
+  disconnected": "опять сломалось что-то". That chat had been restored the
+  evening before with `claude --bg --resume`, after the developer archived it by
+  accident. `~/.claude/daemon.log` on the VM: Claude Code updated itself at 01:40
+  UTC, and at 06:59 retired the chat (`bg retire 1b639043: idle-prompt, idle 8h,
+  worker 2.1.331 (daemon 2.1.332)`); a review chat was retired the same way after
+  eight idle hours. The script still took the chat for running, because Claude
+  Code keeps listing it, so one line waited and no new chat took over. Now only
+  a chat with a process counts as running, and the script wakes the chat on
+  record of a project when it is listed with no process: at each reading of the
+  tracker and before a line is sent, once an hour at most. Woken by hand that
+  morning, the chat kept its row in the sidebar.
+- Emphasis in the texts. The developer on 2026-11-25, with a screenshot of the
+  text about a finished run: "еще в этих текстах (и во всех других) надо как-то
+  акценты поставить маркдауном. а то тяжело читать". The Russian file now marks
+  with bold where a ticket stands, the headings, and the labels ("Итог",
+  "Нужно от тебя", "Отчёт"), and with italics the hints on what to write. The
+  outcome of a step got a label of its own. A notification keeps plain text,
+  and a title that is cut ends with "…". The English texts in the code stay
+  plain: the developer's file decides the look.
 - A button that opens the chat of the agent. The developer asked the same day
   for a button in the text about finished work, "чтобы я на неё нажал и
   автоматически в чат отправилось \"открой мне этого агента\"". The Claude Code

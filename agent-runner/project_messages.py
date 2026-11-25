@@ -27,6 +27,8 @@ DEFAULTS: dict[str, Any] = {
     # One ticket in one line. `{ticket}` is the number, as a link when the address is known.
     "ticket": '{ticket} "{title}": {where}',
     "ticket_untitled": "{ticket}: {where}",
+    # The same line for a notification on the phone, which shows no markdown.
+    "notify_ticket": "{ticket}: {where}",
     "step_unknown": "a run",
     "where_held": "{step} waits for your word to start",
     "where_waiting": "{step} is in the queue",
@@ -65,6 +67,7 @@ DEFAULTS: dict[str, Any] = {
     "board_next": "Send a ticket, or say which trigger to turn on or off.",
 
     # One ticket in full: `agent-projects board <project> <ticket>`, and the news of a report.
+    "card_outcome": "{text}",
     "card_needs": "Needs from you:",
     "card_no_needs": "Nothing is needed from you.",
     "card_report": "Report: [{name}]({link})",
@@ -111,7 +114,7 @@ DEFAULTS: dict[str, Any] = {
     "dismissed": "Dropped: {tickets}.",
 
     # The one line of a notification to the developer's phone. For a ticket it is the
-    # line `ticket_untitled`; `{line}` here is that line.
+    # line `notify_ticket`; `{line}` here is that line.
     "notify_needs": "{line}, your answer is needed",
     "notify_summary": "The daily summary for {project} is in the chat",
 }

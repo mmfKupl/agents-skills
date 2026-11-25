@@ -107,6 +107,21 @@ a chat that the developer reaches through Remote Control.
 - **A run under Codex, or any other host.** The command refuses. Tell the developer
   that this run has no chat to open, and give the report.
 
+## A project chat that Claude Code stopped
+
+Claude Code retires a chat that was started from the shell (`claude --bg`) after it
+sat idle for eight hours, and also when a new version of Claude Code replaces the one
+the chat runs on. The application then shows the chat as "Remote Control
+disconnected", and the developer cannot write to it. Seen on 2026-11-25 on the VM, in
+`~/.claude/daemon.log`: `bg retire <id>: idle-prompt, idle 8h`.
+
+The watching script wakes the chat on record of each project when it finds it listed
+with no process, at each reading of the tracker and before it sends a line:
+`claude --bg --resume <session>` in the chat's folder. The chat keeps its title and
+its row in the sidebar, and calls no model until a message arrives. A chat that the
+developer created in the application is not retired this way: it comes back on the
+next message.
+
 ## Keep the project's chats in one sidebar section
 
 When `agent-projects project show <project>` has `section: true`, each chat of the

@@ -74,9 +74,9 @@ The script writes the typical messages. Three commands print text for the develo
 
 A command that changes something answers with a line for the developer under `say`.
 
-Show such text as it is printed: every line, in the same order, with its links, and
-nothing before, between, or after it. Do not retell it, shorten it, reorder it, or
-add advice. When it is not in the developer's language, translate it line by line.
+Show such text as it is printed: every line, in the same order, with its links and
+its bold and italics, and nothing before, between, or after it. Do not retell it,
+shorten it, reorder it, add advice, or add emphasis of your own. When it is not in the developer's language, translate it line by line.
 Run `board` and `news` in this chat's working directory: they put a copy of a report
 there, because the application opens only files that lie there.
 

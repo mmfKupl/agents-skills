@@ -52,12 +52,12 @@ where_open: "{where}, чат открыт: {chat}"
 
 # Состояние проекта: agent-projects board <проект>.
 # Заголовок маркдауна приложение рисует как обычный жирный текст, поэтому строка одна.
-board_project: "**Проект `{project}`** · {covers}"
-covers_linear: "проект Linear {name}"
-covers_tickets: "тикеты {tickets}"
-covers_assignee: "все тикеты, назначенные на тебя"
-covers_none: "тикеты пока не названы"
-covers_and: " и "
+board_project: "**Проект `{project}`**\n{covers}"
+covers_linear: "Проект Linear {name}"
+covers_tickets: "Тикеты {tickets}"
+covers_assignee: "Все тикеты, назначенные на тебя"
+covers_none: "Тикеты пока не названы"
+covers_and: ". "
 # Показываются только включённые триггеры, таблицей: шапка и одна строка.
 board_triggers: "| Включённый триггер | Что делает |\n|---|---|"
 trigger_on: "| `{trigger}` | {about} |"

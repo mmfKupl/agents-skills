@@ -117,7 +117,6 @@ check:
   prompt: |
     Read the comment, the ticket's record in agent-projects, and the last
     review report. Answer with exactly one outcome:
-    - own_review: the current user wrote review remarks themself;
     - author_answered: the author replied to review points, or says the fixes
       are pushed;
     - noise: thanks, status chatter, bots, agent reports.
@@ -126,12 +125,6 @@ run:
     command: /review-task {ticket}
     model: opus
     effort: high
-  own_review:
-    prompt: |
-      Add the current user's remarks to the ticket's record, so that the next
-      review run takes them into account. Start nothing.
-    model: haiku
-    effort: low
   author_answered:
     prompt: |
       Report which review points the author closed, which stay open, and the
@@ -146,9 +139,16 @@ and `skills/project-master/references/triggers.md` is the format that agents rea
 The script refuses a file with anything it does not read, so that a misspelled
 condition never widens what a trigger starts.
 
-`own_review` only records. The developer chose this on 2026-11-23: their own
-comment usually means they have already looked, and a second review costs
-several agents on strong models.
+Until 2026-11-26 the check had a third outcome, `own_review`, which only recorded
+the developer's own remarks (chosen on 2026-11-23: their own comment usually means
+they have already looked, and a second review costs several agents on strong
+models). On 2026-11-26 a comment that the project chat posted for the developer
+went to the check and to that run, and the developer said: "так быть не должно.
+нужно првоерять кто оставил коммент и не разбирать мои комменты а только ответы
+на мои". The comment entries of `my review` now have `actor: not_current_user`:
+the developer's own comment makes no event, and the outcome is gone. `my progress`
+is unchanged: there the developer's own comment on work an agent did is review
+feedback.
 
 ### `my progress`
 

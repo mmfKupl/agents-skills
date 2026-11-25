@@ -3,7 +3,7 @@
 name: my review
 # Words for the developer, shown as they are: the trigger in one line. A run's `label` is how its step is called; a
 # run that starts a skill is called by the skill's words in ../messages.yaml.
-about: "Тикет перевели в In Review на тебя, и это сделал не ты: запускает ревью. Новые комментарии к таким тикетам разбирает проверка"
+about: "Тикет перевели в In Review на тебя, и это сделал не ты: запускает ревью. Чужие новые комментарии к таким тикетам разбирает проверка"
 on_any:
   - source: linear
     event: status_changed
@@ -15,10 +15,12 @@ on_any:
   - source: linear
     event: comment_added
     ticket: reviewed_in_current_env     # a review of it is on record here
+    actor: not_current_user             # the developer's own comment starts nothing
     skip: agent_comment
   - source: github
     event: pr_review_or_comment
     ticket: reviewed_in_current_env
+    actor: not_current_user
     skip: agent_comment
 check:
   model: haiku
@@ -26,7 +28,6 @@ check:
   prompt: |
     Read the comment, the ticket's record on this machine, and the last review
     report. Answer with exactly one outcome:
-    - own_review: the current user wrote review remarks themself;
     - author_answered: the author replied to review points, or says the fixes
       are pushed;
     - noise: thanks, status chatter, bots, agent reports.
@@ -35,14 +36,6 @@ run:
     command: /review-task {ticket}
     model: opus
     effort: high
-  own_review:
-    prompt: |
-      Add the current user's remarks to the ticket's record, so that the next
-      review run takes them into account. Start nothing.
-    label: запись твоих замечаний
-    model: haiku
-    effort: low
-    quiet: true                         # only a record; the project chat is not told
   author_answered:
     prompt: |
       Report which review points the author closed, which stay open, and the

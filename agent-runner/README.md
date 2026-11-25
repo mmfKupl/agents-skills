@@ -402,7 +402,8 @@ stop, and the notification to send.
   from the moment its trigger was turned on, once, and the comments that came in
   since the last reading of a ticket are one event. Agent reports (`$develop-please:`),
   bot commands (`/e2e-preview`), and bots are left out when the entry says
-  `skip: agent_comment`. Such a ticket goes to the project where a chat worked on it,
+  `skip: agent_comment`. With `actor: not_current_user` the
+  developer's own comment makes no event. Such a ticket goes to the project where a chat worked on it,
   else to the one that names it, else to the one that covers its Linear project.
 - An entry with no `then` goes through the trigger's `check`: the loop writes a packet
   (the event, the ticket, its status history, its record here, the last report) and

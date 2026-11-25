@@ -39,6 +39,7 @@ on_any:
   - source: linear
     event: comment_added
     ticket: reviewed_in_current_env
+    actor: not_current_user
     skip: agent_comment
 check:
   model: haiku
@@ -87,7 +88,10 @@ them as they are, so write them in the developer's language:
   planned or developed it). Optional: `skip: agent_comment`, which leaves out what no
   person wrote for a reviewer: a comment that starts with the name of an agent's
   skill, such as `$develop-please:`, a command for a bot, such as `/e2e-preview`, and
-  anything a bot posted.
+  anything a bot posted. Optional: `actor`, `current_user` or `not_current_user`: only
+  a comment written by that side makes an event. With `not_current_user` the
+  developer's own comment starts nothing, also one the project chat posted for
+  them; when someone else answers it, both go to the check together.
 - `then` names the entry of `run` that the event starts. An entry with no `then`
   goes to `check`. A comment entry with `then` ignores comments written from the
   current user's own account: with no check, nothing tells the developer from an

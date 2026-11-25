@@ -72,8 +72,8 @@ HAND = "sent_by_hand"
 # The fields an entry of each kind may hold, besides `source` and `event`.
 ENTRY_FIELDS = {
     ("linear", STATUS): {"to", "from", "assignee", "actor", "skip", "then"},
-    ("linear", COMMENT): {"ticket", "skip", "then"},
-    ("github", PULL): {"ticket", "skip", "then"},
+    ("linear", COMMENT): {"ticket", "actor", "skip", "then"},
+    ("github", PULL): {"ticket", "actor", "skip", "then"},
 }
 TICKET_RULES = {"reviewed_in_current_env": "was reviewed", "worked_on_in_current_env": "was worked on"}
 RUN_FIELDS = {"command", "prompt", "model", "effort", "quiet", "label"}
@@ -276,6 +276,8 @@ def _read_trigger(path: Path) -> dict[str, Any]:
                 raise bad(f"a {kind[1]} entry needs `ticket`: {' or '.join(TICKET_RULES)}")
             if entry.get("skip", "agent_comment") != "agent_comment":
                 raise bad(f"`skip` of a {kind[1]} entry must be agent_comment")
+            if entry.get("actor", WHO[0]) not in WHO:
+                raise bad(f"`actor` must be {' or '.join(WHO)}")
         if "then" in entry and (not isinstance(entry["then"], str) or entry["then"] not in runs):
             raise bad("`then` must name an entry of `run`")
         if "then" not in entry and check is None:
@@ -297,6 +299,8 @@ def _when(entry: dict[str, Any]) -> str:
     else:
         where = "in Linear" if entry["event"] == COMMENT else "on the pull request, as a review or a comment,"
         parts = [f"a comment appears {where} for a ticket that {TICKET_RULES[entry['ticket']]} on this machine"]
+        if "actor" in entry:
+            parts.append("only when " + ("the current user" if entry["actor"] == WHO[0] else "someone else") + " wrote it")
         if entry.get("skip"):
             parts.append("agent reports and bot commands do not count")
     return "; ".join(parts) + (f" -> starts `{entry['then']}`" if "then" in entry else " -> the check decides")
@@ -893,7 +897,11 @@ def poll(now: datetime | None = None) -> dict[str, Any]:
                         fresh = sorted((item for item in items if item["time"] > start and not (
                             entry.get("skip") and (item["bot"] or AGENT_COMMENT.match(item["text"])))),
                             key=lambda item: item["time"])
-                        if fresh:
+                        # With `actor`, only a comment by that side makes an event. The
+                        # other side's comments of the same reading still go into it, so
+                        # that an answer is read next to what it answers.
+                        wanted_mine = {WHO[0]: True, WHO[1]: False}.get(entry.get("actor"))
+                        if fresh and (wanted_mine is None or any(item["mine"] == wanted_mine for item in fresh)):
                             more = f" (and {len(fresh) - 1} more before it)" if len(fresh) > 1 else ""
                             add(name, trigger, index, fresh[-1]["id"], issue, fresh[-1]["what"] + more, fresh)
                             state["read_until"][mark] = fresh[-1]["time"]

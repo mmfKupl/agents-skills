@@ -1409,31 +1409,6 @@ def _where(state: dict[str, Any], root: Path, name: str, ticket: str, triggers: 
     return (say("where_chat", chats=", ".join(holders)) if holders else say("where_nothing")), None
 
 
-def _under(state: dict[str, Any], root: Path, name: str,
-           triggers: dict[str, dict[str, Any]]) -> tuple[list[str], list[dict[str, Any]]]:
-    """Every ticket that is under a trigger of the project now, with where it stands, and
-    the events those lines speak of."""
-    try:
-        on = projects._load_project(root, name)[1].get("triggers") or []
-    except ProjectsError:
-        on = []
-    lines, events = [], []
-    for trigger in on:
-        document = triggers.get(trigger) or {}
-        if not any(entry["event"] == STATUS for entry in document.get("on_any", [])):
-            continue
-        rows = []
-        for item in state["board"].get(name, []):
-            if item["trigger"] != trigger:
-                continue
-            words, event = _where(state, root, name, item["ticket"], triggers, link=True)
-            rows.append((item["ticket"], item["title"], item["url"], words))
-            events += [event] if event else []
-        # A trigger with no tickets takes one line, with an empty line after it.
-        lines += [say("under", trigger=trigger), *_list(rows)] if rows else [say("under_none", trigger=trigger), ""]
-    return lines, events
-
-
 def _board(state: dict[str, Any], name: str, arrived: set[int], left: list[dict[str, Any]]) -> str:
     """The line that wakes a project chat when a ticket came under one of its triggers or
     left it. What the developer reads about it is in the news."""
@@ -1655,20 +1630,26 @@ def board(project: str, ticket: str | None = None) -> str:
     listed_on = [say("trigger_on", trigger=name, about=str(triggers[name].get("about") or _brief(triggers[name])).rstrip(".") + ".")
                  for name in sorted(on) if name in triggers]
     lines += ["", say("board_triggers"), *listed_on] if listed_on else []
-    under, events = _under(state, root, project, triggers)
-    lines += ["", *(under or [say("board_unwatched")])]
-    listed = {item["ticket"] for item in state["board"].get(project, [])}
-    other = {event["ticket"]: event for event in state["events"]
-             if event["project"] == project and event["state"] in OPEN_STATES and event["ticket"] not in listed}
-    if other:
-        rows = []
-        for event in other.values():
-            words, newest = _where(state, root, project, event["ticket"], triggers, link=True)
-            rows.append((event["ticket"], event.get("title"), event.get("url"), words))
-            events += [newest] if newest else []
-        lines += ["", say("board_other"), *_list(rows)]
+    lines += [] if listed_on else ["", say("board_unwatched")]
+    # One table, each ticket once: first those that wait for the developer's answer, then
+    # those under a trigger that is on, then any other with a run that is not over.
     asks = _asks(state, root, project)
-    lines += ["", say("board_asks"), *_list(asks)] if asks else []
+    newest = {event["ticket"]: event for event in state["events"] if event["project"] == project}
+    under = {item["ticket"]: item for item in state["board"].get(project, []) if item["trigger"] in on}
+    rows, events = {row[0]: row for row in asks}, []
+    for item in [*under.values(), *(event for event in newest.values() if event["state"] in OPEN_STATES)]:
+        if item["ticket"] not in rows:
+            words, event = _where(state, root, project, item["ticket"], triggers, link=True)
+            rows[item["ticket"]] = (item["ticket"], item.get("title"), item.get("url"), words)
+            events += [event] if event else []
+    if rows:
+        lines += ["", say("work"), "", *say("work_list_head").splitlines()]
+        for number, title, url, words in rows.values():
+            trigger = (under.get(number) or newest.get(number) or {}).get("trigger")
+            lines.append(say("work_item", ticket=_tick(number, url), title=_title(title) if title else "", where=words,
+                             trigger=say("work_trigger", trigger=trigger) if trigger else ""))
+    elif listed_on:
+        lines += ["", say("work_none")]
     lines += ["", say("board_read", time=_clock(state["polled"]), watching=_watching_words(state)) if state.get("polled")
               else say("board_never", watching=_watching_words(state))]
     return _tidy(lines) + _for_chat([*_showing(events), *(

@@ -1150,7 +1150,8 @@ run:
             self.assertEqual(self.states(), {"UIB-7": "started"})
             tell.assert_not_called()                                          # the chat that asked knows of the run
             shown = self.command("board", "billing")[1]
-            self.assertIn('Also not over:\n- [UIB-7](https://linear.app/x/issue/UIB-7) "Limits": review-task is going\n', shown)
+            self.assertIn('Tickets in work:\n\n| Ticket | Title | Where it stands | Trigger |\n|---|---|---|---|\n'
+                          '| [UIB-7](https://linear.app/x/issue/UIB-7) | Limits | review-task is going |  |\n', shown)
             self.assertTrue(shown.strip().endswith(
                 f"{project_watch.CHAT_PART}\n- show UIB-7 while it goes, unless this chat does already: run "
                 "`agent-projects watch wait 1` in the background"))
@@ -1302,17 +1303,19 @@ run:
 
         printed = self.command("board", "mine", "--first")[1].splitlines()     # the flag of an earlier skill still passes
 
-        self.assertEqual(printed[:7], [
+        self.assertEqual(printed[:10], [
             "Project mine: every ticket assigned to you.",
             "",
             "Triggers:",
             f"- my review: {self.words('my review')['about']}.",    # only what is on, in the trigger's own words
             "",
-            "Trigger `my review`:",
-            '- [UIB-1](https://linear.app/x/UIB-1) "Title of UIB-1": review waits for your word to start',
+            "Tickets in work:",                                      # one table, each ticket once
+            "",
+            "| Ticket | Title | Where it stands | Trigger |", "|---|---|---|---|",
+            "| [UIB-1](https://linear.app/x/UIB-1) | Title of UIB-1 | review waits for your word to start | `my review` |",
         ])
-        self.assertRegex(printed[8], r"^The tracker was read at \d{4}-\d\d-\d\d \d\d:\d\d UTC; watching is not running\.$")
-        self.assertEqual(len(printed), 9)                             # nothing follows that line
+        self.assertRegex(printed[11], r"^The tracker was read at \d{4}-\d\d-\d\d \d\d:\d\d UTC; watching is not running\.$")
+        self.assertEqual(len(printed), 12)                            # nothing follows that line
         # A trigger with no words of its own is described from its conditions.
         self.assertIn("a ticket moved to In Review, assigned to the developer, by someone else: starts /review-task",
                       project_watch._brief(project_watch.load_triggers()[0]["my review"]))
@@ -1433,14 +1436,13 @@ run:
         self.assertEqual(self.command("board", "billing", "UIB-7")[1].rstrip("\n").splitlines(), [*card, opening])
         self.assertEqual(self.command("board", "billing", "UIB-9")[1].strip(), "UIB-9 has no record on this machine.")
         # The board says that this report still waits for an answer, until a decision is on record.
-        waits = ("Wait for your answer:\n- [UIB-7](https://linear.app/x/issue/UIB-7) \"Limits\": review: 1 questions in the "
-                 f"[report](.agent-reports/{name})")
+        waits = ("| [UIB-7](https://linear.app/x/issue/UIB-7) | Limits | waits for your answer: review, 1 questions in the "
+                 f"[report](.agent-reports/{name}) |  |")
         self.assertIn(waits, self.command("board", "billing")[1])
-        # A trigger with no tickets takes one line.
-        self.assertIn("\nTrigger `my review`: no tickets.\n", self.command("board", "billing")[1])
         time.sleep(1.1)
         self.ok("ticket", "note", "UIB-7", "decision: publish it")
-        self.assertNotIn("Wait for your answer", self.command("board", "billing")[1])
+        # With the answer on record and nothing else going, the table gives way to one line.
+        self.assertIn("\nNo tickets in work.\n", self.command("board", "billing")[1])
 
         with patch.object(sys, "stdin", io.StringIO("$review-task UIB-7\n")):   # once more: the earlier verdict is not its outcome
             again = self.ok("watch", "add", "billing", "UIB-7", "--title", "Limits", "--about", "after the fixes")
@@ -1540,8 +1542,8 @@ run:
             project_watch.cycle(read_tracker=False)
         shown = self.command("board", "billing")[1]
         name = f"{project_watch._stamp()[:10]}-UIB-1-review.md"
-        self.assertIn("\n\n| Тикет | Название | Состояние |\n|---|---|---|\n| [UIB-1](https://linear.app/x/UIB-1) | Title of UIB-1 | "
-                      f"ревью: [отчёт готов](.agent-reports/{name}) |\n\n", shown)
+        self.assertIn("\n\n| Тикет | Название | Состояние | Триггер |\n|---|---|---|---|\n| [UIB-1](https://linear.app/x/UIB-1) | Title of UIB-1 | "
+                      f"ревью: [отчёт готов](.agent-reports/{name}) | `my review` |\n\n", shown)
         self.assertNotIn("\n\n\n", shown)
 
         own = self.root / "messages.yaml"

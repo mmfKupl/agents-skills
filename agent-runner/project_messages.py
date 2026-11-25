@@ -57,17 +57,20 @@ DEFAULTS: dict[str, Any] = {
     "board_triggers": "Triggers:",
     # Only the triggers that are on are listed.
     "trigger_on": "- {trigger}: {about}",
-    "under": "Trigger `{trigger}`:",
-    "under_none": "Trigger `{trigger}`: no tickets.",
     # A list of tickets: what stands over it, such as the head of a table, and one
     # ticket in it. `{line}` is the ticket's whole line; a table takes the parts.
     "list_head": "",
     "item": "- {line}",
     "board_unwatched": "No trigger is on, so nothing is watched.",
-    "board_other": "Also not over:",
-    # Tickets whose last report asks the developer something that has no answer on record.
-    "board_asks": "Wait for your answer:",
-    "where_asks": "{step}: {count} questions in the [report]({link})",
+    # The tickets of a project that are in work, each once, in one table: those whose last
+    # report asks the developer something that has no answer on record, those under a
+    # trigger that is on, and any other with a run that is not over.
+    "work": "Tickets in work:",
+    "work_list_head": "| Ticket | Title | Where it stands | Trigger |\n|---|---|---|---|",
+    "work_item": "| {ticket} | {title} | {where} | {trigger} |",
+    "work_trigger": "`{trigger}`",
+    "work_none": "No tickets in work.",
+    "where_asks": "waits for your answer: {step}, {count} questions in the [report]({link})",
     "board_read": "The tracker was read at {time}; watching is {watching}.",
     "board_never": "The tracker has not been read yet; watching is {watching}.",
     "watching_running": "running",

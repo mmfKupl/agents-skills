@@ -443,8 +443,9 @@ kept all the same, and `agent-projects news <project>` prints it.
 ## The board
 
 `agent-projects board <project>` prints what the project covers, the triggers that are
-on, every ticket that is under a trigger now with where it stands, and what else is
-not over. The triggers that are off are not on it: `agent-projects trigger list
+on, and one table of the tickets in work, each once: those whose last report waits for
+the developer's answer, those under a trigger that is on, and any other with a run that
+is not over, each with where it stands and its trigger. The triggers that are off are not on it: `agent-projects trigger list
 --project <project>` shows them when the developer asks which there are. Show it in the first answer of this chat and whenever the developer
 asks where things stand.
 

@@ -878,6 +878,14 @@ On 2026-11-24 the developer asked for four more things, all written the same day
   takes one line ("мб в одну строку"), and the Linear project is a link ("можно
   с сылку дать на проект в линерее"). The watching script asks Linear for that
   address once per project and keeps it in `watch.yaml` under `links`.
+- The same day the developer asked what the list under a trigger was for ("я все
+  равно не понимаю зщачем нужен этот блок") and took one table instead of three
+  lists ("да круто. можно еще одной колонкой в конце показать под какой тригер
+  попало"): "Тикеты в работе", each ticket once, first those that wait for an
+  answer, with the trigger in the last column. What the project covers stands on
+  a line of its own, without a label ("слово тикеты не надо"); a markdown heading
+  was tried for the first line and dropped, because the application draws it like
+  bold text.
 
 Left from the reviews:
 - About 22 lines that can be cut, and two commands nobody needs daily

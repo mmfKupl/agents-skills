@@ -57,8 +57,7 @@ DEFAULTS: dict[str, Any] = {
     "board_triggers": "Triggers:",
     # Only the triggers that are on are listed.
     "trigger_on": "- {trigger}: {about}",
-    "under": 'Under "{trigger}" now:',
-    "under_heading": "{heading}:",
+    "under": "Trigger `{trigger}`:",
     # A list of tickets: what stands over it, such as the head of a table, and one
     # ticket in it. `{line}` is the ticket's whole line; a table takes the parts.
     "list_head": "",
@@ -105,13 +104,24 @@ DEFAULTS: dict[str, Any] = {
     "news_sorted": '{line}\n{title}\nThe check of the trigger "{trigger}" chose this.',
     # Stands where a ticket's line says where the ticket is.
     "where_nothing_to_start": 'the check of the trigger "{trigger}" found nothing to start ({outcome})',
-    "left_closed": '{ticket} "{title}" is closed ({status}).',
-    "left_moved": '{ticket} "{title}" left: it is now {status}, assigned to {assignee}.',
-    "arrived": 'New: {ticket} "{title}".',
     "burst": "{count} new events are in the queue, and at most {limit} runs go at once. Say which to drop, if any.",
-    # Every piece of news starts the same way: what it is about, what happened, and
-    # whether the developer is needed.
-    "changed_head": "{project} · tickets changed · new: {new}, left: {left}",
+    # Tickets that came under a trigger or left it: a head with the trigger and how many
+    # of each, then a table with only those tickets. `{counts}` is the count texts below,
+    # joined by `changed_join`; each has a text of its own for one ticket.
+    "changed_head": "Trigger `{trigger}` · {counts}",
+    "changed_join": ", ",
+    "changed_new_one": "1 new",
+    "changed_new": "{count} new",
+    "changed_closed_one": "1 closed",
+    "changed_closed": "{count} closed",
+    "changed_moved_one": "1 left",
+    "changed_moved": "{count} left",
+    "changed_list_head": "| Ticket | Title | What happened | Where it stands |\n|---|---|---|---|",
+    "changed_item": "| {ticket} | {title} | {what} | {where} |",
+    "changed_what_new": "new",
+    "changed_what_closed": "closed ({status})",
+    "changed_what_moved": "now {status}, assigned to {assignee}",
+    # The daily summary starts with what it is and whether the developer is needed.
     "summary_head": "{project} · daily summary · wait for your answer: {asks}",
     "summary_finished": "- finished: {ticket} ({step})",
     "summary_failed": "- failed: {ticket} ({step}): {note}",
@@ -139,6 +149,7 @@ DEFAULTS: dict[str, Any] = {
     # The one line of a notification to the developer's phone. For a ticket it is the
     # line `notify_ticket`; `{line}` here is that line.
     "notify_needs": "{line}, your answer is needed",
+    "notify_changed": "Trigger {trigger}: {counts}",
     "notify_summary": "The daily summary for {project} is in the chat",
 }
 

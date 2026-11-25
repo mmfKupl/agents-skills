@@ -1275,16 +1275,14 @@ run:
         self.assertEqual(tell.call_args.args[3], "Tickets changed in billing. New: UIB-2.")
         # What the developer reads comes from the script, ready to show.
         self.assertEqual(self.news(), [
-            "billing · tickets changed · new: 1, left: 0",
-            'New: [UIB-2](https://linear.app/x/UIB-2) "Title of UIB-2".',
+            "Trigger `my review` · 1 new",                           # only the ticket that came, not all under the trigger
             "",
-            f"{self.words('my review')['heading']}:",
-            '- [UIB-1](https://linear.app/x/UIB-1) "Title of UIB-1": review is going',
-            '- [UIB-2](https://linear.app/x/UIB-2) "Title of UIB-2": review is going',
+            "| Ticket | Title | What happened | Where it stands |", "|---|---|---|---|",
+            "| [UIB-2](https://linear.app/x/UIB-2) | Title of UIB-2 | new | review is going |",
             "",
             project_watch.CHAT_PART,
-            "- show UIB-1 while it goes, unless this chat does already: run `agent-projects watch wait 1` in the background",
             "- show UIB-2 while it goes, unless this chat does already: run `agent-projects watch wait 2` in the background",
+            "- notify: Trigger my review: 1 new",
         ])
         self.assertEqual(self.news(), ["Nothing new."])               # read once
         self.assertNotIn("known", project_watch.events(None, True)["events"][0])
@@ -1306,7 +1304,7 @@ run:
             "Triggers:",
             f"- my review: {self.words('my review')['about']}.",    # only what is on, in the trigger's own words
             "",
-            f"{self.words('my review')['heading']}:",
+            "Trigger `my review`:",
             '- [UIB-1](https://linear.app/x/UIB-1) "Title of UIB-1": review waits for your word to start',
         ])
         self.assertRegex(printed[8], r"^The tracker was read at \d{4}-\d\d-\d\d \d\d:\d\d UTC; watching is not running\.$")
@@ -1318,11 +1316,10 @@ run:
     def test_ticket_that_leaves_a_trigger_is_told_once_with_what_stays_under_it(self) -> None:
         self.watched_project()
         self.issues = [issue(f"UIB-{number}", minutes_ago=30) for number in (1, 2, 3)]
-        heading = f"{self.words('my review')['heading']}:"
         with patch.object(project_watch, "_tell", return_value=None) as tell:
             project_watch.cycle()
-            # The head, three new tickets, a blank line, the heading and the three under the trigger, then the chat's part.
-            self.assertEqual(len(self.news()), 14)
+            # The head, a blank line, the table of three new tickets, then the chat's part.
+            self.assertEqual(self.news()[0], "Trigger `my review` · 3 new")
             self.wait_for_runs()
             self.reviewed("UIB-1")                                   # it has a history on this machine
             self.issues, self.closed = [issue("UIB-2", minutes_ago=30)], {"UIB-1"}     # one closed, one moved on
@@ -1335,17 +1332,16 @@ run:
         self.assertEqual(self.boards(tell), ["Tickets changed in billing. New: UIB-1, UIB-2, UIB-3.",
                                              "Tickets changed in billing. Left: UIB-1, UIB-3.",
                                              "Tickets changed in billing. Left: UIB-2."])
-        gone = left.index('[UIB-1](https://linear.app/x/UIB-1) "Title of UIB-1" is closed (Done).')
-        self.assertEqual(left[gone:gone + 5], [
-            '[UIB-1](https://linear.app/x/UIB-1) "Title of UIB-1" is closed (Done).',
-            '[UIB-3](https://linear.app/x/UIB-3) "Title of UIB-3" left: it is now In Progress, assigned to Other.',
+        gone = left.index("Trigger `my review` · 1 closed, 1 left")
+        self.assertEqual(left[gone:gone + 6], [
+            "Trigger `my review` · 1 closed, 1 left",
             "",
-            heading,
-            '- [UIB-2](https://linear.app/x/UIB-2) "Title of UIB-2": review ended without a report',
+            "| Ticket | Title | What happened | Where it stands |", "|---|---|---|---|",
+            "| [UIB-1](https://linear.app/x/UIB-1) | Title of UIB-1 | closed (Done) |  |",
+            "| [UIB-3](https://linear.app/x/UIB-3) | Title of UIB-3 | now In Progress, assigned to Other |  |",
         ])
-        self.assertEqual(self.news()[:5], ["billing · tickets changed · new: 0, left: 1",
-                                           '[UIB-2](https://linear.app/x/UIB-2) "Title of UIB-2" is closed (Done).', "",
-                                           heading, "- none"])
+        self.assertEqual(self.news()[:5], ["Trigger `my review` · 1 closed", "", "| Ticket | Title | What happened | Where it stands |", "|---|---|---|---|",
+                                           "| [UIB-2](https://linear.app/x/UIB-2) | Title of UIB-2 | closed (Done) |  |"])
         history = {item["ticket"]: item["last_event"] for item in self.ok("status")["tickets"]}
         self.assertTrue(history["UIB-1"].endswith("closed in the tracker: Done"))
         self.assertNotIn("UIB-2", history)                           # no record here: none is made for a note

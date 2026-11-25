@@ -698,8 +698,8 @@ On 2026-11-24 the developer asked for four more things, all written the same day
   - The words are in one file, `skills/project-master/messages.yaml`, in Russian,
     over English ones in `agent-runner/project_messages.py`; a file of the same
     name in the projects folder of a machine wins. A trigger file holds only the
-    trigger's own words: `about`, `heading`, and a `label` for a run with a
-    prompt. Whole templates per trigger were not built: the sentences are the
+    trigger's own words: `about` and a `label` for a run with a prompt (a
+    `heading` over the trigger's tickets was dropped on 2026-11-25, see below). Whole templates per trigger were not built: the sentences are the
     same for every trigger, and half of the messages have no trigger.
   - Left to the chat's own words: a question to the developer, an answer that
     these texts do not cover, and a problem with a command.
@@ -859,6 +859,19 @@ On 2026-11-24 the developer asked for four more things, all written the same day
   "open UIB-123", and no question is asked. The developer looked at a trial chat
   on the VM that showed such a text and decided: "кнопок нет. давай тогла без
   этого". No button is built.
+
+- 2026-11-25, the news of tickets that came under a trigger or left it. The
+  developer looked at one in the live chat ("слишком монго мусорного текста", and
+  of the list of every ticket under the trigger: "«в ревью сейчас» тоже тупо") and
+  picked from samples: a head "Триггер `my-review` · 2 новых, 1 закрыт" and under it
+  one table with only the tickets that changed, with what happened and where each
+  stands. Zero counts are not written, the project's name is not in the head, and
+  the trigger's name stands in backticks ("давай тригер в ` ` обернем"). The
+  heading over a trigger's tickets in the state of a project names the trigger the
+  same way, so a trigger file has no `heading` any more.
+- The same day: "я не получаю уведомления когда приходят эти ивенты о тригерах".
+  This news asked for no notification; it now asks for one per trigger, such as
+  "Триггер my-review: 1 новый".
 
 Left from the reviews:
 - About 22 lines that can be cut, and two commands nobody needs daily

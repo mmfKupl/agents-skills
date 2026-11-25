@@ -28,7 +28,6 @@ match. This file holds the format and how to show triggers to the developer.
 ```yaml
 name: my review
 about: "a ticket was moved to In Review for you by someone else: starts a review"
-heading: In review now
 on_any:
   - source: linear
     event: status_changed
@@ -61,14 +60,12 @@ run:
   noise: skip
 ```
 
-Three fields hold the trigger's own words for the developer. The project chat shows
+Two fields hold the trigger's own words for the developer. The project chat shows
 them as they are, so write them in the developer's language:
 
 - `about`: the trigger in one line, for the list of triggers in the state of a
   project. Without it the script describes the trigger from its conditions, in
   English.
-- `heading`: the heading over the tickets that are under the trigger now, such as
-  "In review now". Without it the heading names the trigger.
 - `label`, in a run: how the step is called in a line about a ticket, such as
   "review is going". It stands before words like "is going" and "report is ready".
   A run with a `command` needs none when `messages.yaml` next to the project-master

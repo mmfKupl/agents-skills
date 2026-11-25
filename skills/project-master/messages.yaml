@@ -60,8 +60,7 @@ covers_and: " и "
 # Показываются только включённые триггеры.
 board_triggers: "**Включённые триггеры:**"
 trigger_on: "- **{trigger}:** {about}"
-under: "**Под «{trigger}» сейчас:**"
-under_heading: "**{heading}:**"
+under: "**Триггер `{trigger}`:**"
 # Список тикетов таблицей: шапка и одна строка. Вместо {ticket}, {title}, {where}
 # можно взять {line}, готовую строку о тикете, и убрать шапку: получится обычный список.
 list_head: "| Тикет | Название | Состояние |\n|---|---|---|"
@@ -106,12 +105,24 @@ news_rule: "---"
 news_started: "{line}\n{title}\nЗапустил триггер «{trigger}»."
 news_sorted: "{line}\n{title}\nТак решила проверка триггера «{trigger}»."
 where_nothing_to_start: "проверка триггера «{trigger}» решила, что запускать нечего ({outcome})"
-left_closed: "**Закрыт:** {ticket} «{title}» ({status})."
-left_moved: "**Ушёл:** {ticket} «{title}», теперь {status}, назначен на {assignee}."
-arrived: "**Новый:** {ticket} «{title}»."
 burst: "В очереди {count} новых событий, а одновременно идёт не больше {limit}. Скажи, какие снять, если они не нужны."
-# Любая новость начинается одинаково: про что она, что случилось и нужен ли ты.
-changed_head: "**{project} · тикеты изменились · новых: {new}, ушло: {left}**"
+# Тикеты пришли под триггер или ушли из-под него: шапка с триггером и числами, под ней
+# таблица только с этими тикетами. {counts} собирается из текстов ниже через changed_join;
+# для одного тикета у каждого свой текст.
+changed_head: "**Триггер `{trigger}` · {counts}**"
+changed_join: ", "
+changed_new_one: "1 новый"
+changed_new: "{count} новых"
+changed_closed_one: "1 закрыт"
+changed_closed: "{count} закрыто"
+changed_moved_one: "1 ушёл"
+changed_moved: "{count} ушло"
+changed_list_head: "| Тикет | Название | Что случилось | Состояние |\n|---|---|---|---|"
+changed_item: "| {ticket} | {title} | {what} | {where} |"
+changed_what_new: "новый"
+changed_what_closed: "закрыт ({status})"
+changed_what_moved: "теперь {status}, на {assignee}"
+# Сводка за день начинается с того, что это и нужен ли ты.
 summary_head: "**{project} · сводка за день · ждут твоего ответа: {asks}**"
 summary_finished: "- **Готово:** {ticket}, {step}"
 summary_failed: "- **Ошибка:** {ticket}, {step}: {note}"
@@ -137,4 +148,5 @@ dismissed: "Снято: {tickets}."
 
 # Одна строка уведомления на телефон. Про тикет это строка notify_ticket; {line} здесь она же.
 notify_needs: "{line}, нужен твой ответ"
+notify_changed: "Триггер {trigger}: {counts}"
 notify_summary: "Сводка за день по {project} в чате"

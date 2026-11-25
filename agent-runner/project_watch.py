@@ -79,7 +79,7 @@ TICKET_RULES = {"reviewed_in_current_env": "was reviewed", "worked_on_in_current
 RUN_FIELDS = {"command", "prompt", "model", "effort", "quiet", "label"}
 # A trigger's own words for the developer: what it does in one line, and the heading over
 # the tickets that are under it. A run's `label` is how its step is called.
-TRIGGER_WORDS = ("about", "heading")
+TRIGGER_WORDS = ("about",)
 # Text no person wrote for a reviewer: an agent's report, which starts with the name of
 # its skill (`$develop-please:`), or a command for a bot (`/e2e-preview ...`).
 AGENT_COMMENT = re.compile(r"\s*(\$[a-z][a-z0-9-]*:|/[a-z][a-z0-9-]*(\s|$))")
@@ -813,7 +813,9 @@ def poll(now: datetime | None = None) -> dict[str, Any]:
             except ProjectsError as error:
                 problems.append(f"project {name}: {error}")
                 continue  # the list stays as it was, so the tickets that left are asked about again
+            was = {item["ticket"]: item["trigger"] for item in state["board"].get(name, [])}
             left[name] = [{"ticket": node["identifier"].upper(), "title": _title(node.get("title")),
+                           "trigger": was.get(node["identifier"].upper()),
                            "url": _link(node.get("url"), node["identifier"].upper()),
                            "status": _name((node.get("state") or {}).get("name"), "another status"),
                            "closed": (node.get("state") or {}).get("type") in CLOSED_TYPES,
@@ -1407,8 +1409,7 @@ def _under(state: dict[str, Any], root: Path, name: str,
         document = triggers.get(trigger) or {}
         if not any(entry["event"] == STATUS for entry in document.get("on_any", [])):
             continue
-        lines.append(say("under_heading", heading=document["heading"]) if document.get("heading")
-                     else say("under", trigger=trigger))
+        lines.append(say("under", trigger=trigger))
         rows = []
         for item in state["board"].get(name, []):
             if item["trigger"] != trigger:
@@ -1695,13 +1696,31 @@ def _news_item(item: dict[str, Any], state: dict[str, Any], root: Path, project:
         return text, [*chat, f"stop the background command that shows {event['ticket']}, if this chat runs one",
                       "notify: " + say("notify_ticket", ticket=event["ticket"], where=where)]
     if kind == "changed":
-        lines = [say("left_closed" if left["closed"] else "left_moved", ticket=_tick(left["ticket"], left.get("url")),
-                     title=left["title"], status=left["status"], assignee=left["assignee"]) for left in item.get("left") or []]
-        lines += [say("arrived", ticket=_tick(by_id[number]["ticket"], by_id[number].get("url")),
-                      title=_title(by_id[number].get("title"))) for number in item.get("arrived") or [] if number in by_id]
-        under, events = _under(state, root, project, triggers)
-        head = say("changed_head", project=project, new=len(lines) - len(item.get("left") or []), left=len(item.get("left") or []))
-        return _tidy([head, *lines, "", *under] if under else [head, *lines]).strip(), _showing(events)
+        # One table for each trigger, with only the tickets that came or left.
+        groups: dict[str, dict[str, list[Any]]] = {}
+        came = [by_id[number] for number in item.get("arrived") or [] if number in by_id]
+        for new in came:
+            where = _where(state, root, project, new["ticket"], triggers, link=True)[0]
+            groups.setdefault(new.get("trigger") or project, {}).setdefault("new", []).append(say(
+                "changed_item", ticket=_tick(new["ticket"], new.get("url")), title=_title(new.get("title")),
+                what=say("changed_what_new"), where=where))
+        for left in item.get("left") or []:
+            what = (say("changed_what_closed", status=left["status"]) if left["closed"]
+                    else say("changed_what_moved", status=left["status"], assignee=left["assignee"]))
+            groups.setdefault(left.get("trigger") or project, {}).setdefault(
+                "closed" if left["closed"] else "moved", []).append(say(
+                    "changed_item", ticket=_tick(left["ticket"], left.get("url")), title=left["title"], what=what, where=""))
+        lines: list[str] = []
+        notes = []
+        for trigger, rows in groups.items():
+            counts = say("changed_join").join(
+                say(f"changed_{key}_one" if len(rows[key]) == 1 else f"changed_{key}", count=len(rows[key]))
+                for key in ("new", "closed", "moved") if rows.get(key))
+            notes.append("notify: " + say("notify_changed", trigger=trigger, counts=counts))
+            lines += ["", say("changed_head", trigger=trigger, counts=counts), "",
+                      *say("changed_list_head").splitlines(),
+                      *(row for key in ("new", "closed", "moved") for row in rows.get(key, [])), ""]
+        return _tidy(lines).strip(), [*_showing(came), *notes]
     if kind == "burst":
         return say("burst", count=item["count"], limit=item["limit"]), []
     if kind == "text":

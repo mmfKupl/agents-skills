@@ -1,11 +1,9 @@
 # Work that lands on the current user, and what comes back on work an agent did here.
 # Format and rules: skills/project-master/references/triggers.md.
 name: my progress
-# Words for the developer, shown as they are: the trigger in one line, and the heading
-# over the tickets that are under it. A run's `label` is how its step is called; a
+# Words for the developer, shown as they are: the trigger in one line. A run's `label` is how its step is called; a
 # run that starts a skill is called by the skill's words in ../messages.yaml.
 about: "Тикет перевели в In Progress на тебя: проверка решает, что запустить. Новые комментарии к таким тикетам разбирает проверка"
-heading: В работе сейчас
 on_any:
   - source: linear
     event: status_changed

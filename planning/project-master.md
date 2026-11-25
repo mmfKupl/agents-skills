@@ -759,6 +759,14 @@ On 2026-11-24 the developer asked for four more things, all written the same day
   application draws a ticked item of a task list grey and struck through, so a
   tick now stands only for what is done. The board lists the triggers that are on
   as plain lines and ends with the line on when the tracker was read.
+- No task lists and no struck-through text. The developer on 2026-11-25, with
+  a screenshot of a project chat's own answer in which two ticked items stood grey
+  and struck through: "и можно сделать список чтобы без зачеркийваний бл?
+  невозможно читать". The application draws every ticked item that way, so the
+  texts and the rule for the chat's own answers no longer use a task list, and a
+  ticket that left is named with a bold word instead of being struck through.
+  This takes back the task list and the strikethrough picked from the samples
+  earlier that day.
 - A ready report opens from the list. The developer the same day, with a
   screenshot of the list of tickets in review: "и вот еще мне отчет тут ссылкой
   не выдался". In a list, "report is ready" is now a link to the copy of the

@@ -814,6 +814,14 @@ On 2026-11-24 the developer asked for four more things, all written the same day
   script's own state; drop the rest. Codex has one compaction prompt for all
   chats of a machine, so it is left alone. Not checked: how closely a summary
   follows these instructions.
+- A second run on one ticket says what it is. On 2026-11-25 a project chat showed
+  the report of the development of UIB-6667 and, right under it, "разработка
+  запускается" for the same ticket; the developer: "не понял тут ничего. 6667 тикет
+  реализовали, что по нему еще раз запускается разработка?". It was a part they had
+  asked for while the earlier run was going. `agent-projects watch add --about`
+  now gives a run a few words that stand next to its step everywhere, and the
+  skill has the chat say in one line of its own which request such a run carries
+  out, and tell the developer at once when a request has to wait for a run.
 - A button that opens the chat of the agent. The developer asked the same day
   for a button in the text about finished work, "чтобы я на неё нажал и
   автоматически в чат отправилось \"открой мне этого агента\"". The Claude Code

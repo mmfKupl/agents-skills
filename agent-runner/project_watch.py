@@ -1342,9 +1342,11 @@ def _step(event: dict[str, Any], triggers: dict[str, dict[str, Any]]) -> str:
     else the words for its skill, else the name of the run."""
     run, names = _run(event, triggers), messages.texts()["steps"]
     skill = str(run.get("command") or "").lstrip("/$").split()[:1] if isinstance(run, dict) else []
-    return ((run.get("label") if isinstance(run, dict) else None) or names.get(skill[0] if skill else "")
+    step = ((run.get("label") if isinstance(run, dict) else None) or names.get(skill[0] if skill else "")
             or names.get(str(event.get("run")))
             or (str(event["run"]).replace("_", " ") if event.get("run") else say("step_unknown")))
+    # Two runs of one step on one ticket are told apart by what each does.
+    return say("step_about", step=step, about=event["about"]) if event.get("about") else step
 
 
 def _tidy(lines: list[str]) -> str:
@@ -2179,7 +2181,7 @@ def add_sorted(project: str, ticket: str, words: str, trigger: str, title: str |
 
 
 def add_run(project: str, ticket: str, text: str, model: str | None, effort: str | None, title: str | None,
-            url: str | None) -> dict[str, Any]:
+            url: str | None, about: str | None = None) -> dict[str, Any]:
     """Queue a step that the developer asked for in the project chat. It runs the way a
     trigger's run does: out of the sidebar, in a working copy of its own, and the line
     about its end goes to the project chat. `text` is the skill call and, on the lines
@@ -2207,6 +2209,7 @@ def add_run(project: str, ticket: str, text: str, model: str | None, effort: str
     event, answer = _queue_asked(project, ticket, {
         "trigger": None, "run": skill.group(1), "title": title, "url": url, "what": "asked for by the developer",
         "state": "waiting", "asked": {"command": text, "model": model, "effort": effort},
+        **({"about": " ".join(about.split())[:80]} if about and about.strip() else {}),
         # The chat that asked knows of the run, so its start is not told to it.
         "known": True,
     })
@@ -2439,6 +2442,8 @@ def add_commands(commands: Any, project: Any) -> None:
     adding.add_argument("--model", help="by default what a trigger gives the same skill, otherwise "
                                         f"{DEFAULT_RUN[0]}")
     adding.add_argument("--effort", help=f"by default what a trigger gives the same skill, otherwise {DEFAULT_RUN[1]}")
+    adding.add_argument("--about", help="a few words on what this run does, when the ticket has had this step "
+                                        "before or the run does a part of the ticket; shown with the step")
     adding.add_argument("--title", help="the ticket's title, for the board")
     adding.add_argument("--url", help="the ticket's address in the tracker, for the board")
     watch.add_parser("start", help="let the watching loop start held, failed, or skipped events").add_argument(
@@ -2489,7 +2494,7 @@ def run(args: argparse.Namespace) -> dict[str, Any] | str:
             if args.model or args.effort:
                 raise ProjectsError("--model and --effort do not go with --trigger: the trigger names them for each outcome")
             return add_sorted(args.project, args.ticket, text, args.trigger, args.title, args.url)
-        return add_run(args.project, args.ticket, text, args.model, args.effort, args.title, args.url)
+        return add_run(args.project, args.ticket, text, args.model, args.effort, args.title, args.url, args.about)
     if args.action in ("start", "dismiss"):
         return decide(args.ids, "waiting" if args.action == "start" else "dismissed")
     if args.action == "wait":

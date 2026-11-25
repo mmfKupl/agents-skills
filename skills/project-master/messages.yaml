@@ -33,6 +33,8 @@ ticket_untitled: "{ticket}: **{where}**"
 # Та же строка для уведомления на телефон: там маркдаун не показывается.
 notify_ticket: "{ticket}: {where}"
 step_unknown: "запуск"
+# Шаг с парой слов о том, что делает именно этот запуск.
+step_about: "{step} ({about})"
 where_held: "{step} ждёт твоего слова"
 where_waiting: "{step} в очереди"
 where_starting: "{step} запускается"

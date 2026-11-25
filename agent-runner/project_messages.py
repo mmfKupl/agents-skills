@@ -30,6 +30,8 @@ DEFAULTS: dict[str, Any] = {
     # The same line for a notification on the phone, which shows no markdown.
     "notify_ticket": "{ticket}: {where}",
     "step_unknown": "a run",
+    # A step with the few words that say what this run of it does.
+    "step_about": "{step} ({about})",
     "where_held": "{step} waits for your word to start",
     "where_waiting": "{step} is in the queue",
     "where_starting": "{step} is starting",

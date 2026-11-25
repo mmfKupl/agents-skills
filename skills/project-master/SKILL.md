@@ -225,6 +225,17 @@ review under `my review`, and `opus` and `high` when no trigger names the skill.
 `--model` or `--effort` only when the developer named another. The run starts within
 a minute; when three runs go already, it waits in the queue, and then say so.
 
+Pass `--about "<a few words>"` when the ticket has had this step before, or when the
+run does one part of the ticket: say in the developer's language what this run does,
+such as "analytics of the first call". The words stand next to the step everywhere,
+so that two runs of one step are told apart.
+
+A run that the developer's last message did not ask for needs one line of your own
+before its `say`: which request of theirs it carries out, in their words, and why it
+starts only now. Without it, "development is starting" under the report of the same
+ticket reads as a mistake. When a request comes while a run on that ticket goes, say
+at once that it will start after that run, and start it when the run ends.
+
 When the command says that watching is not running, bring it up as step 1 of
 Triggers says and queue the step again. When it says that the ticket has an event
 going already, tell the developer and start nothing.

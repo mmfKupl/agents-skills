@@ -479,3 +479,7 @@ says. Write nothing when there was none.
   says so. Repository notes say what returning a ticket means there.
 - After a review report, offer to post the review to the ticket. Post it only on a
   yes.
+- Write a comment for a ticket or a pull request in the language the developer
+  writes in this chat, unless they name another: a developer who asks in Russian
+  to leave a comment gets a Russian comment, also when the report it comes from
+  or the ticket is in English. Code, names, and quoted text stay as they are.

@@ -886,6 +886,9 @@ On 2026-11-24 the developer asked for four more things, all written the same day
   a line of its own, without a label ("слово тикеты не надо"); a markdown heading
   was tried for the first line and dropped, because the application draws it like
   bold text.
+- 2026-11-26: "если я всё вокруг на русском и я прошу оставить коммент в тикете
+  то он тоже должен быть а русском". The skill's tracker rules now say that a
+  comment is written in the language the developer writes in the chat.
 
 Left from the reviews:
 - About 22 lines that can be cut, and two commands nobody needs daily

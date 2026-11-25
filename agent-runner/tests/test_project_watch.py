@@ -141,6 +141,8 @@ class ProjectWatchTests(unittest.TestCase):
     def fake_linear(self, query: str, variables: dict | None = None, timeout: float = 30) -> dict:
         if "viewer" in query:
             return {"viewer": {"id": "me", "name": "Ivan"}}
+        if "projects(" in query:
+            return {"projects": {"nodes": [{"url": "https://linear.app/x/project/billing-1"}]}}
         if "comments(" in query:
             numbers = variables["filter"]["number"]["in"]
             self.comment_queries.append(numbers)
@@ -1285,6 +1287,8 @@ run:
             "- notify: Trigger my review: 1 new",
         ])
         self.assertEqual(self.news(), ["Nothing new."])               # read once
+        # The Linear project is a link once the tracker was read.
+        self.assertIn("the Linear project [Billing](https://linear.app/x/project/billing-1).", self.command("board", "billing")[1])
         self.assertNotIn("known", project_watch.events(None, True)["events"][0])
 
     def test_board_prints_the_project_the_same_way_every_time(self) -> None:
@@ -1432,6 +1436,8 @@ run:
         waits = ("Wait for your answer:\n- [UIB-7](https://linear.app/x/issue/UIB-7) \"Limits\": review: 1 questions in the "
                  f"[report](.agent-reports/{name})")
         self.assertIn(waits, self.command("board", "billing")[1])
+        # A trigger with no tickets takes one line.
+        self.assertIn("\nTrigger `my review`: no tickets.\n", self.command("board", "billing")[1])
         time.sleep(1.1)
         self.ok("ticket", "note", "UIB-7", "decision: publish it")
         self.assertNotIn("Wait for your answer", self.command("board", "billing")[1])

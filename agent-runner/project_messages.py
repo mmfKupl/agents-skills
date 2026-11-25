@@ -58,11 +58,11 @@ DEFAULTS: dict[str, Any] = {
     # Only the triggers that are on are listed.
     "trigger_on": "- {trigger}: {about}",
     "under": "Trigger `{trigger}`:",
+    "under_none": "Trigger `{trigger}`: no tickets.",
     # A list of tickets: what stands over it, such as the head of a table, and one
     # ticket in it. `{line}` is the ticket's whole line; a table takes the parts.
     "list_head": "",
     "item": "- {line}",
-    "none": "- none",
     "board_unwatched": "No trigger is on, so nothing is watched.",
     "board_other": "Also not over:",
     # Tickets whose last report asks the developer something that has no answer on record.

@@ -94,6 +94,9 @@ query($filter: IssueFilter, $after: String) {
   }
 }
 """
+PROJECT_QUERY = """
+query($name: String!) { projects(filter: {name: {eq: $name}}, first: 1) { nodes { url } } }
+"""
 COMMENTS_QUERY = """
 query($filter: IssueFilter, $after: String) {
   issues(filter: $filter, first: 50, after: $after) {
@@ -655,7 +658,7 @@ def _read_state(root: Path) -> dict[str, Any]:
     for key in ("events", "problems", "messages"):
         state.setdefault(key, [])
     for key in ("baseline", "since", "read_until", "closed_tickets", "seen", "undelivered", "takeover", "digest",
-                "unsent", "board", "woken"):
+                "unsent", "board", "woken", "links"):
         # `baseline` and `closed_tickets` were lists in the first version of this file.
         if not isinstance(state.get(key), dict):
             state[key] = {}
@@ -781,6 +784,16 @@ def poll(now: datetime | None = None) -> dict[str, Any]:
                 problems.append(f"project {name}: {error}")
                 unread.add(name)
                 continue
+            # The address of the Linear project, asked once: the state of a project links to it.
+            covered = (watched[name].get("scope") or {}).get("linear_project")
+            if covered and (state["links"].get(name) or {}).get("name") != covered:
+                try:
+                    nodes = linear(PROJECT_QUERY, {"name": str(covered)})["projects"]["nodes"]
+                except (ProjectsError, KeyError, TypeError):
+                    nodes = []
+                url = str(nodes[0].get("url") or "") if nodes else ""
+                if re.fullmatch(r"https://[\w./-]+", url):
+                    state["links"][name] = {"name": covered, "url": url}
             under: dict[str, dict[str, Any]] = {}
             for trigger in active:
                 first = f"{name}|{trigger['name']}" in hold
@@ -1409,7 +1422,6 @@ def _under(state: dict[str, Any], root: Path, name: str,
         document = triggers.get(trigger) or {}
         if not any(entry["event"] == STATUS for entry in document.get("on_any", [])):
             continue
-        lines.append(say("under", trigger=trigger))
         rows = []
         for item in state["board"].get(name, []):
             if item["trigger"] != trigger:
@@ -1417,7 +1429,8 @@ def _under(state: dict[str, Any], root: Path, name: str,
             words, event = _where(state, root, name, item["ticket"], triggers, link=True)
             rows.append((item["ticket"], item["title"], item["url"], words))
             events += [event] if event else []
-        lines += _list(rows) if rows else [say("none")]
+        # A trigger with no tickets takes one line, with an empty line after it.
+        lines += [say("under", trigger=trigger), *_list(rows)] if rows else [say("under_none", trigger=trigger), ""]
     return lines, events
 
 
@@ -1632,7 +1645,9 @@ def board(project: str, ticket: str | None = None) -> str:
         text, chat = _card(state, root, project, projects._ticket_id(ticket), triggers)
         return text + _for_chat(chat)
     scope, on = document.get("scope") or {}, document.get("triggers") or []
-    covers = [say("covers_linear", name=scope["linear_project"])] if scope.get("linear_project") else []
+    known = state["links"].get(project) or {}
+    covered = scope.get("linear_project")
+    covers = [say("covers_linear", name=f"[{covered}]({known['url']})" if known.get("name") == covered else covered)] if covered else []
     covers += [say("covers_tickets", tickets=", ".join(str(item) for item in scope["tickets"]))] if scope.get("tickets") else []
     covers += [say("covers_assignee")] if scope.get("assignee") == WHO[0] else []
     lines = [say("board_project", project=project, covers=say("covers_and").join(covers) or say("covers_none"))]

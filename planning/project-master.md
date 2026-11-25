@@ -872,6 +872,12 @@ On 2026-11-24 the developer asked for four more things, all written the same day
 - The same day: "я не получаю уведомления когда приходят эти ивенты о тригерах".
   This news asked for no notification; it now asks for one per trigger, such as
   "Триггер my-review: 1 новый".
+- The same day, the state of a project ("вот тут еще что можно сделать"): the
+  first line is a heading ("сделать больше хедингом мб"), the triggers that are on
+  are a table ("про трикеры активные тоже таблицей"), a trigger with no tickets
+  takes one line ("мб в одну строку"), and the Linear project is a link ("можно
+  с сылку дать на проект в линерее"). The watching script asks Linear for that
+  address once per project and keeps it in `watch.yaml` under `links`.
 
 Left from the reviews:
 - About 22 lines that can be cut, and two commands nobody needs daily

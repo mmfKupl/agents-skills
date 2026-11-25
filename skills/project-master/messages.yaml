@@ -52,7 +52,7 @@ where_open: "{where}, чат открыт: {chat}"
 
 # Состояние проекта: agent-projects board <проект>.
 # Первая строка заголовком: с неё начинается состояние проекта.
-board_project: "## Проект {project}\n\n**Тикеты:** {covers}."
+board_project: "## Проект `{project}`\n\n**Тикеты:** {covers}."
 covers_linear: "проект Linear {name}"
 covers_tickets: "тикеты {tickets}"
 covers_assignee: "все тикеты, назначенные на тебя"

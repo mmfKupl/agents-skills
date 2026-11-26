@@ -1316,6 +1316,7 @@ run:
             project_watch.poll(NOW)                                  # the same creation is not taken twice
 
         self.assertEqual(list(self.states()), ["UIB-7"])
+        self.assertIn("created in In Review by Other", project_watch.events(None, True)["events"][0]["what"])
 
     def test_board_prints_the_project_the_same_way_every_time(self) -> None:
         self.ok("init")

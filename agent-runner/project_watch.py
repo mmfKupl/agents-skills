@@ -820,9 +820,10 @@ def poll(now: datetime | None = None) -> dict[str, Any]:
                     if not first and (now - moved).total_seconds() < SETTLE_SECONDS:
                         continue
                     actor = _name((move.get("actor") or move.get("botActor") or {}).get("name"), "an integration")
+                    how = ("created in" if move["id"].startswith("created-") else
+                           f"moved from {_name((move.get('fromState') or {}).get('name'), 'no status')} to")
                     add(name, trigger, index, move["id"], issue,
-                        f"moved from {_name((move.get('fromState') or {}).get('name'), 'no status')} "
-                        f"to {_name(issue['state']['name'])} by {actor} at {_stamp(moved)}", [])
+                        f"{how} {_name(issue['state']['name'])} by {actor} at {_stamp(moved)}", [])
             # A ticket that was under a trigger of the project at the last reading and is
             # not now has left: it was closed, moved on, or given to someone else.
             on = {trigger["name"] for trigger in active}

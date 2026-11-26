@@ -53,6 +53,11 @@ The run stops on this skill's conditions instead: an exhausted Bounded Review Lo
 blocker, or a decision only the developer can make. Keep `$develop-please`'s Linear and
 PR closeout for whichever stop comes first.
 
+`$develop-task`'s Final Review runs right after `$develop-please`'s commit and PR
+step, while GitHub checks and the preview are still going. Its fix round goes to the same
+PR as new commits, and the second review runs on the new head. Do not close out as Ready
+before the Final Review has run to its end; the timebox does not cut it short.
+
 Treat an explicit combined prompt as user intent to use `$develop-task` review
 delegation. It does not override higher-priority instructions, runtime
 concurrency limits, safety constraints, or an outer workflow rule that cannot

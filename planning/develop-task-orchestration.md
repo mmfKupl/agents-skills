@@ -333,3 +333,28 @@ Before publishing a revision:
 7. Forward-test both delegation selections: default runner jobs for gates,
    specialists, and implementation; and explicit user opt-out to direct
    subagents with no runner artifacts.
+
+## Final Review (2026-11-26)
+
+The developer: "каждый раз когда я делаю develop-please + develop-task то я потом в
+конце руками еще запускаю review-task и уже потом читаю что мне ревью выписало. там
+очень удобно и понятновсё структурировано, и часто еще находятся какие-то файндинги.
+я думаю что нужно доработать develop-task чтобы я перестал как обезьяна одно и то же
+делать".
+
+What they decided:
+
+- What to fix: "нужно пытаться чинить всё, если это не какие-то продуктовые решения а
+  реально баги которые появились тут. кароче оставлять только то, чтореально нужно
+  решить мне", and "чинить нетолько файндинги а еще и упрощения там пишутся".
+- The report: "в финальном отчете писать что было пофикшено в том числе тоже".
+- The loop: "после фиксов запускать еще раз полный ревью. но после него уже не
+  запускать фиксы".
+- The old mode where review-task ran inside postflight when both skills were named:
+  "это надо удалить получается". Removed from develop-task, composed-workflows.md,
+  agent-runner.md, and review-task.
+
+The agent's own choices, not the developer's words: the review runs after the commit
+and PR step, in a fresh `agent-run-manifest chat`; it is skipped for a Fast change; its
+report is given in full after develop-task's report; postflight stays as it was.
+

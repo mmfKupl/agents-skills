@@ -69,13 +69,15 @@ event it depends on, such as a merge from the base branch, in plain words.
 
 ## Explicit workflow composition
 
-When the user explicitly invokes `$brainstorm-task` and/or `$review-task` alongside
-`$develop-task` for the same task, read
-[`references/composed-workflows.md`](references/composed-workflows.md) before the
-first delegated job. Add only the requested phase. Quoted examples, references, or
-analysis-only requests do not select it. Main coordinates all phases with one
-backend, matrix, ceiling, and runner run; keep any separately authorized outer
-lifecycle controller, and never weaken mandatory gates.
+When the user explicitly invokes `$brainstorm-task` alongside `$develop-task` for the
+same task, read [`references/composed-workflows.md`](references/composed-workflows.md)
+before the first delegated job. Quoted examples, references, or analysis-only requests
+do not select it. Main coordinates all phases with one backend, matrix, ceiling, and
+runner run; keep any separately authorized outer lifecycle controller, and never weaken
+mandatory gates.
+
+`$review-task` named alongside `$develop-task` adds nothing: every run ends with a full
+review of its own (Final Review).
 
 ## Requirements Fidelity
 
@@ -407,8 +409,7 @@ Pass, so a gate requests it there only for a new question).
     developer whether to accept the size or cut coverage. Neither a gate nor main raises
     the budget on its own.
 13. Recalculate the postflight floor from the request, profile, actual diff, deviations,
-    and validation gaps. Prepare any selected review-task audit under
-    `references/composed-workflows.md`.
+    and validation gaps.
 14. After all slices finish, dispatch `postflight-review` on the combined change with the task packet, preflight
     decision, writer result, changed files, the diff inline, validation, cycle, shared round count,
     contract revision, approving preflight, prior findings and fixes, the Reduction Pass
@@ -428,7 +429,8 @@ Pass, so a gate requests it there only for a new question).
     unexpected scope or risk growth.
 19. After approval, make logical commits and a draft PR for standalone work unless the
     user asked to stay local. In embedded mode, defer lifecycle to the outer workflow.
-20. Report the final state.
+20. Run the Final Review and what it leads to.
+21. Report the final state.
 
 ## Implementation Contract
 
@@ -509,8 +511,8 @@ local technical adjustment inside the contract only updates the packet.
 
 ## Bounded Review Loop
 
-Keep one task-wide count of unsuccessful final review rounds for postflight and any
-embedded review-task audit. A round counts once, after its specialist inputs and
+Keep one task-wide count of unsuccessful final review rounds for postflight, including
+the postflight rounds of the fix round that the Final Review starts. A round counts once, after its specialist inputs and
 challenges are resolved, when it still requires an in-scope implementation, test, or
 artifact correction, even a different one than before. A round whose only correction is
 `reduction` does not count; neither do gate continuations, transport retries, pending
@@ -553,6 +555,65 @@ problem. Do not inspect processes, logs, or heartbeats just to prove work is ali
 status must be polled, wait five minutes between queries. A user status request permits
 one snapshot.
 
+## Final Review
+
+Postflight judges the change from inside the run: it gets the requirements and the plan
+that this run made. The developer used to start `$review-task` by hand after every run,
+because a review that starts from the ticket and the diff alone finds more and reads
+better. So every run ends with that review, and with fixing what it finds.
+
+Run it once the approved change is committed: after this workflow's commits and draft
+PR, or after the outer workflow's commit and PR step when it owns the lifecycle. Start it
+while CI and previews are still going; do not wait for them first.
+
+Skip it only when there is no committed change (analysis, no-op, blocked, unapproved),
+when the profile is Fast, or when the user said to skip the review. Say in the report
+that it was skipped and why.
+
+**The review.** It is the whole `review-task` skill in `standalone` mode, in a fresh
+session that knows nothing of this run:
+
+- Runner mode: `agent-run-manifest chat` with a working copy of its own, as
+  [`references/agent-runner.md`](references/agent-runner.md) says. The prompt is the
+  skill's command and its target, the PR or the branch with its base, and the ticket:
+  `$review-task <target>` for Codex, `/review-task <target>` for Claude Code. Nothing
+  else: no plan, no contract, no summary of what was done.
+- Subagent mode: a fresh general agent with no conversation history, told to read
+  `review-task`'s `SKILL.md` and run it in `standalone` mode on that target.
+- Model: the profile's postflight model and effort, under the run's ceiling.
+- Add its usage to the Agent Usage table as a row of its own.
+
+**What gets fixed.** Read the report and sort every finding of `Findings`, of any
+priority, and every item of `Simpler code and tests`:
+
+- Fix it when the change brought it in and fixing it needs no decision of the
+  developer: a defect, a requirement the change does not meet, a test that proves
+  nothing, code or a test that can go while the requested behavior stays.
+- Leave it for the developer when it needs their decision: a product choice, a change
+  of a requirement or of the scope, a cut that would change a requirement, a cost out
+  of proportion to the outcome, or a defect that was there before this change and that
+  no stated requirement depends on.
+- A finding you can show to be wrong goes to the report with the proof. Do not drop it
+  silently.
+
+Tell the developer in the main chat what will be fixed and what is left for them, as
+Postflight Relay does, and go on without waiting.
+
+**One fix round.** Fix everything that is to be fixed as one round, by this workflow's
+usual rules: a new contract revision with a fresh preflight when a fix is more than
+mechanical, the authorized writer, validation, the Reduction Pass, postflight approval,
+then commits and push by whoever owns them. When nothing is to be fixed, there is no
+fix round and no second review.
+
+**The second review.** After the fix round, run the full review once more, the same
+way, on the new head, and give it the first report so that it says for each earlier
+finding whether it is fixed. Nothing is fixed after the second review, whatever it
+finds: its findings and items go to the report as they are, each as a question under
+Needs from you or as a line under Accepted risks.
+
+A review that fails to run or ends without a report does not block the result: report
+the change as it stands and say that the review did not run.
+
 ## Embedded And Lifecycle Policy
 
 Another explicitly invoked workflow wrapping `develop-task` is the outer lifecycle
@@ -584,6 +645,7 @@ verify that:
 - no job, command, validation, CI watch, or required wait remains active;
 - no in-scope action can be taken without new user input or external state;
 - a successful implementation has current postflight approval and no later mutation;
+- the Final Review has run to its end, or the report says why it did not;
 - runner mode has a reconciled `run.yaml` with no `pending` or `running` job and a
   terminal status, unless that itself is the reported blocker;
 - the response names one honest state: `completed`, `blocked`, `needs_user_input`, or
@@ -651,7 +713,12 @@ who did not follow the run: plain words, no workflow terms.
 <links to the posted video, screenshots, and Storybook stories, or why there are none>
 
 ### Needs from you
-<nothing, or each approval or decision that remains as a numbered question with the options and a recommendation>
+<nothing, or each approval or decision that remains as a numbered question with the options and a recommendation; what the last review left for the developer goes here>
+
+### Final review
+- **Verdict:** <the verdict of the last review, in its own words; or why no review ran>
+- **Fixed after the first review:** <each finding and each simplification that was fixed, one line each: what was wrong and what the change does now; or none>
+- **Not fixed:** <each finding and item that stays: the ones under Needs from you by number, the ones shown to be wrong with the proof, and everything the second review found; or none>
 
 ### Checked and not checked
 <checks that passed, in a line or two; every check that failed, was skipped, or could not run, with the reason>
@@ -668,6 +735,10 @@ who did not follow the run: plain words, no workflow terms.
 ### Suggestions
 <each thing this run showed could be better in this skill, the repository's instructions, or its checks: what happened, what to change, and where; or none>
 ```
+
+After the report, under a horizontal rule, give the report of the last review in full
+and unchanged, without its `Suggestions`: put those into this report's Suggestions. The
+developer reads that report for what the change does, why, and how it works.
 
 Suggestions are only for friction this run showed: a command or context that was hard to
 find, an instruction that was wrong or stale, a mistake a check could have caught, or a

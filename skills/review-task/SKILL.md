@@ -47,21 +47,6 @@ repository, one-off snippets, Browser/Playwright, or a harness in dry-run form.
 Ask before any expensive, destructive, or externally mutating action, except a
 narrow repository-approved trigger a stated validation bar needs.
 
-## Embedded development audit
-
-When explicitly combined with `$develop-task` for one implementation task, read
-[`../develop-task/references/composed-workflows.md`](../develop-task/references/composed-workflows.md).
-Main applies this audit in the shared run with develop-task's backend, matrix,
-ceiling, requirements, coverage plan, and usage accounting: no standalone model
-defaults, second orchestrator, or unrequested brainstorm.
-
-The independent final postflight reviewer performs the audit from a fresh
-packet with the original requirements, current diff, base revision, and
-validation evidence, using supported shared roles rather than a separate
-diff-review backend. Develop-task's authorized writer owns
-fixes and its gate owns approval. Main triages findings under the shared
-correction budget; the audit has no fix loop or completion/lifecycle authority.
-
 ## Review Depth
 
 Choose from the user's wording:

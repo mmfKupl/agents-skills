@@ -67,8 +67,7 @@ flags (and `--ceiling`) and prints the route without running anything.
 - `--role`: `preflight-review`, `implementation-worker`, `postflight-review`,
   `repo-practice-review`, `best-practice-review`, `test-review`, `code-simplicity-review`,
   `diagnosis-review`, `visual-review`, or `finding-verifier`. Composed discovery uses these
-  roles too, with no approving preflight; a final review-task audit goes in a
-  `postflight-review` packet.
+  roles too, with no approving preflight.
 - A `finding-verifier` job is the only reviewer that may write: it adds temporary tests
   and probes to check a review finding. It therefore runs only with `--no-manifest` and a
   `--workspace` that is a disposable copy of the change, never a run's worktree or the

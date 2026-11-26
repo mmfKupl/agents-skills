@@ -946,3 +946,20 @@ with the reason: "давай просто время курсиов и дату"
   reason in it. Markdown has no pale colour, and a smaller font was not asked for.
 - For news it is the time of what the news tells; for the state it is now.
 - The zone is the one of the daily summary when it is set, else the zone of the machine.
+
+### 2026-11-26: a skill that posts the findings of a review
+
+The developer, with a screenshot of a review comment in Linear where every field of a
+finding was open: "давай еще сделаем какой-то скилл "запостить файдниги" который будет
+постить куда надо именно файндинги и советы по упрощению кода. кароче экшнпойнты. и
+чтобы по возможности делал спойлеры на описания а заголовки и краткое описание оставлял
+сверху", and "типо вот тут можно p1 тайтл и why its metter а отальное под спойлер".
+
+- The skill is `skills/post-findings/SKILL.md`. It posts Findings and Simpler code and
+  tests, and nothing else of the report.
+- Visible: the title and why it matters. Folded: what happens, where, the proof, the
+  fix direction.
+- The place was left to the skill ("куда надо"). It is the ticket when there is one,
+  else the pull request. This choice is the agent's, not the developer's words.
+- The project chat's rule "offer to post the review to the ticket" now posts this way.
+

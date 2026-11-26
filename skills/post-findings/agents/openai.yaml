@@ -1,0 +1,4 @@
+interface:
+  display_name: "Post Findings"
+  short_description: "Post a review's findings and simplifications as one comment."
+  default_prompt: "Use $post-findings to post the findings and the simpler code and tests of the last review to the ticket."

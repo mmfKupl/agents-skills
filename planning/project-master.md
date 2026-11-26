@@ -977,3 +977,18 @@ script took only tickets with a move, so they started nothing and were not liste
 - UIB-6733 was moved to In Review by the developer, so `my review` leaves it out, as
   its condition "moved by someone else" says. Not changed.
 
+### 2026-11-26: the developer does not see that a report came
+
+The developer: "Отчеты после ревью, на них не приходят уведомления, когда чат мне
+пишет", then, asked where they expect them: "на маке и на телефоне. И хотя бы в
+сайдбаре чата хоть какое-то уведомление, точечку, еще что-то".
+
+- Checked in the project chat's record on the server: each of the 12 notifications of
+  two days was accepted with `pushSent: true, localSent: false`. A server has no
+  screen, so nothing pops up on the Mac; the phone gets a push through Remote Control.
+- Done: the project chat puts `● ` in front of its title with each notification and
+  takes it off when the developer writes next.
+- Not done: a notification on the Mac. A Slack message through the developer's own
+  account would not notify them, because Slack does not notify about one's own
+  messages. It needs a channel of its own; the developer has not chosen one.
+

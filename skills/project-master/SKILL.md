@@ -344,7 +344,9 @@ actions because it asks for them.
 - The part for the chat names the notification, when one is due. Send it as
   [`references/hosts.md`](references/hosts.md) says when the turn was started by such
   a line: the developer did not write, so they are not here. Skip it when the
-  developer asked in this turn, and send none that the part does not name.
+  developer asked in this turn, and send none that the part does not name. With
+  each notification, mark this chat in the sidebar as the same section of
+  `references/hosts.md` says, and take the mark off when the developer writes next.
 - `Nothing new.` after a line means that this chat has shown that news already. Show
   that line alone.
 

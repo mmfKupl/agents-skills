@@ -38,7 +38,7 @@ TRIGGERS_VARIABLE = "AGENT_PROJECTS_TRIGGERS"
 SERVICE = "agent-projects-watch.service"
 # The tracker is read this often. Starting what waits and closing what ended need only
 # local files, so the loop does them every tick.
-READ_SECONDS = 600.0
+READ_SECONDS = 120.0
 TICK_SECONDS = 60.0
 # Matches wait in a queue, and at most this many runs go at once; `watch limit` changes it.
 RUN_LIMIT = 3

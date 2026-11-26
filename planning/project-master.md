@@ -991,3 +991,10 @@ bot: "службу и слек тоже не нжуно".
 - Nothing is added to this. Do not propose the title mark, a Mac service, or Slack
   again unless the developer brings it up.
 
+### 2026-11-26: the tracker is read every two minutes
+
+A ticket left In Review 47 seconds after a reading, and its news came ten minutes
+later. The developer: "сделай задержку в 2 минуты". The reading interval is now two
+minutes instead of ten. A move still waits two minutes to settle before it starts a
+run, so a run starts two to four minutes after the move.
+

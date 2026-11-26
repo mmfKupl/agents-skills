@@ -1340,6 +1340,16 @@ def _clock(stamp: str) -> str:
     return _time(stamp).strftime("%Y-%m-%d %H:%M UTC")
 
 
+def _dated(text: str, state: dict[str, Any], stamp: str | None = None) -> str:
+    """A message with the date and time on top: of what it tells, or of now. The time is
+    in the zone of the daily summary when one is set, else in the zone of the machine."""
+    zone = (state.get("digest") or {}).get("timezone")
+    moment = _time(stamp) if stamp else datetime.now(timezone.utc)
+    local = moment.astimezone(ZoneInfo(zone) if zone else None)
+    return say("stamp", day=local.strftime("%d"), month=local.strftime("%m"), year=local.strftime("%Y"),
+               time=local.strftime("%H:%M")) + "\n\n" + text
+
+
 def _tick(ticket: str, url: Any) -> str:
     """A ticket's number, as a link when its address is known."""
     link = _link(url, ticket)
@@ -1618,7 +1628,7 @@ def board(project: str, ticket: str | None = None) -> str:
     state = _read_state(root)
     if ticket:
         text, chat = _card(state, root, project, projects._ticket_id(ticket), triggers)
-        return text + _for_chat(chat)
+        return _dated(text, state) + _for_chat(chat)
     scope, on = document.get("scope") or {}, document.get("triggers") or []
     known = state["links"].get(project) or {}
     covered = scope.get("linear_project")
@@ -1652,7 +1662,7 @@ def board(project: str, ticket: str | None = None) -> str:
         lines += ["", say("work_none")]
     lines += ["", say("board_read", time=_clock(state["polled"]), watching=_watching_words(state)) if state.get("polled")
               else say("board_never", watching=_watching_words(state))]
-    return _tidy(lines) + _for_chat([*_showing(events), *(
+    return _dated(_tidy(lines).lstrip("\n"), state) + _for_chat([*_showing(events), *(
         f"to show the questions of {row[0]} again: agent-projects board {project} {row[0]}; once the developer has "
         f"answered them: agent-projects ticket note {row[0]} \"decision: <what they decided>\"" for row in asks)])
 
@@ -1736,18 +1746,19 @@ def news(project: str) -> str:
         # Changes read together are one piece of news: the tickets under the triggers are
         # listed once, as they stand now.
         items = [item for item in items if item.get("kind") != "changed"] + [{
-            "kind": "changed", "left": [left for item in changed for left in item.get("left") or []],
+            "kind": "changed", "at": max(str(item.get("at") or "") for item in changed), "left": [left for item in changed for left in item.get("left") or []],
             "arrived": [number for item in changed for number in item.get("arrived") or []]}]
     triggers, _ = load_triggers()
     state = _read_state(root)
-    blocks, chat = [], []
+    blocks, seen, chat = [], set(), []
     for item in items:
         try:
             text, todo = _news_item(item, state, root, project, triggers)
         except Exception as error:  # noqa: BLE001 - one broken piece must not hide the rest
             text, todo = f"{item.get('kind')} {item.get('ticket') or ''}: {type(error).__name__}: {error}", []
-        if text and text not in blocks:
-            blocks.append(text)
+        if text and text not in seen:
+            seen.add(text)
+            blocks.append(_dated(text, state, item.get("at") or None))
             chat += todo
     # A rule before, between, and after: each piece of news stands apart from the rest
     # of the chat's answer and from the next piece.

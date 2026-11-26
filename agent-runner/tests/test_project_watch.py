@@ -115,6 +115,10 @@ class ProjectWatchTests(unittest.TestCase):
         patcher = patch.dict(os.environ, environment, clear=True)
         patcher.start()
         self.addCleanup(patcher.stop)
+        # The date on top of a message changes with the clock; one test reads it.
+        self.undated = patch.object(project_watch, "_dated", lambda text, *_: text)
+        self.undated.start()
+        self.addCleanup(patch.stopall)
 
         self.issues: list[dict] = []
         self.closed: set[str] = set()
@@ -1284,6 +1288,19 @@ run:
         # The Linear project is a link once the tracker was read.
         self.assertIn("the Linear project [Billing](https://linear.app/x/project/billing-1).", self.command("board", "billing")[1])
         self.assertNotIn("known", project_watch.events(None, True)["events"][0])
+
+    def test_every_message_starts_with_its_date_and_time_in_the_zone_of_the_daily_summary(self) -> None:
+        self.undated.stop()
+        self.project()
+        self.ok("watch", "digest", "--at", "09:00", "--timezone", "Asia/Tbilisi")
+        self.assertRegex(self.command("board", "billing")[1].splitlines()[0], r"^\d{4}-\d\d-\d\d \d\d:\d\d$")
+        agent_projects.news_add(self.home, "billing", {"kind": "text", "text": "A summary."})
+        kept = agent_projects._project_dir(self.home, "billing") / "news.yaml"
+        document = yaml.safe_load(kept.read_text())
+        document["items"][0]["at"] = "2026-11-26T21:30:00Z"
+        kept.write_text(yaml.safe_dump(document))
+
+        self.assertEqual(self.news(), ["2026-11-27 01:30", "", "A summary."])
 
     def test_board_prints_the_project_the_same_way_every_time(self) -> None:
         self.ok("init")

@@ -47,6 +47,10 @@ DEFAULTS: dict[str, Any] = {
     "where_nothing": "nothing started here",
     "where_open": "{where}, its chat is open: {chat}",
 
+    # The date and time on top of every message: of what it tells, or of now for the
+    # state of a project or of a ticket.
+    "stamp": "{year}-{month}-{day} {time}",
+
     # The state of a project: `agent-projects board <project>`.
     "board_project": "Project {project}: {covers}.",
     "covers_linear": "the Linear project {name}",

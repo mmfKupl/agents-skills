@@ -934,3 +934,15 @@ Left from the reviews:
   hand on the VM, but nobody watches it start.
 - The move into the status is looked for in the ticket's last 25 changes. A
   ticket edited more often than that after the move is not matched.
+
+### 2026-11-26: date and time on top of every message
+
+The developer: "каждое сообщение/блок который присылает нужно в верху писать маленьким
+шрифтом бледным если возможно и курсивом причину и время", then, after seeing examples
+with the reason: "давай просто время курсиов и дату".
+
+- Every piece of news and the state of a project or of a ticket starts with one line:
+  the date and time, in italics in the Russian texts (`stamp` in `messages.yaml`). No
+  reason in it. Markdown has no pale colour, and a smaller font was not asked for.
+- For news it is the time of what the news tells; for the state it is now.
+- The zone is the one of the daily summary when it is set, else the zone of the machine.

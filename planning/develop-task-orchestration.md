@@ -370,3 +370,13 @@ The developer: "последние отчеты осле брейншторм т
 - The agent's own choice: which headings the report has, and that requirement and
   validation lists stay out of the chat.
 
+## File links in Remote Control chats (2026-11-27)
+
+A file link in a chat on the server showed "Can't read this file". Found in the Remote
+Control log: the chat's working copy is removed when the chat ends with no changes
+("removed worktree" at the minute of its last answer), as the Claude Code docs on
+worktrees say for a clean copy. Six of the last fourteen chats had lost theirs. Offered:
+links to GitHub, keeping the copies, or nothing. The developer chose: "Ссылки на
+GitHub". The rule is in `global/AGENTS.md`, only for chats whose working directory is
+such a copy.
+

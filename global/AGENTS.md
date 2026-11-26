@@ -39,6 +39,15 @@ decides the sections; these rules decide the text inside them.
 - Explain a technical term in the same sentence, or drop it.
 - Name a file by its path from the repository root, with the line when it matters, so
   that it opens on a click. Never use a bare file name or a partial path.
+- In a chat that runs through Remote Control in a working copy of its own (the working
+  directory has `.claude/worktrees/bridge-` in its path), that copy is deleted when the
+  chat ends with no changes, and a path stops opening. There, make each file of the
+  repository a link to GitHub at the commit you read, with the path from the repository
+  root as the link's text:
+  `https://github.com/<owner>/<repository>/blob/<full commit>/<path>#L<line>`. Take the
+  address from `git remote get-url origin` and the commit from `git rev-parse HEAD`. A
+  file that GitHub does not have at that commit, because it is new, changed, not pushed,
+  or ignored, stays a plain path, and so does a file outside the repository.
 - Cut a sentence that would fit a report about a different task.
 - A question or decision for me goes in the visible text, never inside a collapsed block,
   a details section, or a log.

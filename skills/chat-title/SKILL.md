@@ -23,10 +23,6 @@ description stable for the whole chat. If another chat is on the same ticket and
 its title is at hand, reuse its description. Rewrite a title in an older format the
 next time you rename it. Never rename other chats.
 
-A project chat may have `● ` in front of its title: it marks news the developer has
-not read. Only the `project-master` skill puts it there and takes it off; any other
-rename keeps it where it is.
-
 ## Type
 
 `chat` for ordinary work. An active workflow sets its own type: `develop`, `draft`,

@@ -1302,6 +1302,21 @@ run:
 
         self.assertEqual(self.news(), ["2026-11-27 01:30", "", "A summary."])
 
+    def test_ticket_created_in_the_status_right_away_counts_as_moved_there_by_its_creator(self) -> None:
+        self.project()
+        project_watch.poll(NOW)                                      # watching began with nothing to hold
+        created = (NOW - timedelta(minutes=30)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+        by_other = {**issue("UIB-7"), "createdAt": created, "creator": {"id": "other", "name": "Other"},
+                    "history": {"nodes": []}}
+        by_me = {**issue("UIB-8"), "createdAt": created, "creator": {"id": "me", "name": "Me"}, "history": {"nodes": []}}
+        self.issues = [by_other, by_me]
+
+        with patch.object(project_watch, "_tell", return_value=None):
+            project_watch.poll(NOW)
+            project_watch.poll(NOW)                                  # the same creation is not taken twice
+
+        self.assertEqual(list(self.states()), ["UIB-7"])
+
     def test_board_prints_the_project_the_same_way_every_time(self) -> None:
         self.ok("init")
         self.ok("project", "create", "mine", "--repository", str(self.repo), "--tracker", "linear",

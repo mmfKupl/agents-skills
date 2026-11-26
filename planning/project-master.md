@@ -965,3 +965,15 @@ finding was open: "давай еще сделаем какой-то скилл "
 - After the first real comment, where every item of simpler code and tests had a fold
   of its own: "давай еще чтобы упрощения все были под одним спойлером". The whole
   section is now one fold, and its items have none.
+
+### 2026-11-26: a ticket created in the status right away
+
+The developer: "у меня в ревью куча тикетов а в чате какбудто бы ничего не пришло".
+Found on the machine: UIB-6736 and UIB-6732 were created by a colleague already in In
+Review and assigned to the developer. Linear keeps no status move for that, and the
+script took only tickets with a move, so they started nothing and were not listed.
+
+- Creation now counts as the move into the status, made by the creator.
+- UIB-6733 was moved to In Review by the developer, so `my review` leaves it out, as
+  its condition "moved by someone else" says. Not changed.
+

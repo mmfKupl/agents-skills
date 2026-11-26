@@ -115,6 +115,8 @@ How the script judges an event:
 - A status entry is judged by where the ticket is now: it is in the entry's status,
   and the move that put it there fits the entry. One move counts once; a ticket that
   leaves the status and comes back counts again.
+- A ticket created in the status right away has no move on record. Its creation
+  counts as the move, and its creator as the one who made it.
 - A comment counts from the moment its trigger was turned on, and only for an open
   ticket. The comments that came in since the last reading of a ticket are one event,
   so a discussion starts one check and one run, not one per message.

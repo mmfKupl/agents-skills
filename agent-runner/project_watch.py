@@ -133,7 +133,8 @@ ISSUES_QUERY = """
 query($filter: IssueFilter, $after: String) {
   issues(filter: $filter, first: 25, after: $after) {
     nodes {
-      identifier title url description
+      identifier title url description createdAt
+      creator { id name }
       state { name }
       assignee { id name }
       history(first: 25) {
@@ -799,6 +800,11 @@ def poll(now: datetime | None = None) -> dict[str, Any]:
                 first = f"{name}|{trigger['name']}" in hold
                 for issue in issues:
                     moves = [node for node in issue["history"]["nodes"] if node.get("toState")]
+                    if not moves and issue.get("createdAt"):
+                        # A ticket created in a status right away has no move on record:
+                        # its creation is the move, and its creator the one who made it.
+                        moves = [{"id": f"created-{issue['identifier']}", "createdAt": issue["createdAt"],
+                                  "actor": issue.get("creator"), "fromState": None, "toState": issue["state"]}]
                     if not moves or named.get((issue["identifier"].upper(), trigger["name"]), name) != name:
                         continue
                     move = max(moves, key=lambda node: node["createdAt"])

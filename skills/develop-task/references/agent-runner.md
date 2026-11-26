@@ -76,9 +76,12 @@ flags (and `--ceiling`) and prints the route without running anything.
   share one copy: the second fails with `worktree_locked`, so give each verifier that
   runs at the same time its own copy. It takes the postflight route of the profile.
 - `--read-dir <directory>`: a directory outside the worktree the job may read, repeatable.
-  A `visual-review` job needs it for the folder that holds the screenshots and video
-  frames; name the files by absolute path in its packet. It takes the postflight route of
-  the profile.
+  A job reads only its worktree, so pass the folder of every file that the packet names
+  and that lies outside it: a saved diff, a log, a report, a file in the chat's
+  scratchpad. Without it the job answers "permission denied" and reviews without the
+  file. Name the files by absolute path in the packet, or put them inside the worktree
+  instead. A `visual-review` job needs it for the folder that holds the screenshots and
+  video frames, and takes the postflight route of the profile.
 - `--profile`: the confirmed Execution Profile. Specialists use the requesting gate's. For
   `diagnosis-review`, it is the profile of the unresolved cause, not of the task.
 - `--slice visual|prose|critical-combined|exceptional`: the slice type preflight named.

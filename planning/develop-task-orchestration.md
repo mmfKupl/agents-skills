@@ -358,3 +358,15 @@ The agent's own choices, not the developer's words: the review runs after the co
 and PR step, in a fresh `agent-run-manifest chat`; it is skipped for a Fast change; its
 report is given in full after develop-task's report; postflight stays as it was.
 
+## Brainstorm report (2026-11-26)
+
+The developer: "последние отчеты осле брейншторм таска мне очень сложно читать,
+первая половина выглядит не связано со второй. мб можно как-то тоже подогнать под вид
+из ревью? а отчет писать в файл и добавлять ссылкой чтобы я его посмотрел а не стена
+текста в чате?"
+
+- The chat gets a report with the headings of a review report; the scope goes to
+  `.agent-reports/<date>-<ticket>-scope.md` and the report links to it.
+- The agent's own choice: which headings the report has, and that requirement and
+  validation lists stay out of the chat.
+

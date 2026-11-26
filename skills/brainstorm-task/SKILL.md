@@ -356,9 +356,8 @@ question.
 Never drop an exact decision for length; an Output contract may grow to the
 detail implementation needs. A requirements change invalidates
 dependent technical decisions. After approval, re-audit decisions changed
-during it, build the canonical scope from the audited ledger, and return it,
-after the revision summary when a baseline exists. No handoff prompt, no
-implementation.
+during it, build the canonical scope from the audited ledger, and return it as
+Report says. No handoff prompt, no implementation.
 
 ## Autopilot mode
 
@@ -372,20 +371,83 @@ Between equally plausible interpretations, choose the smaller independently
 useful scope. Best-practice guidance never invents product requirements. Mark
 every answer the user or repository does not support as an assumption.
 
-Return a report sized to the task: for Bounded or Architectural work, only
-the findings and approach reasoning that justify the recommendation, then the
-revision summary if a baseline exists, then the canonical scope; for a new scope, only the
-canonical scope. The
-recommendation is a working conclusion, not user approval.
+Return the result as Report says. The recommendation is a working conclusion,
+not user approval: say so in the Verdict.
+
+## Report
+
+The answer that returns the result, which is the approved scope, the autopilot
+result, or the Spike findings, has two parts: the scope in a file, and a short
+report in the chat that links to it. The developer reads the report between
+other tasks and opens the file when they need the detail. A scope pasted into
+the chat after a few paragraphs of findings read as two unrelated texts, and
+the developer could not follow it.
+
+**The scope file.** Write the canonical scope, and before it the revision
+summary when a baseline exists, to
+`.agent-reports/<date>-<ticket or two-word name>-scope.md` in the chat's working
+directory, with the file tool. Each section of the scope is a heading there.
+Add `.agent-reports/` to `.git/info/exclude` when it is not there, so that the
+file is never committed. Under `$project-scope`, also keep the file in the
+project's folder as that skill says for the files of a report. Where the scope
+is saved to the ticket or to the repository as well, the same text goes there:
+the file is a copy for reading, not a second source. A Spike with no scope has
+no file.
+
+**The report in the chat.** Write it from this template. Keep every heading in
+this order, in English as written, whatever language the text is in, and write
+`none` where a section has nothing.
+
+```markdown
+### What the task is
+<what a user or a caller gets today and what they will get, with one real example>
+
+### Why it is needed
+<the problem or request behind it, and who ran into it>
+
+### How it will be done
+<the approach in order: what starts it, what changes at each step, and where the result ends up; at most the three or four places in the code that matter, each with what it does before its name>
+
+**Not obvious:** <what a reader would not guess: a constraint, an order, a special case, a trade-off, what the research found that changes the plan; or none>
+
+### Verdict
+<ready to develop | ready after your answers | not worth doing | cannot tell>: <the reason in one or two sentences, the rough size in production and test lines, and whether the developer approved the scope or it is the agent's conclusion>
+
+### Needs from you
+<nothing, or each decision as a numbered question: what was found, the options as the developer would see their results, and a recommendation that a plain "yes" accepts. Every assumption that is the developer's to decide is a question here, not a line in the file only>
+
+### Scope
+<a link to the scope file, then one line: how many requirements and validation scenarios it has, the delivery slices if any, and what is out of scope; for a revision, what changed from the previous version in one or two lines>
+
+### Checked and not checked
+<what was read or run to ground the scope, and what could not be checked and why>
+
+### Suggestions
+<as the Suggestions section says, or none>
+```
+
+Rules for it:
+
+- Every section speaks about the same task in the same words: a thing named in
+  What the task is keeps that name in How it will be done, in the questions,
+  and in the scope file.
+- Put no requirement list, no validation list, and no file list into the chat.
+  They are in the file. A requirement appears in the chat only inside a
+  question about it.
+- A finding of the research goes where it is used: into How it will be done
+  when it shapes the approach, into Not obvious when it would surprise, into a
+  question when the developer must decide. A finding that is used nowhere
+  stays out.
+- A checkpoint during the interview is not this report: it keeps its own
+  layout.
 
 ## Suggestions
 
-End the answer that returns the result, which is the approved canonical scope, the Spike
-findings, or the autopilot report, with `### Suggestions`, as
+End the report with `### Suggestions`, as
 [`../develop-task/references/suggestions.md`](../develop-task/references/suggestions.md)
 says: what this run showed could be better in this skill, the repository's instructions,
-or its checks, or `none`. It comes after the scope and is never part of it: keep it out
-of a checkpoint, a scope document, and a ticket. Under embedded discovery the outer
+or its checks, or `none`. It is the last section of the report and never part of the
+scope: keep it out of a checkpoint, the scope file, and a ticket. Under embedded discovery the outer
 workflow writes it.
 
 ## Revision summary

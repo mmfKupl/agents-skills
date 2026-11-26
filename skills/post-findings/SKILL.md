@@ -60,8 +60,9 @@ Write it in the language the developer writes in this chat, unless they name ano
 the labels below are translated with it. Code, names, file paths, and quoted output
 stay as they are.
 
-What is visible without opening anything: the first line, and for each item its title
-and why it matters. Everything else of an item is folded under it.
+What is visible without opening anything: the first line, and for each finding its
+title and why it matters. Everything else of a finding is folded under it. Simpler
+code and tests is one fold as a whole: the author opens it after the findings.
 
 ```markdown
 **Review of <the pull request as a link, or the change> · commit `<short hash>` · findings: <count>, simpler: <count>**
@@ -78,23 +79,23 @@ and why it matters. Everything else of an item is folded under it.
 - **Fix direction** — <as in the report>
 </fold>
 
-### Simpler code and tests
-
+<fold "Simpler code and tests: <count>">
 **<Code | Tests> — <what to do, in one line: delete, merge, inline, replace with which helper, add which test>**
 <What it gives: about how many lines go, or which behavior a test starts to prove>
-
-<fold "Details">
 <file and line as a link, and the rest of the item>
+
+<the next item, the same way>
 </fold>
 ```
 
 Rules for it:
 
-- Leave out a heading whose section has nothing, and its count in the first line.
+- Leave out the Findings heading or the fold of Simpler code and tests when it has
+  nothing, and its count in the first line.
+- Simpler code and tests has no heading of its own: the title of its fold is the
+  heading. Every item is inside that one fold, with no fold of its own.
 - A title says what goes wrong or what to do in plain words. When the report's title
   is longer than one line, shorten it and keep the full one first under the fold.
-- An item of `Simpler code and tests` that fits in its two visible lines gets no
-  fold.
 - Put an empty line between items, and no rule between them.
 - A file and line is a link to that line at the reviewed commit when the repository's
   address is known, so that it still points at the same code after new commits.
@@ -109,8 +110,8 @@ How a fold is written depends on where the comment goes:
 | Any other place | no fold: the title in bold, then the text |
 
 Before posting, read the comment once as the author would, without the report: each
-title with its two lines must say what is wrong and why it matters without the fold
-being opened.
+finding's title with its two lines must say what is wrong and why it matters without
+the fold being opened.
 
 ## Posting
 

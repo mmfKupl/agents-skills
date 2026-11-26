@@ -962,4 +962,6 @@ finding was open: "давай еще сделаем какой-то скилл "
 - The place was left to the skill ("куда надо"). It is the ticket when there is one,
   else the pull request. This choice is the agent's, not the developer's words.
 - The project chat's rule "offer to post the review to the ticket" now posts this way.
-
+- After the first real comment, where every item of simpler code and tests had a fold
+  of its own: "давай еще чтобы упрощения все были под одним спойлером". The whole
+  section is now one fold, and its items have none.

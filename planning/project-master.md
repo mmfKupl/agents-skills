@@ -1085,3 +1085,25 @@ The same run could not find `.codex/skills/linear-issue-writing/SKILL.md`: the
 checkout on the machine was on an older branch. Our notes now say to read it with
 `git show origin/dev:` when the checkout is older than the file.
 
+### 2026-11-27: dev stands wait for memory and are cleaned up
+
+The VM stalled: memory 13 of 15.6 GB, swap 25.5 of 25.6 GB, load 16 on 8 cores. Two
+stands of `run-bakery-dev-in-docker`, for UIB-6760 and UIB-6764, ran four Angular dev
+servers that held about 19 GB in swap; each is started with `--max-old-space-size=8096`.
+`earlyoom` was on but fires only below 8% free memory. The developer turned down "one
+stand per machine" and a 32 GB machine, and asked instead: "чтобы агенты поднимали не
+фулл стенд а только то что нужно и так же сделать чтобы проверяли перед запуском стенда
+ресурсы и если их мало то ждали… записывали в общее место… зачем кто и на как долго
+стенд запустил и когда он освободится, и чтобы после работы его останавливали. а если
+всё ок то и удаляли". Then: "давай сделаем с фиксом из бейкери скила тоже".
+
+- `agent-projects stand take|done|extend|list`, with the registry in
+  `~/agent-projects/stands.yaml`: it waits for memory (each service's measured size, a
+  stand that started less than ten minutes ago counted as growing, 2 GB left over),
+  records who, why, and until when, and starts the stand with a 3 GB heap for Angular.
+- `stand done` removes the stand; `--keep` only stops it. The watching service stops a
+  stand whose chat has ended and removes it a day later, or when its worktree is gone.
+- The UI Bakery notes tell agents to take the fewest services, run unit tests through
+  `exec` with no stand, take the stand only for the check, and remove it right after.
+- A pull request to UI Bakery makes the Angular heap of a stand configurable.
+

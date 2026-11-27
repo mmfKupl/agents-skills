@@ -584,9 +584,11 @@ def _argument_parser() -> argparse.ArgumentParser:
 
     commands.add_parser("status", help="print every ticket with who holds it and its last event").add_argument(
         "--project")
+    import project_stands
     import project_watch
 
     project_watch.add_commands(commands, project)
+    project_stands.add_commands(commands)
     return parser
 
 
@@ -595,6 +597,10 @@ def run(args: argparse.Namespace) -> dict[str, Any] | str:
         import project_watch
 
         return project_watch.run(args)
+    if args.command == "stand":
+        import project_stands
+
+        return project_stands.run(args)
     if args.command == "init":
         return init()
     if args.command == "status":

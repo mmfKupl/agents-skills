@@ -4,6 +4,9 @@ Load this reference only after repository evidence identifies the UI Bakery mono
 It replaces the Screenshot Evidence section of `$develop-please`'s
 `references/validation.md`; the rest of `$develop-please` still owns the Linear report and
 the PR. Capture once the PR Hetzner preview is Ready, or on a local stand before one exists.
+Start a local stand only as the Dev Stands section of
+[`../../develop-task/references/ui-bakery.md`](../../develop-task/references/ui-bakery.md)
+says, and run `agent-projects stand done` as soon as the capture is over.
 
 ## Visual Evidence
 

@@ -27,6 +27,7 @@ from zoneinfo import ZoneInfo
 
 import agent_projects as projects
 import project_messages as messages
+import project_stands
 import run_chat
 import run_manifest as manifest
 from agent_projects import ProjectsError
@@ -2123,6 +2124,10 @@ def cycle(read_tracker: bool = True) -> list[str]:
                 _prune(state, root, now)
             except ProjectsError as error:
                 state["problems"].append(f"working copies were not cleaned: {error}")
+            try:
+                lines += project_stands.sweep(now)    # the dev stands that their chats left
+            except (ProjectsError, OSError) as error:
+                state["problems"].append(f"dev stands were not cleaned: {error}")
         # The events that wait are the queue: the oldest starts first, while fewer
         # than the limit run. Checks have a queue of their own with the same limit.
         # A ticket that came under a trigger is told to its project chat in one message

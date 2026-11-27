@@ -125,3 +125,34 @@ and lifecycle behavior.
 
 Do not run `npm run -s build bakery` unless the user explicitly asks or no
 smaller useful validation exists.
+
+## Dev Stands
+
+Every chat on the UI Bakery machine shares its memory, and each Angular dev server of a
+stand takes gigabytes: on 2026-11-27 two stands put 19 GB into swap and stalled three
+chats. So start a local stand of `run-bakery-dev-in-docker` only through the shared
+registry, never with its `up` directly. Put this section into the packet of every
+worker or verifier that may start a stand:
+
+```bash
+agent-projects stand take bakery workbench back datasource \
+  --why "UIB-123: video of the brief editor" --ticket UIB-123 --minutes 30
+```
+
+- It waits until the machine has the memory for those services, says who holds the rest
+  and until when, records who took the stand, why, and for how long, and starts it with
+  a smaller heap for the Angular servers. It gives up after eight minutes with the list
+  of stands: run it again, in the background if the chat can, or say so in the report.
+- Name the fewest services the check needs: `back datasource` for an API check,
+  `bakery workbench back datasource` only for the builder in a browser, `chat` for chat.
+  Run unit tests, lint, and builds through the script's `exec` with no `up`: they need
+  no dev server.
+- Take the stand when the check is about to run, not at the start of the work, and say
+  how long it is needed. `agent-projects stand extend --minutes N` when it takes longer.
+- Run `agent-projects stand done` right after the last check that needs the stand. It
+  removes the containers and databases. `stand done --keep` only stops them, when a
+  check failed and the next round needs the same data.
+- `agent-projects stand list` shows every stand, who took it, why, and until when. The
+  watching service stops a stand whose chat has ended and removes it a day later, or at
+  once when its worktree is gone.
+

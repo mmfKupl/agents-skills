@@ -133,7 +133,10 @@ With a preview URL, deployed build, or running local environment, safely test
 high-risk UI/runtime behavior. UI: Browser/Playwright smoke checks of concrete
 flows (visible state, network/runtime errors, navigation, loading/empty/error
 states, responsive behavior when relevant); temporary probes only when they add
-evidence beyond manual inspection or existing e2e. Backend: focused API,
+evidence beyond manual inspection or existing e2e. In UI Bakery, start a local stand
+only as the Dev Stands section of
+[`../develop-task/references/ui-bakery.md`](../develop-task/references/ui-bakery.md)
+says, and remove it when the check is over. Backend: focused API,
 service, migration, or integration checks via repository commands. Mutate
 production-like data only where explicitly safe for testing.
 

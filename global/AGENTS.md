@@ -1,5 +1,16 @@
 # Global rules
 
+## Dev stands on a shared machine
+
+Several chats share one machine. When `~/agent-projects` exists, start a repository's
+Docker dev stand, such as UI Bakery's `run-bakery-dev-in-docker` `up`, only with
+`${CODEX_HOME:-$HOME/.codex}/tools/agent-runner/bin/agent-projects stand take <services>
+--why "<ticket: what the check is>" --minutes <how long>`. It waits until the memory is
+free and records who took the stand, why, and until when. Name the fewest services the
+check needs, take the stand only when the check is about to run, and run `stand done`
+right after the last check that needs it. `stand list` shows every stand. The Dev Stands
+section of develop-task's `references/ui-bakery.md` has the details.
+
 ## Check before you answer
 
 When a question matters and its answer is not simple, check it before you answer: read

@@ -121,6 +121,12 @@ class StandTests(unittest.TestCase):
         later = project_stands._now() + project_stands.STOPPED_KEPT + timedelta(minutes=1)
         self.assertEqual(project_stands.sweep(later), ["removed the stand uibakery-left: stopped for a day"])
 
+    def test_sweep_removes_an_unrecorded_stand_only_when_its_worktree_is_gone(self) -> None:
+        with patch.object(project_stands, "_running", return_value={"uibakery-a": str(self.folder), "uibakery-b": "/no/such"}):
+            project_stands._save(self.home / project_stands.STANDS_FILE, [])
+            self.assertEqual(project_stands.sweep(),
+                             ["removed the stand uibakery-b, which no chat recorded: its worktree is gone"])
+
     def test_list_shows_stands_no_chat_recorded(self) -> None:
         with patch.object(project_stands, "_running", return_value={"uibakery-x": "/w/x"}):
             listed = project_stands.stand_list()

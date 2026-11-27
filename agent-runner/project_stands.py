@@ -27,12 +27,13 @@ STANDS_FILE = "stands.yaml"
 SCRIPT = Path(".codex/skills/run-bakery-dev-in-docker/scripts/bakery-dev-docker.sh")
 # What each service takes, in gigabytes, once it has run for a while: measured on the
 # UI Bakery VM on 2026-11-27, with the heap of an Angular dev server capped at `HEAP_MB`.
-SERVICE_GB = {"bakery": 4.0, "workbench": 4.0, "back": 1.5, "datasource": 0.5, "chat": 1.0, "automation": 1.5}
+SERVICE_GB = {"bakery": 4.5, "workbench": 4.5, "back": 1.5, "datasource": 0.5, "chat": 1.0, "automation": 1.5}
 DATABASES_GB = 0.5
 # Memory left free after a stand starts, for the chats, tests, and the system.
 RESERVE_GB = 2.0
-# How much memory an Angular dev server of a stand may use, passed to the stand's script.
-HEAP_MB = 3072
+# How much memory an Angular dev server of a stand may use, passed to the stand's script:
+# half of the repository's 8096. The script reads it once uibakery/uibakery#7711 is in.
+HEAP_MB = 4096
 HEAP_VARIABLE = "UI_BAKERY_DEV_NODE_HEAP_MB"
 # A stand that started this recently has not grown to its size yet, so the memory it
 # will take is not counted as taken.
@@ -314,6 +315,12 @@ def sweep(now: datetime | None = None) -> list[str]:
             kept.append(stand)
         if kept != stands:
             _save(path, kept)
+    # A stand that no chat recorded is left alone while its worktree exists.
+    recorded = {stand["name"] for stand in stands}
+    for name, folder in _running().items():
+        if name not in recorded and folder and not Path(folder).is_dir():
+            _remove(name, keep=False)
+            done.append(f"removed the stand {name}, which no chat recorded: its worktree is gone")
     return done
 
 

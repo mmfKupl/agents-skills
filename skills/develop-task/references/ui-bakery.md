@@ -131,8 +131,9 @@ smaller useful validation exists.
 Every chat on the UI Bakery machine shares its memory, and each Angular dev server of a
 stand takes gigabytes: on 2026-11-27 two stands put 19 GB into swap and stalled three
 chats. So start a local stand of `run-bakery-dev-in-docker` only through the shared
-registry, never with its `up` directly. Put this section into the packet of every
-worker or verifier that may start a stand:
+registry, never with its `up` directly, also in a chat that no project started. The
+command is `${CODEX_HOME:-$HOME/.codex}/tools/agent-runner/bin/agent-projects`. Put this
+section into the packet of every worker or verifier that may start a stand:
 
 ```bash
 agent-projects stand take bakery workbench back datasource \

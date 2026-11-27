@@ -394,4 +394,10 @@ already said "always together", but loaded develop-please only before the first 
 too late for its branch and Linear steps, and named no way out. Now it loads as soon as
 the repository is identified, and runs without it only on the developer's word in the
 request. The shared develop-please skill is not changed.
+- 2026-11-27: the first run with the Final Review (UIB-6214, PR #7699) ended with
+  36,000 characters in 372 lines: develop-task's report and the second review's report,
+  each with its own questions, checks, and Details. The developer: "вывод после раоты
+  девелоп плиза нового с ревью очень большой и невозможно читать". Now both reports go
+  to `.agent-reports/<date>-<ticket>-develop.md`, and the chat gets What changed, one
+  merged list of questions, the review in brief, State, the link, and Suggestions.
 

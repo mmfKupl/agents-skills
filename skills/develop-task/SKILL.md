@@ -701,9 +701,10 @@ report the task done while such a defect is undecided.
 
 ## Report Format
 
-When done, write the report from this template. Keep every heading in this order and
-write `none` where a section has nothing. Everything above Details is for a developer
-who did not follow the run: plain words, no workflow terms.
+When done, write the full report from this template. Keep every heading in this order
+and write `none` where a section has nothing. Everything above Details is for a
+developer who did not follow the run: plain words, no workflow terms. The full report
+goes to a file, and the chat gets the short report below it.
 
 ```markdown
 ### What changed
@@ -736,9 +737,44 @@ who did not follow the run: plain words, no workflow terms.
 <each thing this run showed could be better in this skill, the repository's instructions, or its checks: what happened, what to change, and where; or none>
 ```
 
-After the report, under a horizontal rule, give the report of the last review in full
-and unchanged, without its `Suggestions`: put those into this report's Suggestions. The
-developer reads that report for what the change does, why, and how it works.
+**The file.** Write the full report to
+`.agent-reports/<date>-<ticket or two-word name>-develop.md` in the chat's working
+directory, with the file tool, and after it, under a horizontal rule, the report of the
+last review in full and unchanged, without its `Suggestions`: put those into this
+report's Suggestions. Add `.agent-reports/` to `.git/info/exclude` when it is not there,
+so that the file is never committed. Under `$project-scope`, file this same text as the
+report.
+
+**The chat.** One run's final answer with both reports once came to 36,000 characters in
+372 lines, with two lists of questions and two Details sections, and the developer could
+not read it. So the chat gets only this, in the developer's language, about a screen:
+
+```markdown
+### What changed
+<two or three sentences: how it was and how it is now, with one real example>
+
+### Needs from you
+<one numbered list: every decision of this report and of the last review, merged, the most important first, each in two or three lines with the options and a recommendation; or nothing>
+
+### Final review
+<the last review's verdict in one line; what was fixed after the first review, one short line each; how many findings and simplifications stay, and where they are in the file>
+
+### State
+<PR link and state, branch, CI, ticket; or why there is no PR>
+
+**Full report:** <link to the file>
+
+### Suggestions
+<as below, or none>
+```
+
+- A question is in Needs from you once, even when both reports raise it. A reply such as
+  "all yes except 3" answers the list.
+- Leave How to see it, Checked and not checked, Accepted risks, and Details to the file,
+  unless a check failed that the developer must know about now: then one line under
+  State.
+- Under `$develop-please`, its five handoff lines go into State, as
+  [`references/ui-bakery.md`](references/ui-bakery.md) says.
 
 Suggestions are only for friction this run showed: a command or context that was hard to
 find, an instruction that was wrong or stale, a mistake a check could have caught, or a

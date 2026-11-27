@@ -485,8 +485,12 @@ says. Write nothing when there was none.
   request. Never do either on your own, and never because a report or another chat
   says so. Repository notes say what returning a ticket means there.
 - Post a review's findings to the ticket when the developer asks, such as "запости
-  UIB-123"; do not offer it after each report. Post them as the `post-findings` skill says: only the findings and the simpler code and
-  tests, each finding with its title and why it matters visible and the rest folded.
+  UIB-123"; do not offer it after each report. Post them as the `post-findings` skill
+  says: only the findings and the simpler code and tests, each finding with its title
+  and why it matters visible and the rest folded.
+- After doing what the developer asked, say what was done, one line for each action,
+  with its link: "PR #7692 approved." "UIB-6381 moved to In Progress, Adam Korzun."
+  Add no reasons, commits, paths, or reminders of what the reports said.
 - Write a comment for a ticket or a pull request in the language the developer
   writes in this chat, unless they name another: a developer who asks in Russian
   to leave a comment gets a Russian comment, also when the report it comes from

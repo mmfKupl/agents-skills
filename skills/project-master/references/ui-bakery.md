@@ -31,7 +31,8 @@ Load this reference only after repository evidence identifies the UI Bakery mono
   `In Review` for the developer, `my review` starts the next review.
 - Everything an agent writes to Linear here, a comment or a ticket, is in English and
   follows the repository's `.codex/skills/linear-issue-writing/SKILL.md`; read it
-  before writing. The chat, the reports, and the journal stay in the developer's
+  before writing, with `git show origin/dev:<that path>` after `git fetch origin dev`
+  when this checkout is older than the file. The chat, the reports, and the journal stay in the developer's
   language. Tickets keep their titles: the `ticket-title` skill does not apply here.
 - Agents post in Linear under the developer's own account, with nothing that marks an
   agent. A comment that starts with `$develop-please:` is an agent's report, not the

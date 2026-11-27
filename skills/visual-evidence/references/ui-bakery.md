@@ -57,7 +57,8 @@ Where to post:
 
 - upload the videos and screenshots to Linear and embed them in the issue description,
   beside the text they show, as the repository's
-  `.codex/skills/linear-issue-writing/SKILL.md` asks: the before screenshot under
+  `.codex/skills/linear-issue-writing/SKILL.md` asks (`git show origin/dev:<that path>`
+  when the checkout is older than the file): the before screenshot under
   Problem, the video and after screenshots under Solution, each video on its own
   `▶ Video` line. When the description has no such section, put them at its end. Keep
   them out of the issue's resource attachments;

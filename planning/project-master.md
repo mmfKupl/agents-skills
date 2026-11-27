@@ -1072,3 +1072,16 @@ also asked whether to post it, so each counted as waiting for an answer. Agreed 
 - no report asks whether to post the review; the developer asks for it ("запости
   UIB-123"), and the project chat no longer offers it after each report.
 
+### 2026-11-27: the answer after posting fits in two lines
+
+The developer, about the answer to `/post-findings 6381 …` with an approval and a move
+to In Progress: "выглядит коряво и инфа лишняя". It had four labelled parts with the
+report's full path, the commit, the parts that never go in, and why the comment was in
+English. Now `post-findings` answers in two lines: what was posted where, with counts
+and what the developer added or left out, then Suggestions. The project chat says each
+other action in one line with its link.
+
+The same run could not find `.codex/skills/linear-issue-writing/SKILL.md`: the
+checkout on the machine was on an older branch. Our notes now say to read it with
+`git show origin/dev:` when the checkout is older than the file.
+

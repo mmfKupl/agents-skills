@@ -37,7 +37,7 @@ outer workflow delegates that exact action. The Linear issue keeps its title: th
 `ticket-title` skill does not apply in this repository, and `$develop-please` changes
 only its state prefix, such as `[Working]`. Write every Linear text, in English, as the
 repository's `.codex/skills/linear-issue-writing/SKILL.md` says; read it before the
-first one.
+first one, with `git show origin/dev:<that path>` when the branch is older than the file.
 
 `$develop-task`'s Visual Evidence step, through
 [`../../visual-evidence/references/ui-bakery.md`](../../visual-evidence/references/ui-bakery.md),

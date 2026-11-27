@@ -63,7 +63,9 @@ stay as they are.
 For a change in the UI Bakery repository, write it in English, on the ticket and on
 the pull request, whatever language the developer writes in: the team reads it there.
 Read the repository's `.codex/skills/linear-issue-writing/SKILL.md` first and follow
-its rules for comments; the format below already leads with the result.
+its rules for comments; the format below already leads with the result. When this
+checkout is older than that file, read it with `git fetch origin dev` and
+`git show origin/dev:.codex/skills/linear-issue-writing/SKILL.md`.
 
 What is visible without opening anything: the first line, and for each finding its
 title and why it matters. Everything else of a finding is folded under it. Simpler
@@ -130,13 +132,21 @@ try another place on your own.
 
 ## Output
 
-Report in this order, in the developer's language:
+Report in the developer's language, in two lines and nothing else:
 
-- **Posted:** the link to the comment, and whether it is new or replaced an older one.
-- **In it:** how many findings by priority and how many items of simpler code and
-  tests, and what the developer asked to leave out.
-- **Not posted:** what of the report stayed out and why, or `none`.
-- **Suggestions:** what this run showed could be better in this skill, the
-  repository's instructions, or its checks, as
-  [`../develop-task/references/suggestions.md`](../develop-task/references/suggestions.md)
-  says, or `none`.
+1. What was posted and where: the comment as a link named by its ticket or pull
+   request, how many findings by priority and how many items of simpler code and tests,
+   and what the developer asked to add or leave out. Say that it replaced an older
+   comment only when it did.
+2. `Suggestions:` what this run showed could be better in this skill, the
+   repository's instructions, or its checks, as
+   [`../develop-task/references/suggestions.md`](../develop-task/references/suggestions.md)
+   says, or `none`.
+
+Leave out the path of the report, the commit, the parts of the report that never go
+into the comment, and why the comment is in its language. For example:
+
+```markdown
+**Posted** to [UIB-6381](https://linear.app/uibakery/issue/UIB-6381#comment-…): P1 — 1, simpler — 7, your note on top; P2 left out, as you asked.
+Suggestions: none.
+```

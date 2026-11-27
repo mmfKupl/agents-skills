@@ -70,13 +70,9 @@ DEFAULTS: dict[str, Any] = {
     "list_head": "",
     "item": "- {line}",
     "board_unwatched": "No trigger is on, so nothing is watched.",
-    # The tickets of a project that are in work, each once, in one table: those whose last
-    # report asks the developer something that has no answer on record, those under a
-    # trigger that is on, and any other with a run that is not over.
-    "work": "Tickets in work:",
-    "work_list_head": "| Ticket | Title | Where it stands | Trigger |\n|---|---|---|---|",
-    "work_item": "| {ticket} | {title} | {where} | {trigger} |",
-    "work_trigger": "`{trigger}`",
+    # The tickets of a project that are in work, each once, laid out as in the news: those
+    # whose last report asks the developer something that has no answer on record, those
+    # under a trigger that is on, and any other with a run that is not over.
     "work_none": "No tickets in work.",
     "where_asks": "waits for your answer: {step}, {count} questions in the [report]({link})",
     "board_read": "The tracker was read at {time}; watching is {watching}.",
@@ -136,6 +132,9 @@ DEFAULTS: dict[str, Any] = {
     "status_new": "new",
     "status_closed": "closed, {status}",
     "status_moved": "moved to {status}, {assignee}",
+    "status_chat": "a chat works on it: {chats}",
+    "status_idle": "nothing started here",
+    "status_open": "{status}, its chat is open: {chat}",
     # A usage limit stopped the runs of a vendor: one line, not a failure per ticket.
     "limited": "The {vendor} usage limit is reached until {until}. Steps waiting: {count}; they start by themselves then.",
     "burst": "{count} new events are in the queue, and at most {limit} runs go at once. Say which to drop, if any.",

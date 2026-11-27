@@ -1665,10 +1665,12 @@ def _card(state: dict[str, Any], root: Path, project: str, ticket: str, triggers
     return _tidy(lines), chat
 
 
-def _asks(state: dict[str, Any], root: Path, project: str, copy: bool = True) -> list[tuple[str, Any, Any, str]]:
+def _asks(state: dict[str, Any], root: Path, project: str, copy: bool = True) -> list[tuple[Any, ...]]:
     """The tickets whose last report in the project asks the developer something, as rows
-    for a list. A question counts as answered once the ticket's history has a decision or
-    a closing after that report, or a newer report."""
+    for a list: the ticket, its title and address, the words for where it stands, the
+    report, the kind of the report, and how many questions it asks. A question counts as
+    answered once the ticket's history has a decision or a closing after that report, or a
+    newer report."""
     titles = {item["ticket"]: item for item in [*state["events"], *state["board"].get(project, [])] if item.get("title")}
     names = messages.texts()["steps"]
     rows = []
@@ -1691,7 +1693,8 @@ def _asks(state: dict[str, Any], root: Path, project: str, copy: bool = True) ->
         kind = str(last.get("kind") or "")
         rows.append((ticket, known.get("title"), known.get("url"),
                      say("where_asks", step=names.get(kind, kind or say("step_unknown")), count=count,
-                         link=_copy(str(last["path"])) if copy else str(last["path"]))))
+                         link=_copy(str(last["path"])) if copy else str(last["path"])),
+                     str(last["path"]), kind, count))
     return rows
 
 
@@ -1717,23 +1720,28 @@ def board(project: str, ticket: str | None = None) -> str:
                  for name in sorted(on) if name in triggers]
     lines += ["", say("board_triggers"), *listed_on] if listed_on else []
     lines += [] if listed_on else ["", say("board_unwatched")]
-    # One table, each ticket once: first those that wait for the developer's answer, then
-    # those under a trigger that is on, then any other with a run that is not over.
+    # Each ticket once, as in the news: first those that wait for the developer's answer,
+    # then those under a trigger that is on, then any other with a run that is not over.
     asks = _asks(state, root, project)
     newest = {event["ticket"]: event for event in state["events"] if event["project"] == project}
     under = {item["ticket"]: item for item in state["board"].get(project, []) if item["trigger"] in on}
-    rows, events = {row[0]: row for row in asks}, []
+    asked, rest, events = [], [], []
+    for ticket, title, url, _, path, kind, count in asks:
+        known = under.get(ticket) or newest.get(ticket) or {}
+        asked.append((bool(known.get("urgent")), _ask_line(ticket, url, bool(known.get("urgent")),
+                      _verdict(path, kind, None, triggers), count, _copy(path), title)))
+    shown = {row[0] for row in asks}
     for item in [*under.values(), *(event for event in newest.values() if event["state"] in OPEN_STATES)]:
-        if item["ticket"] not in rows:
-            words, event = _where(state, root, project, item["ticket"], triggers, link=True)
-            rows[item["ticket"]] = (item["ticket"], item.get("title"), item.get("url"), words)
-            events += [event] if event else []
-    if rows:
-        lines += ["", say("work"), "", *say("work_list_head").splitlines()]
-        for number, title, url, words in rows.values():
-            trigger = (under.get(number) or newest.get(number) or {}).get("trigger")
-            lines.append(say("work_item", ticket=_tick(number, url), title=_title(title) if title else "", where=words,
-                             trigger=say("work_trigger", trigger=trigger) if trigger else ""))
+        if item["ticket"] in shown:
+            continue
+        shown.add(item["ticket"])
+        status, event = _standing(state, root, project, item["ticket"], triggers)
+        events += [event] if event else []
+        urgent = bool(item.get("urgent") or (event or {}).get("urgent"))
+        rest.append((urgent, _rest_line(item["ticket"], item.get("url"), urgent, status, item.get("title"))))
+    if asked or rest:
+        lines += ["", _layout([line for _, line in sorted(asked, key=lambda pair: not pair[0])],
+                              [line for _, line in sorted(rest, key=lambda pair: not pair[0])])]
     elif listed_on:
         lines += ["", say("work_none")]
     lines += ["", say("board_read", time=_clock(state["polled"]), watching=_watching_words(state)) if state.get("polled")
@@ -1786,6 +1794,63 @@ def _code(ticket: str, url: Any) -> str:
     """A ticket's number in code type, as a link when its address is known."""
     link = _link(url, ticket)
     return f"[`{ticket}`]({link})" if link else f"`{ticket}`"
+
+
+def _verdict(path: str, kind: str, run: dict[str, Any] | None, triggers: dict[str, dict[str, Any]]) -> str:
+    """How a report ended, in a status line: its verdict, else that its step is done."""
+    text = Path(path).read_text(encoding="utf-8", errors="replace")
+    outcome = next((found for found in (_section(text, name) for name in messages.texts()["outcome_sections"])
+                    if _says_something(found)), "")
+    verdict = next((word for word in VERDICTS if re.match(rf"[\s*_`<]*{word}\b", outcome, re.IGNORECASE)), None)
+    return verdict or say("status_done", step=_status_step(run, triggers, kind))
+
+
+def _standing(state: dict[str, Any], root: Path, name: str, ticket: str,
+              triggers: dict[str, dict[str, Any]]) -> tuple[str, dict[str, Any] | None]:
+    """Where a ticket stands on this machine, as a status line, and the event that says so;
+    a report that is ready is its verdict, as a link to it."""
+    events = [event for event in state["events"] if event["project"] == name and event["ticket"] == ticket
+              and event["state"] not in ("skipped", "dismissed")
+              and not (event["state"] == "finished" and _quiet(event, triggers))]
+    if not events:
+        try:
+            holders = [projects._who(holder) for holder in projects._load_ticket(projects._ticket_path(root, ticket), ticket)[0]["taken"]]
+        except (ProjectsError, KeyError):
+            holders = []
+        return (say("status_chat", chats=", ".join(holders)) if holders else say("status_idle")), None
+    event = max(events, key=lambda item: item["id"])
+    status = _status(event, triggers)
+    if event["state"] == "finished" and not event.get("note"):
+        try:
+            filed = [item for item in projects._load_ticket(projects._ticket_path(root, ticket), ticket)[0]["reports"]
+                     if item.get("project") == name and str(item.get("at", "")) >= event.get("started", "")]
+        except (ProjectsError, KeyError):
+            filed = []
+        if filed and Path(str(filed[-1].get("path"))).is_file():
+            path = str(filed[-1]["path"])
+            status = say("status_report", status=_verdict(path, str(filed[-1].get("kind") or ""), event, triggers),
+                         link=_copy(path))
+    return (say("status_open", status=status, chat=event["chat"]) if event.get("chat") else status), event
+
+
+def _ask_line(ticket: str, url: Any, urgent: bool, status: str, count: int, link: str, title: Any,
+              parts: list[str] | None = None) -> str:
+    """A ticket whose report asks the developer something: two lines."""
+    return say("news_ask", ticket=_code(ticket, url), urgent=say("news_urgent") if urgent else "",
+               status=say("status_join").join([*(parts or []), say("news_verdict", verdict=status)]),
+               questions=say("news_questions_one" if count == 1 else "news_questions", count=count, link=link),
+               title=_title(title))
+
+
+def _rest_line(ticket: str, url: Any, urgent: bool, status: str, title: Any) -> str:
+    """Any other ticket: one line, with the first words of its title."""
+    return say("news_line", ticket=_code(ticket, url), urgent=say("news_urgent") if urgent else "",
+               status=status, title=_short(title))
+
+
+def _layout(asks: list[str], rest: list[str]) -> str:
+    """The tickets that ask something, a rule, then the others."""
+    return f"\n\n{say('news_split')}\n\n".join(part for part in ("\n\n".join(asks), "\n".join(rest)) if part)
 
 
 def news(project: str) -> str:
@@ -1845,10 +1910,7 @@ def news(project: str) -> str:
                 filed = projects._load_ticket(projects._ticket_path(root, item["ticket"]), item["ticket"])[0]
                 report_kind = next((str(entry.get("kind")) for entry in filed.get("reports") or []
                                     if str(entry.get("path")) == path), "")
-                outcome = next((found for found in (_section(text, name) for name in messages.texts()["outcome_sections"])
-                                if _says_something(found)), "")
-                verdict = next((word for word in VERDICTS if re.match(rf"[\s*_`<]*{word}\b", outcome, re.IGNORECASE)), None)
-                status = verdict or say("status_done", step=_status_step(run, triggers, report_kind))
+                status = _verdict(path, report_kind, run, triggers)
                 needs = _section(text, "Needs from you")
                 asked = max(1, len(re.findall(r"(?m)^\s*[0-9]+[.)]\s", needs))) if _says_something(needs) else 0
                 entry = row(item["ticket"], run)
@@ -1896,21 +1958,11 @@ def news(project: str) -> str:
 
     # The urgent first, each group in the order its news came.
     order = sorted(rows.items(), key=lambda pair: not pair[1]["urgent"])
-    urgent = lambda entry: say("news_urgent") if entry["urgent"] else ""  # noqa: E731
-    asks = []
-    for ticket, entry in order:
-        if entry["asks"] is None:
-            continue
-        status, count, link = entry["asks"]
-        asks.append(say("news_ask", ticket=_code(ticket, entry["url"]), urgent=urgent(entry),
-                        status=say("status_join").join([*entry["parts"], say("news_verdict", verdict=status)]),
-                        questions=say("news_questions_one" if count == 1 else "news_questions", count=count, link=link),
-                        title=_title(entry["title"])))
-    rest = [say("news_line", ticket=_code(ticket, entry["url"]), urgent=urgent(entry),
-                status=say("status_join").join(entry["parts"]), title=_short(entry["title"]))
+    asks = [_ask_line(ticket, entry["url"], entry["urgent"], entry["asks"][0], entry["asks"][1], entry["asks"][2],
+                      entry["title"], entry["parts"]) for ticket, entry in order if entry["asks"] is not None]
+    rest = [_rest_line(ticket, entry["url"], entry["urgent"], say("status_join").join(entry["parts"]), entry["title"])
             for ticket, entry in order if entry["asks"] is None and entry["parts"]]
-    parts = ["\n\n".join(asks), "\n".join(rest)]
-    shown = f"\n\n{say('news_split')}\n\n".join(part for part in parts if part)
+    shown = _layout(asks, rest)
     shown = "\n\n".join(part for part in [shown, *extra] if part)
     if not shown:
         return say("news_none") + _for_chat(chat)

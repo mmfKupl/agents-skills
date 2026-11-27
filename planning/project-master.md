@@ -1055,3 +1055,6 @@ After several rounds of examples the developer chose this layout ("давай n4
 The full card with the verdict and the questions stays for `board <project> <ticket>`.
 A trigger run without a skill names its step for statuses in the field `status`.
 
+The state of a project (`board <project>`) takes the same layout ("а таблицу не
+поменяли"): its triggers one line each, then the tickets in work as in the news, with
+no table.

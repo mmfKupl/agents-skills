@@ -92,5 +92,6 @@ These apply on top of the command's own rules.
 - Write nothing to the tracker or to a pull request unless the developer says so in
   this chat, or the command's own workflow owns that write, as `$develop-please` owns
   the status and the reports of the ticket it develops.
-- A review asks, in the `Needs from you` section of its report, whether to post the
-  review to the ticket. Post it only on a yes.
+- Post a review to the ticket only when the developer asks for it, as
+  [`../post-findings/SKILL.md`](../post-findings/SKILL.md) says. The report does not
+  ask about it.

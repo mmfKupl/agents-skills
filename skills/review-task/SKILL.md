@@ -362,7 +362,7 @@ text under them is in. Before sending, check that no heading or field is missing
 <ready | ready after fixes | not ready | cannot tell>: <the reason and the remaining risk, in one or two sentences>
 
 ### Needs from you
-<nothing, or each decision as a numbered question: what the code does, the options, and a recommendation that a plain "yes" accepts>
+<nothing, or each decision as a numbered question: what the code does, the options, and a recommendation that a plain "yes" accepts; for a choice of how to fix a finding, only the finding's title, the options in a few words each, and the recommendation>
 
 ### Findings
 #### <P0 | P1 | P2 | P3> — <what goes wrong, in plain words>
@@ -370,7 +370,7 @@ text under them is in. Before sending, check that no heading or field is missing
 - **Why it matters** — <who is affected and how badly>
 - **Where and since when** — <file and line; new in this PR, older and made reachable or worse by it, or older and stops a named requirement from holding>
 - **How it was confirmed** — <the check that was run and its result; or the code path that was traced, and why no check was run>
-- **Fix direction** — <one or two sentences, not a full plan unless asked>
+- **Fix direction** — <one or two sentences, not a full plan unless asked; when the fix is the developer's choice, each option with what it costs and what it leaves, and which one you recommend>
 
 ### Simpler code and tests
 - **Code:** <each place the change can be smaller or simpler: file and line, what to delete, merge, inline, or replace with which existing helper, and about how many lines go; or none>
@@ -399,6 +399,16 @@ tool could catch it. Trace each to a specific moment of this review and change n
 yourself.
 [`../develop-task/references/suggestions.md`](../develop-task/references/suggestions.md)
 has the full rules.
+
+Needs from you and Findings never tell the same thing twice. When the developer has
+to choose how to fix a finding, the finding keeps what happens, the evidence, and each
+option with its cost under Fix direction; the question names the finding by its title
+and gives only the options in a few words and the recommendation. For example: "How to
+fix P1 «At 64 actions at once the datasource process runs out of memory»: (a) go back to
+8 actions and 32 in the queue; (b) keep 64 and admit actions by the size of their data.
+I recommend (a); the finding says why." A decision that is no finding, such as an open
+requirement, is told in full under Needs from you. Never ask whether to post the review:
+the developer asks for that when they want it.
 
 Severity is `P0` critical, `P1` blocks the merge, `P2` should be fixed, or `P3`
 minor; order findings by it. The verdict follows from them: `not ready` with any

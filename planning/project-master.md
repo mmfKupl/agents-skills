@@ -1058,3 +1058,17 @@ A trigger run without a skill names its step for statuses in the field `status`.
 The state of a project (`board <project>`) takes the same layout ("а таблицу не
 поменяли"): its triggers one line each, then the tickets in work as in the news, with
 no table.
+
+### 2026-11-27: review questions do not repeat the findings
+
+The developer: "в скиле ревью есть блок needs from you и он по сути дублирует
+файндинги". In the UIB-6381 review, question 1 told the P1 finding again with its
+measurements, and the finding's fix direction pointed back to question 1. Every review
+also asked whether to post it, so each counted as waiting for an answer. Agreed ("Да,
+оба"):
+
+- a question about how to fix a finding names it by its title and gives only the options
+  and the recommendation; the finding keeps the evidence and each option's cost;
+- no report asks whether to post the review; the developer asks for it ("запости
+  UIB-123"), and the project chat no longer offers it after each report.
+

@@ -16,12 +16,18 @@ When `$develop-please` wraps `$develop-task`, let `$develop-please` own:
 - terminal Ready, No-op, or Blocked outcome;
 - final reporting channel.
 
-In UI Bakery, always run `$develop-task` together with `$develop-please`. If
-`$develop-please` is not loaded in this session, load it with its own skill
-call before the first commit, push, PR, or Linear action. A mention such as
-"pair with develop-please" in this skill's arguments does not load it. Never
-improvise the Linear or PR lifecycle from memory: without the outer skill,
-nobody owns those gates.
+In UI Bakery, `$develop-task` always runs together with `$develop-please`, also when
+the developer wrote only `$develop-task`: they do not want to name it every time. If
+`$develop-please` is not loaded in this session, load it with its own skill call as
+soon as this reference identifies the repository, before the first branch, edit,
+commit, push, PR, or Linear action, and follow its Start Checklist from there. A
+mention such as "pair with develop-please" in this skill's arguments does not load it.
+Never improvise the Linear or PR lifecycle from memory: without the outer skill, nobody
+owns those gates.
+
+Run without `$develop-please` only when the developer says so in this request: "without
+develop-please", "stay local", "no PR", "do not touch Linear", or the like. Then this
+workflow's own standalone lifecycle applies, within what they allowed.
 
 Keep `$develop-task` responsible for mandatory engineering gates, adaptive model
 routing, implementation ownership, validation evidence, scope control, and
@@ -58,8 +64,8 @@ step, while GitHub checks and the preview are still going. Its fix round goes to
 PR as new commits, and the second review runs on the new head. Do not close out as Ready
 before the Final Review has run to its end; the timebox does not cut it short.
 
-Treat an explicit combined prompt as user intent to use `$develop-task` review
-delegation. It does not override higher-priority instructions, runtime
+Treat a `$develop-task` request in UI Bakery, combined by the developer or by the
+rule above, as user intent to use `$develop-task` review delegation. It does not override higher-priority instructions, runtime
 concurrency limits, safety constraints, or an outer workflow rule that cannot
 delegate the requested role.
 

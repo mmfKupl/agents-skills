@@ -385,3 +385,13 @@ such a copy.
   questions now follow the interview template and its rule to explain a mechanism in
   plain words with an example.
 
+## develop-please by default in UI Bakery (2026-11-27)
+
+The developer: "мне надоело писать девелоп плиз каждый раз. Давай внеси в правила
+девелоп таска работы с бецкери репозиторем что девелоп таск всегда идёт с девелоп плиз
+если не просили обратное". The rule in `skills/develop-task/references/ui-bakery.md`
+already said "always together", but loaded develop-please only before the first commit,
+too late for its branch and Linear steps, and named no way out. Now it loads as soon as
+the repository is identified, and runs without it only on the developer's word in the
+request. The shared develop-please skill is not changed.
+

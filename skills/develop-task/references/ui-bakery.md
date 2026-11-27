@@ -45,9 +45,9 @@ the Linear closeout, not an extra report that `$develop-please`'s comment rules 
 into the final one. Do not close out as Ready while a defect from its inspection is open.
 
 `$develop-please` asks for a compact final chat response of five handoff lines with no
-extra sections. The developer wants `$develop-task`'s Report Format there, the full report
-in the file and the short one in the chat: write it in
-full and put those five lines, unchanged, in its State section.
+extra sections. The developer wants `$develop-task`'s Report Format there instead: the
+full report in the file, the short one in the chat, and those five lines, unchanged, in
+the State section of both.
 
 One addition to `$develop-please`'s final Linear report format: a question or decision
 for the developer never goes inside `+++ Details`. Put it in its own visible section,

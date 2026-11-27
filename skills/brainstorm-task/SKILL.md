@@ -414,7 +414,7 @@ this order, in English as written, whatever language the text is in, and write
 <ready to develop | ready after your answers | not worth doing | cannot tell>: <the reason in one or two sentences, the rough size in production and test lines, and whether the developer approved the scope or it is the agent's conclusion>
 
 ### Needs from you
-<nothing, or each decision as a numbered question: what was found, the options as the developer would see their results, and a recommendation that a plain "yes" accepts. Every assumption that is the developer's to decide is a question here, not a line in the file only>
+<nothing, or each decision as a numbered question written from the interview template (Question, I suggest, Example, Why, Otherwise). Every assumption that is the developer's to decide is a question here, not a line in the file only>
 
 ### Scope
 <a link to the scope file, then one line: how many requirements and validation scenarios it has, the delivery slices if any, and what is out of scope; for a revision, what changed from the previous version in one or two lines>
@@ -438,6 +438,13 @@ Rules for it:
   when it shapes the approach, into Not obvious when it would surprise, into a
   question when the developer must decide. A finding that is used nowhere
   stays out.
+- A question in Needs from you follows the interview rules too, also in
+  autopilot, where nobody has seen the research: before asking about a
+  mechanism, a term, or a part of the code, say in plain words what it is and
+  how it works today, and show the Example with real values. A question such
+  as "keep the vector check?" or "which key to pass?" with no word on what the
+  vector or the key is was asked again by the developer three times out of
+  four.
 - A checkpoint during the interview is not this report: it keeps its own
   layout.
 

@@ -379,4 +379,9 @@ worktrees say for a clean copy. Six of the last fourteen chats had lost theirs. 
 links to GitHub, keeping the copies, or nothing. The developer chose: "Ссылки на
 GitHub". The rule is in `global/AGENTS.md`, only for chats whose working directory is
 such a copy.
+- 2026-11-27, from a run's own Suggestions that the developer called good: in an
+  autopilot report three of four questions had to be asked again, because they used
+  terms ("вектор", "ключ для передачи") with no word on what they are. The report's
+  questions now follow the interview template and its rule to explain a mechanism in
+  plain words with an example.
 

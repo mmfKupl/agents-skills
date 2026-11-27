@@ -129,6 +129,7 @@ status_steps:
   develop: develop
   develop-draft: draft
   draft: draft
+  note: check
 status_step_unknown: "step"
 status_held: "{step} waits for your word"
 status_queued: "{step} queued"

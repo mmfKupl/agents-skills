@@ -24,7 +24,7 @@ DEFAULTS: dict[str, Any] = {
     # How a step is called in a status line of the news, by its skill or the kind of its report.
     "status_steps": {"review-task": "review", "review": "review", "brainstorm-task": "brainstorm",
                      "brainstorm": "brainstorm", "develop-task": "develop", "develop-please": "develop",
-                     "develop": "develop", "develop-draft": "draft", "draft": "draft"},
+                     "develop": "develop", "develop-draft": "draft", "draft": "draft", "note": "check"},
     # The section of a report that says how the step ended; the first one found is shown.
     "outcome_sections": ["Verdict"],
 

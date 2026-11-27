@@ -48,6 +48,7 @@ run:
       asks for a whole new review, report the command that starts one and
       start nothing.
     label: твоя просьба из комментария
+    status: comment request
     model: sonnet
     effort: medium
   author_answered:
@@ -55,6 +56,7 @@ run:
       Report which review points the author closed, which stay open, and the
       command that reviews the change again. Start nothing.
     label: разбор ответа автора
+    status: author reply check
     model: sonnet
     effort: medium
   noise: skip

@@ -21,6 +21,10 @@ MESSAGES_VARIABLE = "AGENT_PROJECTS_MESSAGES"
 DEFAULTS: dict[str, Any] = {
     # How a step is called in a message: by the skill it runs, or by the kind of its report.
     "steps": {},
+    # How a step is called in a status line of the news, by its skill or the kind of its report.
+    "status_steps": {"review-task": "review", "review": "review", "brainstorm-task": "brainstorm",
+                     "brainstorm": "brainstorm", "develop-task": "develop", "develop-please": "develop",
+                     "develop": "develop", "develop-draft": "draft", "draft": "draft"},
     # The section of a report that says how the step ended; the first one found is shown.
     "outcome_sections": ["Verdict"],
 
@@ -105,19 +109,38 @@ DEFAULTS: dict[str, Any] = {
 
     # News of a project: `agent-projects news <project>`.
     "news_none": "Nothing new.",
-    # A line that stands before, between, and after the pieces of news; none when empty.
-    "news_rule": "",
-    "news_started": '{line}\n{title}\nStarted by the trigger "{trigger}".',
-    "news_sorted": '{line}\n{title}\nThe check of the trigger "{trigger}" chose this.',
-    # Stands where a ticket's line says where the ticket is.
-    "where_nothing_to_start": 'the check of the trigger "{trigger}" found nothing to start ({outcome})',
+    # One message for each reading. A ticket with questions for the developer takes two
+    # lines: `news_ask`. The others take one: `news_line`, with the first words of the
+    # title. `news_split` stands between the two groups. `{status}` is the status texts
+    # below, joined by `status_join`.
+    "news_ask": "**{ticket}**{urgent} — {status} — {questions}\n_{title}_",
+    "news_line": "{ticket}{urgent} — {status} — _{title}_",
+    "news_split": "---",
+    "news_urgent": " _urgent_",
+    "news_verdict": "**{verdict}**",
+    "news_questions_one": "[1 question]({link})",
+    "news_questions": "[{count} questions]({link})",
+    "status_join": ", ",
+    "status_step_unknown": "step",
+    "status_held": "{step} waits for your word",
+    "status_queued": "{step} queued",
+    "status_running": "{step} running",
+    "status_sorting": "check running",
+    "status_checking": "comment check running",
+    "status_failed": "{step} failed, {note}",
+    "status_no_report": "{step} ended without a report",
+    "status_done": "{step} done",
+    # A report that asks nothing: its verdict, or `status_done`, as a link to it.
+    "status_report": "[{status}]({link})",
+    "status_nothing": "nothing to start ({outcome})",
+    "status_new": "new",
+    "status_closed": "closed, {status}",
+    "status_moved": "moved to {status}, {assignee}",
     # A usage limit stopped the runs of a vendor: one line, not a failure per ticket.
     "limited": "The {vendor} usage limit is reached until {until}. Steps waiting: {count}; they start by themselves then.",
     "burst": "{count} new events are in the queue, and at most {limit} runs go at once. Say which to drop, if any.",
-    # Tickets that came under a trigger or left it: a head with the trigger and how many
-    # of each, then a table with only those tickets. `{counts}` is the count texts below,
+    # How many tickets came or left, for the notification on the phone: the texts below,
     # joined by `changed_join`; each has a text of its own for one ticket.
-    "changed_head": "Trigger `{trigger}` · {counts}",
     "changed_join": ", ",
     "changed_new_one": "1 new",
     "changed_new": "{count} new",
@@ -125,11 +148,6 @@ DEFAULTS: dict[str, Any] = {
     "changed_closed": "{count} closed",
     "changed_moved_one": "1 left",
     "changed_moved": "{count} left",
-    "changed_list_head": "| Ticket | Title | What happened | Where it stands |\n|---|---|---|---|",
-    "changed_item": "| {ticket} | {title} | {what} | {where} |",
-    "changed_what_new": "new",
-    "changed_what_closed": "closed ({status})",
-    "changed_what_moved": "now {status}, assigned to {assignee}",
     # The daily summary starts with what it is and whether the developer is needed.
     "summary_head": "{project} · daily summary · wait for your answer: {asks}",
     "summary_finished": "- finished: {ticket} ({step})",
@@ -188,7 +206,8 @@ def _slots(text: str) -> set[str]:
 def load() -> tuple[dict[str, Any], list[str]]:
     """The texts in use, and what was wrong with the files. A text that names a slot the
     script does not fill is left out, so that a typo never breaks a message."""
-    texts: dict[str, Any] = {**DEFAULTS, "steps": {}, "outcome_sections": list(DEFAULTS["outcome_sections"])}
+    texts: dict[str, Any] = {**DEFAULTS, "steps": {}, "status_steps": dict(DEFAULTS["status_steps"]),
+                             "outcome_sections": list(DEFAULTS["outcome_sections"])}
     problems = []
     for path in files():
         if not path.is_file():
@@ -200,8 +219,8 @@ def load() -> tuple[dict[str, Any], list[str]]:
             continue
         for key, value in document.items():
             default = DEFAULTS.get(key)
-            if key == "steps" and isinstance(value, dict):
-                texts["steps"].update({str(name): str(words) for name, words in value.items()})
+            if key in ("steps", "status_steps") and isinstance(value, dict):
+                texts[key].update({str(name): str(words) for name, words in value.items()})
             elif key == "outcome_sections" and isinstance(value, list) and all(isinstance(item, str) for item in value):
                 texts[key] = value
             elif not isinstance(default, str) or not isinstance(value, str):

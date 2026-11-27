@@ -70,6 +70,9 @@ them as they are, so write them in the developer's language:
   "review is going". It stands before words like "is going" and "report is ready".
   A run with a `command` needs none when `messages.yaml` next to the project-master
   skill has words for its skill.
+- `status`, in a run: the same name in English, for the status lines of the news,
+  such as "author reply check running". The developer chose English statuses there.
+  A run with a `command` needs none: `review-task` is "review", and so on.
 
 - `on_any` lists events. **Any one** entry fires the trigger. Inside one entry
   **every** field must match. The script checks these fields itself, with no model.

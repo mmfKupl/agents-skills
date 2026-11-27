@@ -1032,3 +1032,26 @@ UI Bakery only:
 - Our UI Bakery notes point to the repository's skill wherever an agent writes to
   Linear, since `AGENTS.md` names it only for creating a ticket ("окей").
 
+### 2026-11-27: news as one short message of statuses
+
+The developer, about the news of the Bakery Review chat: "всё равно каша и сложно
+читать… эти подробности точно можно не выводить а только выводить статус". A reading
+gave a block for each event, each with its date, its verdict in three or four sentences,
+and the whole "Needs from you" of the report; the same ticket came twice in one reading.
+After several rounds of examples the developer chose this layout ("давай n4 и 5 слов"):
+
+- one message for each reading, each ticket once with all that happened to it;
+- a ticket whose report asks something: two lines, the number in code type and bold,
+  `urgent` when Linear says Urgent, the verdict in bold and a link `2 questions` to the
+  report, then the full title in italics;
+- a rule, then every other ticket in one line: number, what happened, and the first
+  five words of the title without the agent's state and the type (`Bug:`);
+- statuses in English ("по английски знаешь звучит лучше… даже просто слово ready уже
+  збс"), separated by long dashes; no table, no bullets, no icons ("не, шумно"), no
+  group headings;
+- the urgent first ("и пометка urgent это хорошо"); the number first in every line
+  ("первым должен идти айди тикета везде").
+
+The full card with the verdict and the questions stays for `board <project> <ticket>`.
+A trigger run without a skill names its step for statuses in the field `status`.
+

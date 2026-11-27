@@ -59,6 +59,8 @@ SETTLE_SECONDS = 120
 OPEN_STATES = ("held", "checking", "waiting", "started", "failed")
 # An event in one of these still moves by itself; `watch wait` lasts while it does.
 MOVING_STATES = ("checking", "waiting", "started")
+# Linear's priority Urgent: the news marks such a ticket.
+URGENT = 1
 # In text that a chat shows the developer, what follows this line is for the chat only.
 CHAT_PART = "=== for the chat, not for the developer ==="
 # Headings that reports of the workflows share. A section ends where the next one begins.
@@ -76,9 +78,10 @@ ENTRY_FIELDS = {
     ("github", PULL): {"ticket", "skip", "then"},
 }
 TICKET_RULES = {"reviewed_in_current_env": "was reviewed", "worked_on_in_current_env": "was worked on"}
-RUN_FIELDS = {"command", "prompt", "model", "effort", "quiet", "label"}
+RUN_FIELDS = {"command", "prompt", "model", "effort", "quiet", "label", "status"}
 # A trigger's own words for the developer: what it does in one line, and the heading over
-# the tickets that are under it. A run's `label` is how its step is called.
+# the tickets that are under it. A run's `label` is how its step is called; its `status`
+# is the same in English, for the status lines of the news.
 TRIGGER_WORDS = ("about",)
 # Text no person wrote for a reviewer: an agent's report, which starts with the name of
 # its skill (`$develop-please:`), or a command for a bot (`/e2e-preview ...`).
@@ -89,7 +92,7 @@ PULL_PEOPLE = ("OWNER", "MEMBER", "COLLABORATOR")
 CLOSED_QUERY = """
 query($filter: IssueFilter, $after: String) {
   issues(filter: $filter, first: 100, after: $after) {
-    nodes { identifier title url state { name type } assignee { name } }
+    nodes { identifier title url priority state { name type } assignee { name } }
     pageInfo { hasNextPage endCursor }
   }
 }
@@ -101,7 +104,7 @@ COMMENTS_QUERY = """
 query($filter: IssueFilter, $after: String) {
   issues(filter: $filter, first: 50, after: $after) {
     nodes {
-      identifier title url description
+      identifier title url priority description
       state { name type }
       project { name }
       assignee { id }
@@ -133,7 +136,7 @@ ISSUES_QUERY = """
 query($filter: IssueFilter, $after: String) {
   issues(filter: $filter, first: 25, after: $after) {
     nodes {
-      identifier title url description createdAt
+      identifier title url priority description createdAt
       creator { id name }
       state { name }
       assignee { id name }
@@ -246,8 +249,9 @@ def _read_trigger(path: Path) -> dict[str, Any]:
             raise bad(f"run `{key}`: the command or prompt must be text")
         if not isinstance(run.get("quiet", False), bool):
             raise bad(f"run `{key}`: `quiet` must be true or false")
-        if not isinstance(run.get("label", ""), str):
-            raise bad(f"run `{key}`: `label` must be text")
+        for field in ("label", "status"):
+            if not isinstance(run.get(field, ""), str):
+                raise bad(f"run `{key}`: `{field}` must be text")
         model_and_effort(run, f"run `{key}`")
     if check is not None:
         if not isinstance(check, dict) or set(check) != {"model", "effort", "prompt"} or not isinstance(check["prompt"], str):
@@ -760,7 +764,7 @@ def poll(now: datetime | None = None) -> dict[str, Any]:
             event = {
                 "id": state["next_id"], "key": key, "project": name, "trigger": trigger["name"],
                 "run": entry.get("then"), "ticket": ticket, "title": issue.get("title"), "url": issue.get("url"),
-                "what": what, "found": _stamp(now), "state": verdict, **({"note": note} if note else {}),
+                **({"urgent": True} if issue.get("priority") == URGENT else {}), "what": what, "found": _stamp(now), "state": verdict, **({"note": note} if note else {}),
                 "entry": entry["event"],
             }
             if "then" not in entry:
@@ -815,7 +819,8 @@ def poll(now: datetime | None = None) -> dict[str, Any]:
                     ticket = issue["identifier"].upper()
                     under.setdefault(ticket, {"ticket": ticket, "title": _title(issue.get("title")),
                                               "url": _link(issue.get("url"), ticket),
-                                              "status": _name(issue["state"]["name"]), "trigger": trigger["name"]})
+                                              "status": _name(issue["state"]["name"]), "trigger": trigger["name"],
+                                              **({"urgent": True} if issue.get("priority") == URGENT else {})})
                     moved = _time(move["createdAt"])
                     if not first and (now - moved).total_seconds() < SETTLE_SECONDS:
                         continue
@@ -839,6 +844,7 @@ def poll(now: datetime | None = None) -> dict[str, Any]:
                            "url": _link(node.get("url"), node["identifier"].upper()),
                            "status": _name((node.get("state") or {}).get("name"), "another status"),
                            "closed": (node.get("state") or {}).get("type") in CLOSED_TYPES,
+                           **({"urgent": True} if node.get("priority") == URGENT else {}),
                            "assignee": _name((node.get("assignee") or {}).get("name"), "nobody")} for node in nodes]
             state["board"][name] = [under[ticket] for ticket in sorted(under)]
             for item in left[name]:
@@ -1737,104 +1743,179 @@ def board(project: str, ticket: str | None = None) -> str:
         f"answered them: agent-projects ticket note {row[0]} \"decision: <what they decided>\"" for row in asks)])
 
 
-def _news_item(item: dict[str, Any], state: dict[str, Any], root: Path, project: str,
-               triggers: dict[str, dict[str, Any]]) -> tuple[str | None, list[str]]:
-    kind = item.get("kind")
-    by_id = {event["id"]: event for event in state["events"]}
-    event = by_id.get(item.get("event"))
-    if kind == "started":
-        if event is None or event["state"] not in MOVING_STATES:
-            return None, []  # it is over by now, and its end is news of its own
-        head = say("card_head", ticket=_tick(event["ticket"], event.get("url")), where=say("where_started", step=_step(event, triggers)))
-        title = _title(event.get("title")) if event.get("title") else ""
-        told = "news_sorted" if event.get("entry") == HAND else "news_started"
-        return (say(told, line=head, title=title, trigger=event["trigger"]) if event.get("trigger")
-                else _tidy([head, title]).strip()), _showing([event])
-    if kind == "nothing":
-        if event is None:
-            return None, []
-        return _line(event["ticket"], event.get("title"), event.get("url"), say(
-            "where_nothing_to_start", trigger=event["trigger"], outcome=_step(event, triggers))), [
-            f"stop the background command that shows {event['ticket']}, if this chat runs one"]
-    if kind == "ready":
-        # The run that filed it. A run that only keeps a record is no news.
-        run = next((other for other in reversed(state["events"])
-                    if other["project"] == project and other["ticket"] == item["ticket"]
-                    and other.get("started", "~") <= item["at"] <= other.get("finished", "~")), None)
-        if run is not None and _quiet(run, triggers):
-            return None, []
-        return _card(state, root, project, item["ticket"], triggers, report=item["report"])
-    if kind in ("failed", "no_report"):
-        if event is None:
-            return None, []
-        text, chat = _card(state, root, project, event["ticket"], triggers)
-        where = _where(state, root, project, event["ticket"], triggers)[0]
-        return text, [*chat, f"stop the background command that shows {event['ticket']}, if this chat runs one",
-                      "notify: " + say("notify_ticket", ticket=event["ticket"], where=where)]
-    if kind == "changed":
-        # One table for each trigger, with only the tickets that came or left.
-        groups: dict[str, dict[str, list[Any]]] = {}
-        came = [by_id[number] for number in item.get("arrived") or [] if number in by_id]
-        for new in came:
-            where = _where(state, root, project, new["ticket"], triggers, link=True)[0]
-            groups.setdefault(new.get("trigger") or project, {}).setdefault("new", []).append(say(
-                "changed_item", ticket=_tick(new["ticket"], new.get("url")), title=_title(new.get("title")),
-                what=say("changed_what_new"), where=where))
-        for left in item.get("left") or []:
-            what = (say("changed_what_closed", status=left["status"]) if left["closed"]
-                    else say("changed_what_moved", status=left["status"], assignee=left["assignee"]))
-            groups.setdefault(left.get("trigger") or project, {}).setdefault(
-                "closed" if left["closed"] else "moved", []).append(say(
-                    "changed_item", ticket=_tick(left["ticket"], left.get("url")), title=left["title"], what=what, where=""))
-        lines: list[str] = []
-        notes = []
-        for trigger, rows in groups.items():
-            counts = say("changed_join").join(
-                say(f"changed_{key}_one" if len(rows[key]) == 1 else f"changed_{key}", count=len(rows[key]))
-                for key in ("new", "closed", "moved") if rows.get(key))
-            notes.append("notify: " + say("notify_changed", trigger=trigger, counts=counts))
-            lines += ["", say("changed_head", trigger=trigger, counts=counts), "",
-                      *say("changed_list_head").splitlines(),
-                      *(row for key in ("new", "closed", "moved") for row in rows.get(key, [])), ""]
-        return _tidy(lines).strip(), [*_showing(came), *notes]
-    if kind == "burst":
-        return say("burst", count=item["count"], limit=item["limit"]), []
-    if kind == "text":
-        return str(item["text"]), ([f"notify: {item['notify']}"] if item.get("notify") else [])
-    return None, []
+# The verdicts of a review report, the longest first: `ready` is the start of another.
+VERDICTS = ("ready after fixes", "not ready", "cannot tell", "ready")
+# How many words of a title stand in a line of the news that needs nothing from the developer.
+SHORT_WORDS = 5
+
+
+def _status_step(event: dict[str, Any] | None, triggers: dict[str, dict[str, Any]], kind: str = "") -> str:
+    """How a step is called in a status line: the run's `status`, else the words for its
+    skill or for the kind of its report, else the name of the run."""
+    names = messages.texts()["status_steps"]
+    run = _run(event, triggers) if event else None
+    skill = str(run.get("command") or "").lstrip("/$").split()[:1] if isinstance(run, dict) else []
+    return ((run.get("status") if isinstance(run, dict) else None) or names.get(skill[0] if skill else "")
+            or names.get(kind) or (str(event["run"]).replace("_", " ") if event and event.get("run") else "")
+            or say("status_step_unknown"))
+
+
+def _status(event: dict[str, Any], triggers: dict[str, dict[str, Any]]) -> str:
+    """Where an event stands, as a status line."""
+    step = _status_step(event, triggers)
+    if event["state"] == "checking":
+        return say("status_sorting" if event.get("entry") in (STATUS, HAND) else "status_checking")
+    if event["state"] == "failed":
+        note = " ".join(str(event.get("note") or "").split())
+        return say("status_failed", step=step, note=note if len(note) <= 80 else note[:79].rstrip() + "…")
+    if event["state"] == "finished":
+        return say("status_no_report" if event.get("note") else "status_done", step=step)
+    return say({"held": "status_held", "waiting": "status_queued", "started": "status_running"}.get(
+        event["state"], "status_queued"), step=step)
+
+
+def _short(title: Any) -> str:
+    """The first words of a title, without the state an agent put before it and the type
+    of the ticket, such as `Blocked` and `Bug:`."""
+    plain = re.sub(r"^(?:(?:Working|Needs reply|Blocked)\s+)?[A-Z][a-z]+:\s+", "", _title(title).lstrip())
+    words = plain.rstrip("…").split()
+    return " ".join(words[:SHORT_WORDS]) + ("…" if len(words) > SHORT_WORDS or plain.endswith("…") else "")
+
+
+def _code(ticket: str, url: Any) -> str:
+    """A ticket's number in code type, as a link when its address is known."""
+    link = _link(url, ticket)
+    return f"[`{ticket}`]({link})" if link else f"`{ticket}`"
 
 
 def news(project: str) -> str:
-    """What happened in a project since its chat last asked, as text that the chat shows as
-    it is, and then what the chat does about it. Reading empties the list: one ticket
-    is shown again with `agent-projects board <project> <ticket>`."""
+    """What happened in a project since its chat last asked, as one message that the chat
+    shows as it is, and then what the chat does about it. Each ticket has one entry. Those
+    with questions for the developer stand first, two lines each: the number, the status
+    and the questions, then the title. A line under them parts the rest, one line each with
+    the first words of the title. Reading empties the list: one ticket is shown in full
+    with `agent-projects board <project> <ticket>`."""
     root = projects._require_home()
     projects._load_project(root, project)
     items = projects.news_take(root, project)
-    changed = [item for item in items if item.get("kind") == "changed"]
-    if len(changed) > 1:
-        # Changes read together are one piece of news: the tickets under the triggers are
-        # listed once, as they stand now.
-        items = [item for item in items if item.get("kind") != "changed"] + [{
-            "kind": "changed", "at": max(str(item.get("at") or "") for item in changed), "left": [left for item in changed for left in item.get("left") or []],
-            "arrived": [number for item in changed for number in item.get("arrived") or []]}]
     triggers, _ = load_triggers()
     state = _read_state(root)
-    blocks, seen, chat = [], set(), []
+    by_id = {event["id"]: event for event in state["events"]}
+    rows: dict[str, dict[str, Any]] = {}
+    extra: list[str] = []
+    chat: list[str] = []
+    counts: dict[str, dict[str, int]] = {}
+
+    def row(ticket: str, *known: dict[str, Any] | None) -> dict[str, Any]:
+        entry = rows.setdefault(ticket, {"parts": [], "asks": None, "title": None, "url": None, "urgent": False})
+        # What the tracker said last is the truth: the ticket's place under a trigger, then its events.
+        board = next((item for item in state["board"].get(project, []) if item["ticket"] == ticket), None)
+        latest = max((event for event in state["events"] if event["project"] == project and event["ticket"] == ticket),
+                     key=lambda event: event["id"], default=None)
+        for source in (*known, board, latest):
+            if source:
+                entry["title"] = entry["title"] or source.get("title")
+                entry["url"] = entry["url"] or source.get("url")
+        first = next((source for source in (board, *known, latest) if source), {})
+        entry["urgent"] = entry["urgent"] or bool(first.get("urgent"))
+        return entry
+
+    def add(entry: dict[str, Any], part: str) -> None:
+        if part not in entry["parts"]:
+            entry["parts"].append(part)
+
     for item in items:
+        kind = item.get("kind")
+        event = by_id.get(item.get("event"))
         try:
-            text, todo = _news_item(item, state, root, project, triggers)
+            if kind == "started" and event is not None and event["state"] in MOVING_STATES:
+                add(row(event["ticket"], event), _status(event, triggers))
+                chat += _showing([event])
+            elif kind == "nothing" and event is not None:
+                add(row(event["ticket"], event), say("status_nothing", outcome=_status_step(event, triggers)))
+                chat.append(f"stop the background command that shows {event['ticket']}, if this chat runs one")
+            elif kind == "ready":
+                run = next((other for other in reversed(state["events"])
+                            if other["project"] == project and other["ticket"] == item["ticket"]
+                            and other.get("started", "~") <= item["at"] <= other.get("finished", "~")), None)
+                if run is not None and _quiet(run, triggers):
+                    continue  # a run that only keeps a record is no news
+                path = str(item["report"])
+                text = Path(path).read_text(encoding="utf-8")
+                filed = projects._load_ticket(projects._ticket_path(root, item["ticket"]), item["ticket"])[0]
+                report_kind = next((str(entry.get("kind")) for entry in filed.get("reports") or []
+                                    if str(entry.get("path")) == path), "")
+                outcome = next((found for found in (_section(text, name) for name in messages.texts()["outcome_sections"])
+                                if _says_something(found)), "")
+                verdict = next((word for word in VERDICTS if re.match(rf"[\s*_`<]*{word}\b", outcome, re.IGNORECASE)), None)
+                status = verdict or say("status_done", step=_status_step(run, triggers, report_kind))
+                needs = _section(text, "Needs from you")
+                asked = max(1, len(re.findall(r"(?m)^\s*[0-9]+[.)]\s", needs))) if _says_something(needs) else 0
+                entry = row(item["ticket"], run)
+                if asked:
+                    entry["asks"] = (status, asked, _copy(path))
+                else:
+                    add(entry, say("status_report", status=status, link=_copy(path)))
+                _, todo = _card(state, root, project, item["ticket"], triggers, report=path)
+                chat += todo
+            elif kind in ("failed", "no_report") and event is not None:
+                add(row(event["ticket"], event), _status(event, triggers))
+                _, todo = _card(state, root, project, event["ticket"], triggers)
+                where = _where(state, root, project, event["ticket"], triggers)[0]
+                chat += [*todo, f"stop the background command that shows {event['ticket']}, if this chat runs one",
+                         "notify: " + say("notify_ticket", ticket=event["ticket"], where=where)]
+            elif kind == "changed":
+                for number in item.get("arrived") or []:
+                    new = by_id.get(number)
+                    if new is None:
+                        continue
+                    entry = row(new["ticket"], new)
+                    add(entry, say("status_new"))
+                    add(entry, _status(new, triggers))
+                    chat += _showing([new])
+                    counts.setdefault(new.get("trigger") or project, {}).setdefault("new", 0)
+                    counts[new.get("trigger") or project]["new"] += 1
+                for left in item.get("left") or []:
+                    add(row(left["ticket"], left), say("status_closed", status=left["status"]) if left["closed"]
+                        else say("status_moved", status=left["status"], assignee=left["assignee"]))
+                    key = "closed" if left["closed"] else "moved"
+                    counts.setdefault(left.get("trigger") or project, {}).setdefault(key, 0)
+                    counts[left.get("trigger") or project][key] += 1
+            elif kind == "burst":
+                extra.append(say("burst", count=item["count"], limit=item["limit"]))
+            elif kind == "text":
+                extra.append(str(item["text"]))
+                chat += [f"notify: {item['notify']}"] if item.get("notify") else []
         except Exception as error:  # noqa: BLE001 - one broken piece must not hide the rest
-            text, todo = f"{item.get('kind')} {item.get('ticket') or ''}: {type(error).__name__}: {error}", []
-        if text and text not in seen:
-            seen.add(text)
-            blocks.append(_dated(text, state, item.get("at") or None))
-            chat += todo
-    # A rule before, between, and after: each piece of news stands apart from the rest
-    # of the chat's answer and from the next piece.
-    rule = say("news_rule")
-    shown = (f"{rule}\n\n" + f"\n\n{rule}\n\n".join(blocks) + f"\n\n{rule}") if rule and blocks else "\n\n".join(blocks)
-    return (shown or say("news_none")) + _for_chat(chat)
+            extra.append(f"{kind} {item.get('ticket') or ''}: {type(error).__name__}: {error}")
+    for trigger, found in counts.items():
+        words = say("changed_join").join(
+            say(f"changed_{key}_one" if found[key] == 1 else f"changed_{key}", count=found[key])
+            for key in ("new", "closed", "moved") if found.get(key))
+        chat.append("notify: " + say("notify_changed", trigger=trigger, counts=words))
+
+    # The urgent first, each group in the order its news came.
+    order = sorted(rows.items(), key=lambda pair: not pair[1]["urgent"])
+    urgent = lambda entry: say("news_urgent") if entry["urgent"] else ""  # noqa: E731
+    asks = []
+    for ticket, entry in order:
+        if entry["asks"] is None:
+            continue
+        status, count, link = entry["asks"]
+        asks.append(say("news_ask", ticket=_code(ticket, entry["url"]), urgent=urgent(entry),
+                        status=say("status_join").join([*entry["parts"], say("news_verdict", verdict=status)]),
+                        questions=say("news_questions_one" if count == 1 else "news_questions", count=count, link=link),
+                        title=_title(entry["title"])))
+    rest = [say("news_line", ticket=_code(ticket, entry["url"]), urgent=urgent(entry),
+                status=say("status_join").join(entry["parts"]), title=_short(entry["title"]))
+            for ticket, entry in order if entry["asks"] is None and entry["parts"]]
+    parts = ["\n\n".join(asks), "\n".join(rest)]
+    shown = f"\n\n{say('news_split')}\n\n".join(part for part in parts if part)
+    shown = "\n\n".join(part for part in [shown, *extra] if part)
+    if not shown:
+        return say("news_none") + _for_chat(chat)
+    stamp = max((str(item.get("at") or "") for item in items), default="") or None
+    return _dated(shown, state, stamp) + _for_chat(chat)
 
 
 def _digests(state: dict[str, Any], now: datetime, triggers: dict[str, dict[str, Any]]) -> list[tuple[str, str]]:
@@ -2366,6 +2447,7 @@ def add_sorted(project: str, ticket: str, words: str, trigger: str, title: str |
         "trigger": trigger, "run": None, "title": title or issue.get("title"), "url": url or issue.get("url"),
         "what": "sent to the project chat by the developer" + (f", who wrote: {words}" if words else ""),
         "state": "checking", "entry": HAND, **({"words": words} if words else {}),
+        **({"urgent": True} if issue.get("priority") == URGENT else {}),
     }, packet=lambda event: _packet(chosen, event, issue, [], root))
     return {**answer, "say": say("asked_sorting", line=_line(ticket, event["title"], event["url"], say("where_sorting")))}
 

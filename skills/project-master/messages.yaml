@@ -108,18 +108,50 @@ card_none: "По {ticket} на этой машине записей нет."
 
 # Новости проекта: agent-projects news <проект>.
 news_none: "Ничего нового."
-# Линия перед новостями, между ними и после: каждая новость стоит отдельно.
-news_rule: "---"
-news_started: "{line}\n{title}\nЗапустил триггер «{trigger}»."
-news_sorted: "{line}\n{title}\nТак решила проверка триггера «{trigger}»."
-where_nothing_to_start: "проверка триггера «{trigger}» решила, что запускать нечего ({outcome})"
+# Одно сообщение на каждое чтение трекера. Тикет, где есть вопросы к тебе, занимает две
+# строки: news_ask. Остальные — по одной: news_line, с первыми пятью словами названия.
+# Между группами news_split. Статусы по-английски: так решил разработчик 27.11.2026.
+# {status} — тексты status_* ниже через status_join. Срочные (Urgent в Linear) идут первыми.
+news_ask: "**{ticket}**{urgent} — {status} — {questions}\n_{title}_"
+news_line: "{ticket}{urgent} — {status} — _{title}_"
+news_split: "---"
+news_urgent: " _urgent_"
+news_verdict: "**{verdict}**"
+news_questions_one: "[1 question]({link})"
+news_questions: "[{count} questions]({link})"
+status_join: ", "
+# Как называется шаг в статусе: по скиллу или по виду отчёта. У шага без скилла — поле
+# status в его триггере.
+status_steps:
+  review-task: review
+  review: review
+  brainstorm-task: brainstorm
+  brainstorm: brainstorm
+  develop-task: develop
+  develop-please: develop
+  develop: develop
+  develop-draft: draft
+  draft: draft
+status_step_unknown: "step"
+status_held: "{step} waits for your word"
+status_queued: "{step} queued"
+status_running: "{step} running"
+status_sorting: "check running"
+status_checking: "comment check running"
+status_failed: "{step} failed, {note}"
+status_no_report: "{step} ended without a report"
+status_done: "{step} done"
+# Отчёт без вопросов: его вердикт или status_done, ссылкой на отчёт.
+status_report: "[{status}]({link})"
+status_nothing: "nothing to start ({outcome})"
+status_new: "new"
+status_closed: "closed, {status}"
+status_moved: "moved to {status}, {assignee}"
 # Лимит использования исчерпан: одна строка вместо ошибки на каждый тикет.
 limited: "**Лимит {vendor} исчерпан до {until}.** Ждут в очереди: {count}; начнутся сами после сброса."
 burst: "В очереди {count} новых событий, а одновременно идёт не больше {limit}. Скажи, какие снять, если они не нужны."
-# Тикеты пришли под триггер или ушли из-под него: шапка с триггером и числами, под ней
-# таблица только с этими тикетами. {counts} собирается из текстов ниже через changed_join;
-# для одного тикета у каждого свой текст.
-changed_head: "**Триггер `{trigger}` · {counts}**"
+# Сколько тикетов пришло или ушло: для уведомления на телефон. Числа собираются из
+# текстов ниже через changed_join; для одного тикета у каждого свой текст.
 changed_join: ", "
 changed_new_one: "1 новый"
 changed_new: "{count} новых"
@@ -127,11 +159,6 @@ changed_closed_one: "1 закрыт"
 changed_closed: "{count} закрыто"
 changed_moved_one: "1 ушёл"
 changed_moved: "{count} ушло"
-changed_list_head: "| Тикет | Название | Что случилось | Состояние |\n|---|---|---|---|"
-changed_item: "| {ticket} | {title} | {what} | {where} |"
-changed_what_new: "новый"
-changed_what_closed: "закрыт ({status})"
-changed_what_moved: "теперь {status}, на {assignee}"
 # Сводка за день начинается с того, что это и нужен ли ты.
 summary_head: "**{project} · сводка за день · ждут твоего ответа: {asks}**"
 summary_finished: "- **Готово:** {ticket}, {step}"

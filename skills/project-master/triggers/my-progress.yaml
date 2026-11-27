@@ -46,6 +46,7 @@ run:
   new_work_small:
     prompt: Report what to build and the command that starts it. Start nothing.
     label: разбор задачи
+    status: task check
     model: sonnet
     effort: medium
   review_feedback:
@@ -54,11 +55,13 @@ run:
       points need code, and the command that continues the developing chat.
       Start nothing.
     label: разбор замечаний
+    status: feedback check
     model: sonnet
     effort: high
   continuation:
     prompt: Update the ticket's earlier report with what changed.
     label: обновление отчёта
+    status: report update
     model: sonnet
     effort: medium
   noise: skip

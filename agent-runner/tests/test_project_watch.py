@@ -1301,10 +1301,8 @@ run:
         self.assertEqual(tell.call_args.args[3], "Tickets changed in billing. New: UIB-2.")
         # What the developer reads comes from the script, ready to show.
         self.assertEqual(self.news(), [
-            "Trigger `my review` · 1 new",                           # only the ticket that came, not all under the trigger
-            "",
-            "| Ticket | Title | What happened | Where it stands |", "|---|---|---|---|",
-            "| [UIB-2](https://linear.app/x/UIB-2) | Title of UIB-2 | new | review is going |",
+            # Only the ticket that came, not all under the trigger: one line, its arrival and where it stands.
+            "[`UIB-2`](https://linear.app/x/UIB-2) — new, review running — _Title of UIB-2_",
             "",
             project_watch.CHAT_PART,
             "- show UIB-2 while it goes, unless this chat does already: run `agent-projects watch wait 2` in the background",
@@ -1372,13 +1370,41 @@ run:
         self.assertIn("a ticket moved to In Review, assigned to the developer, by someone else: starts /review-task",
                       project_watch._brief(project_watch.load_triggers()[0]["my review"]))
 
+    def test_news_puts_the_questions_first_and_marks_the_urgent(self) -> None:
+        self.watched_project()
+        long = "Blocked Bug: Parallel chat requests spend more credits than the balance"
+        self.issues = [issue("UIB-1", minutes_ago=30), {**issue("UIB-2", minutes_ago=30), "priority": 1, "title": long}]
+        with patch.object(project_watch, "_tell", return_value=None):
+            project_watch.cycle()
+            # One line each, the urgent first; the title loses the agent's state and the type, and is cut at five words.
+            self.assertEqual(self.news()[:2], [
+                "[`UIB-2`](https://linear.app/x/UIB-2) _urgent_ — new, review running — _Parallel chat requests spend more…_",
+                "[`UIB-1`](https://linear.app/x/UIB-1) — new, review running — _Title of UIB-1_"])
+            written = "### Verdict\nnot ready: it breaks.\n\n### Needs from you\n1. One?\n2. Two?\n"
+            for ticket in ("UIB-1", "UIB-2"):
+                with patch.object(sys, "stdin", io.StringIO(written if ticket == "UIB-1" else "### Verdict\nready\n")):
+                    self.ok("report", "add", "--project", "billing", "--ticket", ticket, "--kind", "review")
+            shown = self.news()
+            self.wait_for_runs()
+        day = project_watch._stamp()[:10]
+        # A report with questions takes two lines over a rule; one without them is a link in the line below it.
+        self.assertEqual(shown[:5], [
+            f"**[`UIB-1`](https://linear.app/x/UIB-1)** — **not ready** — [2 questions](.agent-reports/{day}-UIB-1-review.md)",
+            "_Title of UIB-1_",
+            "",
+            "---",
+            "",
+        ])
+        self.assertEqual(shown[5], f"[`UIB-2`](https://linear.app/x/UIB-2) _urgent_ — [ready](.agent-reports/{day}-UIB-2-review.md)"
+                                   " — _Parallel chat requests spend more…_")
+
     def test_ticket_that_leaves_a_trigger_is_told_once_with_what_stays_under_it(self) -> None:
         self.watched_project()
         self.issues = [issue(f"UIB-{number}", minutes_ago=30) for number in (1, 2, 3)]
         with patch.object(project_watch, "_tell", return_value=None) as tell:
             project_watch.cycle()
-            # The head, a blank line, the table of three new tickets, then the chat's part.
-            self.assertEqual(self.news()[0], "Trigger `my review` · 3 new")
+            # One line for each new ticket, then the chat's part.
+            self.assertEqual(self.news()[0], "[`UIB-1`](https://linear.app/x/UIB-1) — new, review running — _Title of UIB-1_")
             self.wait_for_runs()
             self.reviewed("UIB-1")                                   # it has a history on this machine
             self.issues, self.closed = [issue("UIB-2", minutes_ago=30)], {"UIB-1"}     # one closed, one moved on
@@ -1391,16 +1417,14 @@ run:
         self.assertEqual(self.boards(tell), ["Tickets changed in billing. New: UIB-1, UIB-2, UIB-3.",
                                              "Tickets changed in billing. Left: UIB-1, UIB-3.",
                                              "Tickets changed in billing. Left: UIB-2."])
-        gone = left.index("Trigger `my review` · 1 closed, 1 left")
-        self.assertEqual(left[gone:gone + 6], [
-            "Trigger `my review` · 1 closed, 1 left",
-            "",
-            "| Ticket | Title | What happened | Where it stands |", "|---|---|---|---|",
-            "| [UIB-1](https://linear.app/x/UIB-1) | Title of UIB-1 | closed (Done) |  |",
-            "| [UIB-3](https://linear.app/x/UIB-3) | Title of UIB-3 | now In Progress, assigned to Other |  |",
-        ])
-        self.assertEqual(self.news()[:5], ["Trigger `my review` · 1 closed", "", "| Ticket | Title | What happened | Where it stands |", "|---|---|---|---|",
-                                           "| [UIB-2](https://linear.app/x/UIB-2) | Title of UIB-2 | closed (Done) |  |"])
+        # Each ticket once, with all that happened to it since the last reading.
+        report = f".agent-reports/{project_watch._stamp()[:10]}-UIB-1-review.md"
+        self.assertEqual(left[:3], [
+            f"[`UIB-1`](https://linear.app/x/UIB-1) — [review done]({report}), closed, Done — _Title of UIB-1_",
+            "[`UIB-2`](https://linear.app/x/UIB-2) — review ended without a report — _Title of UIB-2_",
+            "[`UIB-3`](https://linear.app/x/UIB-3) — review ended without a report, moved to In Progress, Other — _Title of UIB-3_"])
+        self.assertIn("- notify: Trigger my review: 1 closed, 1 left", left)
+        self.assertEqual(self.news()[:1], ["[`UIB-2`](https://linear.app/x/UIB-2) — closed, Done — _Title of UIB-2_"])
         history = {item["ticket"]: item["last_event"] for item in self.ok("status")["tickets"]}
         self.assertTrue(history["UIB-1"].endswith("closed in the tracker: Done"))
         self.assertNotIn("UIB-2", history)                           # no record here: none is made for a note
@@ -1439,16 +1463,14 @@ run:
         call = next(item for item in map(json.loads, self.log.read_text().splitlines()) if "--worktree" in item["argv"])
         self.assertTrue(call["prompt"].startswith("/project-scope billing /brainstorm-task autopilot UIB-5\nlet us do it\n\n"
                                                   'Started by the trigger "my progress"'))
-        self.assertEqual(self.news()[:3], ["[UIB-5](https://linear.app/x/UIB-5) · new work large is going", "Title of UIB-5",
-                                           'The check of the trigger "my progress" chose this.'])
+        self.assertEqual(self.news()[:1], ["[`UIB-5`](https://linear.app/x/UIB-5) — brainstorm running — _Title of UIB-5_"])
 
         add("UIB-6", "my progress")                                  # a check that finds nothing to do says so
         with patch.object(project_watch, "_tell", return_value=None) as tell:
             self.run_check("noise")
         self.assertIn('UIB-6: the check of the trigger "my progress" sorted it as noise, which starts nothing.',
                       [call.args[3] for call in tell.call_args_list])
-        self.assertIn('[UIB-6](https://linear.app/x/UIB-6) "Title of UIB-6": the check of the trigger "my progress" found '
-                      "nothing to start (noise)", self.news())
+        self.assertIn("[`UIB-6`](https://linear.app/x/UIB-6) — nothing to start (noise) — _Title of UIB-6_", self.news())
 
     def test_filed_report_is_news_with_its_own_words_and_the_ticket_can_be_shown_again(self) -> None:
         self.project()
@@ -1478,8 +1500,12 @@ run:
                 "",
                 project_watch.CHAT_PART]
         opening = '- to open the chat of UIB-7 when the developer asks: agent-projects watch open 1 --title "<title>"'
+        # The news says only where it stands: the verdict and a link to the questions, then the title.
         self.assertEqual(self.news(), [
-            *card,
+            f"**[`UIB-7`](https://linear.app/x/issue/UIB-7)** — **ready after fixes** — [1 question](.agent-reports/{name})",
+            "_Limits_",
+            "",
+            project_watch.CHAT_PART,
             "- stop the background command that shows UIB-7, if this chat runs one",
             "- notify: UIB-7: review-task report is ready, your answer is needed",
             opening])

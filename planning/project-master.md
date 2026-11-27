@@ -998,3 +998,17 @@ later. The developer: "сделай задержку в 2 минуты". The rea
 minutes instead of ten. A move still waits two minutes to settle before it starts a
 run, so a run starts two to four minutes after the move.
 
+### 2026-11-27: a usage limit holds the queue
+
+From a run's Suggestions that the developer passed on: the reason of a failed run read
+"success: You've hit your weekly limit · resets Nov 29, 6am (UTC)", and the watching
+kept starting reviews that failed at once. Found on the server: events 70–75 of
+my-reviews failed so, two of them as checks "that picked no outcome".
+
+- Claude Code ends such a turn with `is_error: true` and `subtype: success`; the reason
+  no longer carries that word.
+- A run or a check stopped by the limit goes back to the queue, and nothing more starts
+  on that application until the reset time the message gives (an hour when it gives
+  none). The project chat gets one line with the time and how many steps wait, with a
+  notification, instead of a failure per ticket.
+

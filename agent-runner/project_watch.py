@@ -659,7 +659,7 @@ def _read_state(root: Path) -> dict[str, Any]:
     for key in ("events", "problems", "messages"):
         state.setdefault(key, [])
     for key in ("baseline", "since", "read_until", "closed_tickets", "seen", "undelivered", "takeover", "digest",
-                "unsent", "board", "woken", "links"):
+                "unsent", "board", "woken", "links", "limited"):
         # `baseline` and `closed_tickets` were lists in the first version of this file.
         if not isinstance(state.get(key), dict):
             state[key] = {}
@@ -995,6 +995,48 @@ def _alive(pid: int | None, marker: str = "") -> bool:
     return listed.returncode != 0 or not marker or marker in listed.stdout
 
 
+# What Claude Code says when the account's usage limit is reached, such as "You've hit
+# your weekly limit · resets Nov 29, 6am (UTC)". Every run on that vendor fails at once
+# until then, so nothing more starts on it.
+LIMIT_TEXT = re.compile(r"hit your (?:[\w-]+ )?limit", re.IGNORECASE)
+RESET_TEXT = re.compile(r"resets (\w{3} \d{1,2}), (\d{1,2})(?::(\d\d))?\s*([ap]m)(?: \(([\w/+-]+)\))?", re.IGNORECASE)
+LIMIT_WAIT = timedelta(hours=1)
+
+
+def _reset(text: str, now: datetime) -> datetime:
+    """When a usage limit that `text` reports ends; an hour from now when it does not say."""
+    found = RESET_TEXT.search(text)
+    if not found:
+        return now + LIMIT_WAIT
+    day, hour, minute, half, zone = found.groups()
+    try:
+        place = ZoneInfo(zone or "UTC")
+        clock = datetime.strptime(f"{day} {hour}:{minute or '00'} {half.lower()}", "%b %d %I:%M %p")
+        moment = clock.replace(year=now.year, tzinfo=place)
+        if moment < now - timedelta(days=1):
+            moment = moment.replace(year=now.year + 1)
+        return moment.astimezone(timezone.utc)
+    except (ValueError, KeyError):
+        return now + LIMIT_WAIT
+
+
+def _hit_limit(event: dict[str, Any], text: str, vendor: str) -> None:
+    """Put an event that a usage limit stopped back into the queue, with the time the
+    limit ends, so that it starts again by itself then."""
+    event.update(limited={"vendor": vendor, "until": _stamp(_reset(text, datetime.now(timezone.utc))),
+                                                "text": " ".join(text.split())[:160]})
+
+
+def _vendor(event: dict[str, Any], triggers: dict[str, dict[str, Any]]) -> str | None:
+    """The application that the event's next step runs on: its check, or its run."""
+    trigger = triggers.get(event["trigger"]) or {}
+    step = trigger.get("check") if event["state"] == "checking" else _run(event, triggers)
+    try:
+        return run_chat.chat_route(step["model"], "auto")[0] if isinstance(step, dict) else None
+    except (KeyError, manifest.ManifestError, ValueError):
+        return None
+
+
 def _check(event: dict[str, Any], root: Path, triggers: dict[str, dict[str, Any]]) -> None:
     """Run the trigger's check on an event, then act on the outcome it picked. The check
     is a read-only job on a cheap model; its packet was written when the event was found."""
@@ -1029,9 +1071,14 @@ def _check(event: dict[str, Any], root: Path, triggers: dict[str, dict[str, Any]
         return
     del event["check_pid"]
     try:
-        outcome = projects._load_mapping(folder / "summary.yaml").get("check_outcome")
+        summary = projects._load_mapping(folder / "summary.yaml")
     except (ProjectsError, OSError):
-        outcome = None
+        summary = {}
+    outcome = summary.get("check_outcome")
+    stopped = str((summary.get("error") or {}).get("message") or "") if isinstance(summary.get("error"), dict) else ""
+    if LIMIT_TEXT.search(stopped):
+        _hit_limit(event, stopped, str(summary.get("vendor") or "claude"))  # it stays `checking`
+        return
     # Only what the check may pick: a run that an entry names with `then` is not its to start.
     direct = {entry.get("then") for entry in trigger.get("on_any") or []}
     if not isinstance(outcome, str) or outcome not in runs or outcome in direct:
@@ -1121,9 +1168,15 @@ def _finish(event: dict[str, Any], root: Path, quiet: bool) -> str | None:
             return f"{event['ticket']}: {reports[-1].get('kind')} report ready, {_by(event)}. {reports[-1].get('path')}"
         event["note"] = "the run ended without filing a report"
         return f"{label} ended without filing a report. Its last message: {last.get('result')}"
-    event["state"] = "failed"
     known = record.get("status") in ("failed", "timed_out")
     reason = str(last.get("error") or "no reason recorded") if known else "the run stopped without a result"
+    if known and LIMIT_TEXT.search(reason):
+        # Not the ticket's failure: the run starts again when the limit ends.
+        event["state"] = "waiting"
+        event.pop("finished", None)
+        _hit_limit(event, reason, str(record.get("vendor") or "claude"))
+        return None
+    event["state"] = "failed"
     # The reason may quote what the run printed, so it is kept short and on one line.
     event["note"] = " ".join(reason.split())[:200]
     try:
@@ -1355,6 +1408,16 @@ def _dated(text: str, state: dict[str, Any], stamp: str | None = None) -> str:
     local = moment.astimezone(ZoneInfo(zone) if zone else None)
     return say("stamp", day=local.strftime("%d"), month=local.strftime("%m"), year=local.strftime("%Y"),
                time=local.strftime("%H:%M")) + "\n\n" + text
+
+
+def _vendor_name(vendor: str) -> str:
+    return {"claude": "Claude", "codex": "Codex"}.get(vendor, vendor)
+
+
+def _clock_local(state: dict[str, Any], stamp: str) -> str:
+    """A moment in the zone of the daily summary, or of the machine, as day and time."""
+    zone = (state.get("digest") or {}).get("timezone")
+    return _time(stamp).astimezone(ZoneInfo(zone) if zone else None).strftime("%d.%m %H:%M")
 
 
 def _tick(ticket: str, url: Any) -> str:
@@ -1936,6 +1999,13 @@ def cycle(read_tracker: bool = True) -> list[str]:
             if event["id"] in arrived:
                 event["known"] = True
         running = sum(event["state"] == "started" for event in state["events"])
+        # A usage limit of a vendor holds every step on it until the limit ends.
+        stamp_now = _stamp(now)
+        for vendor, held in list(state["limited"].items()):
+            if str(held.get("until", "")) <= stamp_now:
+                del state["limited"][vendor]
+                lines.append(f"the usage limit of {vendor} has ended; its queue goes again")
+        was_limited = {vendor: dict(held) for vendor, held in state["limited"].items()}
         checking = sum(event["state"] == "checking" and bool(event.get("check_pid")) for event in state["events"])
         for event in state["events"]:
             before = event["state"]
@@ -1943,6 +2013,8 @@ def cycle(read_tracker: bool = True) -> list[str]:
                 if before == "checking" and event.get("check_pid"):
                     _check(event, root, triggers)
                     checking -= not event.get("check_pid")
+                elif before in ("checking", "waiting") and _vendor(event, triggers) in state["limited"]:
+                    pass  # held by a usage limit
                 elif before == "checking" and checking < limit and not paused():
                     _check(event, root, triggers)
                     checking += bool(event.get("check_pid"))
@@ -1967,6 +2039,14 @@ def cycle(read_tracker: bool = True) -> list[str]:
             except Exception as error:  # noqa: BLE001 - one broken event must not stop the rest
                 event.update(state="failed", note=f"the watching script failed on this event: "
                                                   f"{type(error).__name__}: {error}"[:300])
+            reached = event.pop("limited", None)
+            if reached:
+                known = state["limited"].get(reached["vendor"])
+                if not known or str(known.get("until", "")) < reached["until"]:
+                    state["limited"][reached["vendor"]] = {"until": reached["until"], "text": reached["text"]}
+                lines.append(f"{event['ticket']}: stopped by the usage limit of {reached['vendor']}, back in the queue "
+                             f"until {reached['until']}")
+                continue
             if before == "checking" and event.get("entry") == HAND and event["state"] in ("skipped", "failed"):
                 # The developer asked and nothing will start: they are told why.
                 to_tell.append((event["project"], f"{event['ticket']}: the check of the trigger \"{event['trigger']}\" "
@@ -1977,6 +2057,22 @@ def cycle(read_tracker: bool = True) -> list[str]:
             if event["state"] != before:
                 did = f"check picked {event.get('run')}, now" if before == "checking" else f"{event['run']} run"
                 lines.append(f"{event['ticket']}: {did} {event['state']}" + (f" ({event['note']})" if event.get("note") else ""))
+        # A limit that was reached in this step is told once, to each project with a step
+        # held by it, instead of a failure for every ticket.
+        for vendor, held in state["limited"].items():
+            if was_limited.get(vendor, {}).get("until") == held["until"]:
+                continue
+            waiting = sorted({event["project"] for event in state["events"] if event["state"] in ("waiting", "checking")
+                              and _vendor(event, triggers) == vendor})
+            for name in waiting:
+                count = sum(event["project"] == name and event["state"] in ("waiting", "checking")
+                            and _vendor(event, triggers) == vendor for event in state["events"])
+                text = say("limited", vendor=_vendor_name(vendor), until=_clock_local(state, held["until"]), count=count)
+                to_tell.append((name, f"The usage limit of {vendor} is reached until {held['until']}: {count} steps of "
+                                      f"{name} wait and start by themselves then."))
+                fresh_news.append((name, {"kind": "text", "text": text,
+                                          "notify": say("notify_limited", vendor=_vendor_name(vendor),
+                                                        until=_clock_local(state, held["until"]))}))
         gone = found.get("left", {})
         for name in sorted(set(gone) | {event["project"] for event in state["events"] if event["id"] in arrived}):
             to_tell.append((name, _board(state, name, arrived, gone.get(name, []))))

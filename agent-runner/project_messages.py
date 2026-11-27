@@ -111,6 +111,8 @@ DEFAULTS: dict[str, Any] = {
     "news_sorted": '{line}\n{title}\nThe check of the trigger "{trigger}" chose this.',
     # Stands where a ticket's line says where the ticket is.
     "where_nothing_to_start": 'the check of the trigger "{trigger}" found nothing to start ({outcome})',
+    # A usage limit stopped the runs of a vendor: one line, not a failure per ticket.
+    "limited": "The {vendor} usage limit is reached until {until}. Steps waiting: {count}; they start by themselves then.",
     "burst": "{count} new events are in the queue, and at most {limit} runs go at once. Say which to drop, if any.",
     # Tickets that came under a trigger or left it: a head with the trigger and how many
     # of each, then a table with only those tickets. `{counts}` is the count texts below,
@@ -158,6 +160,7 @@ DEFAULTS: dict[str, Any] = {
     "notify_needs": "{line}, your answer is needed",
     "notify_changed": "Trigger {trigger}: {counts}",
     "notify_summary": "The daily summary for {project} is in the chat",
+    "notify_limited": "{vendor} limit until {until}: runs wait",
 }
 
 # Slots that a text may use although the English one does not.

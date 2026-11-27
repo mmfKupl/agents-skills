@@ -30,9 +30,12 @@ if mode == "slow":
 if mode == "crash":
     sys.stderr.write("boom: no credentials\\n")
     sys.exit(3)
+# As Claude Code ends a turn that the usage limit stopped: an error, though `subtype` says success.
+limited = "You've hit your weekly limit \u00b7 resets Nov 29, 6am (UTC)"
 print(json.dumps({{
     "type": "result", "subtype": "error_during_execution" if mode == "error" else "success",
-    "is_error": mode == "error", "result": "it broke" if mode == "error" else "sent" if mode == "sent" else "answer to: " + prompt,
+    "is_error": mode in ("error", "limit"),
+    "result": "it broke" if mode == "error" else limited if mode == "limit" else "sent" if mode == "sent" else "answer to: " + prompt,
     "session_id": "claude-session-1", "total_cost_usd": 0.25,
     "usage": {{"input_tokens": 10, "cache_read_input_tokens": 600, "cache_creation_input_tokens": 90,
               "output_tokens": 40}},

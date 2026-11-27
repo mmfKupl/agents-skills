@@ -136,7 +136,10 @@ def _parse_claude(text: str) -> dict[str, Any]:
     cached, write = usage.get("cache_read_input_tokens", 0), usage.get("cache_creation_input_tokens", 0)
     error = None
     if last.get("is_error"):
-        error = f"{last.get('subtype') or 'error'}: {str(last.get('result') or '')[:500]}"
+        # Claude Code says `subtype: success` also for a turn that an API error ended.
+        subtype = last.get("subtype")
+        text = str(last.get("result") or "")[:500]
+        error = text if subtype in (None, "success") and text else f"{subtype or 'error'}: {text}"
     return {
         "session": last.get("session_id"),
         "result": last.get("result") or "",

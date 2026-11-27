@@ -756,6 +756,32 @@ class ProjectWatchTests(unittest.TestCase):
         self.assertEqual(self.states(), {"UIB-1": "failed"})
         self.assertEqual(self.ok("status")["tickets"][0]["taken"], [])
 
+    def test_usage_limit_puts_the_runs_back_in_the_queue_until_it_ends_and_says_so_once(self) -> None:
+        self.watched_project()
+        self.issues = [issue("UIB-1", minutes_ago=30), issue("UIB-2", minutes_ago=30)]
+        os.environ["FAKE_MODE"] = "limit"
+        project_watch.cycle()
+        self.wait_for_runs()
+
+        with patch.object(project_watch, "_tell", return_value=None):
+            lines = project_watch.cycle()
+            project_watch.cycle()                                    # nothing starts while the limit holds
+
+        self.assertEqual(self.states(), {"UIB-1": "waiting", "UIB-2": "waiting"})
+        self.assertFalse(any("success" in line for line in lines))
+        until = yaml.safe_load((self.home / "watch.yaml").read_text())["limited"]["claude"]["until"]
+        self.assertTrue(until.endswith("-11-29T06:00:00Z"))
+        news = self.news()
+        self.assertEqual(sum("usage limit is reached until 29.11" in line for line in news), 1)
+        self.assertFalse(any("failed" in line for line in news))
+
+        os.environ["FAKE_MODE"] = "ok"
+        with project_watch._state() as state:                        # the limit has ended
+            state["limited"]["claude"]["until"] = "2000-01-01T00:00:00Z"
+        with patch.object(project_watch, "_tell", return_value=None):
+            project_watch.cycle()
+        self.assertEqual(self.states(), {"UIB-1": "started", "UIB-2": "started"})
+
     def test_process_number_taken_by_another_program_does_not_keep_an_event_started(self) -> None:
         self.watched_project()
         self.issues = [issue("UIB-1", minutes_ago=30), issue("UIB-2", minutes_ago=30)]

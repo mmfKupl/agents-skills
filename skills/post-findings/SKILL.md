@@ -60,6 +60,11 @@ Write it in the language the developer writes in this chat, unless they name ano
 the labels below are translated with it. Code, names, file paths, and quoted output
 stay as they are.
 
+For a change in the UI Bakery repository, write it in English, on the ticket and on
+the pull request, whatever language the developer writes in: the team reads it there.
+Read the repository's `.codex/skills/linear-issue-writing/SKILL.md` first and follow
+its rules for comments; the format below already leads with the result.
+
 What is visible without opening anything: the first line, and for each finding its
 title and why it matters. Everything else of a finding is folded under it. Simpler
 code and tests is one fold as a whole: the author opens it after the findings.

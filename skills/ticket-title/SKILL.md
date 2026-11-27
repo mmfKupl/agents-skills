@@ -20,6 +20,12 @@ A ticket title reads like a PR title: `<Type>: <clear title>`, for example
 
 An outer workflow's own ticket-title rule wins over this one.
 
+In the UI Bakery repository this skill does nothing: it renames no ticket and
+suggests no title. There a ticket is named as the repository's
+`.codex/skills/linear-issue-writing/SKILL.md` says, by its outcome and with no type in
+front, for example `Preserve table filters after refresh`. The team writes its
+tickets that way and asks for no renaming.
+
 ## Types
 
 - `Feat`: new capability or behavior.

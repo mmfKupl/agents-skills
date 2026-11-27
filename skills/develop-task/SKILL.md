@@ -23,6 +23,8 @@ applicable outer-workflow completion gates, not merely a finished code edit.
 When the task has a known ticket, read
 [`../ticket-title/SKILL.md`](../ticket-title/SKILL.md) once its requirements are
 established, in standalone and embedded mode. Analysis-only requests do not rename.
+In the UI Bakery repository the ticket keeps its title, as
+[`references/ui-bakery.md`](references/ui-bakery.md) says.
 
 ## Ticket record
 

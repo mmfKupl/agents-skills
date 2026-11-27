@@ -55,14 +55,22 @@ Storybook:
 
 Where to post:
 
-- upload the videos and screenshots to Linear and put them in the final Linear report, each
-  video on its own `▶ Video` line, and API logs and details in a collapsible block; link
-  it from the PR;
+- upload the videos and screenshots to Linear and embed them in the issue description,
+  beside the text they show, as the repository's
+  `.codex/skills/linear-issue-writing/SKILL.md` asks: the before screenshot under
+  Problem, the video and after screenshots under Solution, each video on its own
+  `▶ Video` line. When the description has no such section, put them at its end. Keep
+  them out of the issue's resource attachments;
+- change only that media: keep the author's text, the status line, and the Claude chat
+  link as they are. On a later run, replace the media of the earlier one instead of
+  adding more below it;
+- in the final Linear report, say in one line per scenario what the media confirms,
+  with API logs and details in its collapsible block; link the issue from the PR;
 - do not paste local filesystem paths as Linear evidence;
-- acceptable evidence: Linear-uploaded attachments, GitHub/PR comment attachments,
-  accessible Playwright report URL, or another stable HTTPS artifact;
+- acceptable evidence: a Linear upload, an accessible Playwright report URL, or another
+  stable HTTPS artifact;
 - if no preview/browser/upload path exists, state that evidence could not be captured or
-  attached and include the blocker.
+  embedded and include the blocker.
 
 ## Preview MCP
 

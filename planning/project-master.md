@@ -1012,3 +1012,23 @@ my-reviews failed so, two of them as checks "that picked no outcome".
   none). The project chat gets one line with the time and how many steps wait, with a
   notification, instead of a failure per ticket.
 
+### 2026-11-27: UI Bakery's own rule for Linear text
+
+On 2026-11-27 the UI Bakery repository added `.codex/skills/linear-issue-writing/SKILL.md`
+(commits `0da67af1e6`, `de50af66c3`): every Linear text in English, a title that names
+the outcome with no type in front, a description of Problem, Solution, and Scope and
+decisions, screenshots and videos embedded in the description, and comments that lead
+with the result. `$develop-please` now puts its media in the description too. The
+developer asked to read it, compared the four states, and agreed to follow the team in
+UI Bakery only:
+
+- `ticket-title` does nothing there: "давай так" to "Отключить в UI Bakery". Tickets
+  keep their titles; `$develop-please` still changes only its `[Working]` prefix.
+- Comments of `post-findings` and of the project chat are in English there ("ок"); the
+  chat and the reports stay in the developer's language.
+- `visual-evidence` embeds the media in the description, the before screenshot under
+  Problem and the after video and screenshots under Solution, and replaces the media of
+  an earlier run; the final report says in one line per scenario what it confirms ("ок").
+- Our UI Bakery notes point to the repository's skill wherever an agent writes to
+  Linear, since `AGENTS.md` names it only for creating a ticket ("окей").
+

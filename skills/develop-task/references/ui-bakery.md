@@ -33,9 +33,11 @@ Keep `$develop-task` responsible for mandatory engineering gates, adaptive model
 routing, implementation ownership, validation evidence, scope control, and
 approval state. Do not independently commit, push, open or edit a PR, update
 Linear, wait on CI or preview environments, or resolve review threads unless the
-outer workflow delegates that exact action. The one exception is renaming the
-Linear issue under the `ticket-title` skill, in English as
-`$develop-please` requires for all Linear text.
+outer workflow delegates that exact action. The Linear issue keeps its title: the
+`ticket-title` skill does not apply in this repository, and `$develop-please` changes
+only its state prefix, such as `[Working]`. Write every Linear text, in English, as the
+repository's `.codex/skills/linear-issue-writing/SKILL.md` says; read it before the
+first one.
 
 `$develop-task`'s Visual Evidence step, through
 [`../../visual-evidence/references/ui-bakery.md`](../../visual-evidence/references/ui-bakery.md),

@@ -484,3 +484,4 @@ says. Write nothing when there was none.
   writes in this chat, unless they name another: a developer who asks in Russian
   to leave a comment gets a Russian comment, also when the report it comes from
   or the ticket is in English. Code, names, and quoted text stay as they are.
+  Repository notes may require another language: in UI Bakery it is English.

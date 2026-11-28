@@ -165,6 +165,36 @@ reports and raw specialist evidence, never a whole prior result. Run independent
 reviews as separate parallel calls when the tool layer allows, otherwise in sequence; never
 use shell `&`, a daemon, or a scheduler, and keep one implementation job per worktree.
 
+## Start A Review Chat
+
+The Final Review runs as a chat of its own, not as a job: it has no manifest, role file,
+or packet. Write the prompt to a file outside the worktree, then run one foreground
+command:
+
+```bash
+agent-run-manifest chat --workspace /absolute/repository --model <postflight model> \
+  --effort <postflight effort> --prompt-file /absolute/review-prompt.md \
+  --worktree <ticket>-final-review-<n> --name "<ticket> final review <n>" --timeout-minutes 90
+```
+
+- The prompt is the review command and its target alone: `/review-task <PR or branch>`
+  for Claude Code, `$review-task <PR or branch>` for Codex, then the ticket. The second
+  review adds the path of the first report.
+- `--workspace` is the repository's main folder, so that `--worktree` makes a fresh
+  working copy beside it at the review's head; `<n>` is 1 or 2.
+- The answer prints the chat's folder, its status, and `report`: the review report.
+  `status: failed` or `timed_out` means no report: see Final Review for what follows.
+- Clean up after each review: it commits nothing, so remove its working copy and its
+  branch. For Claude Code they are `.claude/worktrees/<name>` and `worktree-<name>`;
+  for Codex, the copy the answer's chat record names under `cwd`:
+
+  ```bash
+  git -C /absolute/repository worktree remove --force .claude/worktrees/<name>
+  git -C /absolute/repository branch -D worktree-<name>
+  ```
+
+  Remove the branch only when `git log <base>..worktree-<name>` is empty.
+
 ## Record Approved Requirement Changes
 
 Recover an actual explicit developer decision first; a gate conclusion, existing code, or a

@@ -329,7 +329,9 @@ what was checked: leave out an older problem you only suspect.
 Do not overrule a verifier with your own opinion; when you disagree, give it new
 evidence once, and its second answer stands. A defect the visual-evidence
 inspector shows in an image needs no verifier unless it depends on behavior the
-image cannot show. If verifier agents are unavailable, verify each candidate
+image cannot show. A repeat review after a round of fixes, however small the round,
+is a full review: its candidates go to verifiers the same way, because nothing is
+fixed after it and what it reports goes to the developer. If verifier agents are unavailable, verify each candidate
 yourself the same way, starting from the claim alone, and say so under Details.
 
 ## Report Mode

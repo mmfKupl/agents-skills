@@ -401,3 +401,19 @@ request. The shared develop-please skill is not changed.
   to `.agent-reports/<date>-<ticket>-develop.md`, and the chat gets What changed, one
   merged list of questions, the review in brief, State, the link, and Suggestions.
 
+### 2026-11-28: four fixes from a run's Suggestions
+
+The developer passed on a run's Suggestions ("во смотри что еще") and agreed to all four
+("Да, все"):
+
+- `references/agent-runner.md` describes `agent-run-manifest chat` for the Final Review,
+  with an example and the clean-up of its working copy and branch: the run had to read
+  `--help` and remove two copies and two branches by hand.
+- `preflight-review` and `postflight-review`: what breaks the literal text of a stated
+  requirement is never an accepted risk. Both gates had accepted two silent drops of a
+  record against "no advisory is dropped silently", and the Final Review raised both.
+- `code-simplicity-review`: a test called a duplicate needs a concrete break of our code
+  on which both tests fail. A test it cut was one the first review asked to restore.
+- `review-task`: a repeat review after a round of fixes sends its candidates to
+  verifiers like any review. A second review had skipped them.
+

@@ -77,6 +77,10 @@ Specialist delegation:
 
 Business requirements:
 - If expected behavior or acceptance criteria are underspecified, do not invent product behavior.
+- A plan that knowingly breaks the literal text of a stated requirement is not approved
+  with that case listed as a risk: for example, dropping a record without a word when the
+  requirement says "no advisory is dropped silently". Send it back, or ask the developer
+  when the requirement itself may be wrong.
 - Return Blocked with "needs requirements discovery".
 
 Challenge loop:

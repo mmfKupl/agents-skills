@@ -51,7 +51,8 @@ Look especially for:
 Prove each rule once, at the lowest level that can prove it, plus one end-to-end
 wiring test for a new flow. A test that proves a rule already proved at another
 level is a cut, even when it runs through different code: name the test that keeps
-proving the rule. Otherwise, before cutting a test, name the code of ours it
+proving the rule and a concrete break of our code, such as a deleted condition, on
+which both tests fail. If you cannot name one, the tests prove different things: keep it. Otherwise, before cutting a test, name the code of ours it
 exercises and the remaining test that would fail if that code broke; if there is
 none, keep it. A test of our own wording, mapping, or logic is not a library test,
 even when a library does the rejecting.

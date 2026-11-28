@@ -104,7 +104,11 @@ protect a proven contract.
 Weigh a real but unlikely defect by its cost. When it needs an unusual input or
 timing, its impact is small and recoverable, and the fix adds code and tests,
 put it under Accepted risks with its likelihood and impact instead of Blocking.
-Data loss, security, and a failure on an ordinary path stay Blocking.
+Data loss, security, and a failure on an ordinary path stay Blocking. A defect that
+breaks the literal text of a stated requirement is never an accepted risk, however
+unlikely: for example, a record dropped without a word when the requirement says "no
+advisory is dropped silently". It is Blocking, or a question for the developer when the
+requirement itself may be wrong.
 
 Specialist delegation:
 - Use specialists only when a concrete question needs deeper review.

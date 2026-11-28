@@ -132,3 +132,10 @@ see a soft refusal: a Fable report that declines or cuts short part of an auth,
 permission, or security question. Discard such a report and dispatch the same job with
 `--model gpt-6.2-sol --effort xhigh --reason "Fable refused"`. In subagent mode, do the
 same with an `opus` Agent job at xhigh.
+
+Fable also has a usage limit of its own, while Opus still runs: "You've hit your Fable
+limit · resets …". A routed Fable job that it stops reruns the same way, with the stopped
+job under `fable_limit`. A chat from `agent-run-manifest chat`, such as the Final Review,
+sends the same message again on Opus one effort higher, Fable high as Opus xhigh: a
+stopped first turn starts over as a new session in the same working copy, and a later
+turn goes on in its session. In subagent mode, rerun the job as an `opus` Agent job.

@@ -43,6 +43,11 @@ if os.environ.get("FAKE_REFUSE") and task["agent"]["model"].startswith("claude-f
         execution={{"id": "exec-1", "status": "failed"}}, outcome=None,
         error={{"type": "refusal", "message": "a safety refusal stopped the Claude run"}},
     )
+if os.environ.get("FAKE_FABLE_LIMIT") and task["agent"]["model"].startswith("claude-fable-"):
+    value.update(
+        execution={{"id": "exec-1", "status": "failed"}}, outcome=None,
+        error={{"type": "worker_turn", "message": "You've hit your Fable limit · resets Nov 29, 6am (UTC)."}},
+    )
 result.write_text(yaml.safe_dump(value))
 print(result)
 """
@@ -343,6 +348,17 @@ class DispatchTests(unittest.TestCase):
         task = yaml.safe_load(Path(summary["task"]).read_text())
         self.assertIn("stopped on a safety refusal", task["job"]["prompt"])
         self.assertIn("Goal: fix it.", task["job"]["prompt"])
+
+    def test_fable_job_stopped_by_its_usage_limit_reruns_on_opus_xhigh(self) -> None:
+        with patch.dict(os.environ, {"CLAUDECODE": "1", "CODEX_THREAD_ID": "", "FAKE_FABLE_LIMIT": "1"}):
+            code, summary = self.dispatch(
+                role="preflight-review", profile="critical", workspace=str(self.workspace),
+            )
+        self.assertEqual(code, 0)
+        self.assertEqual((summary["model"], summary["outcome_status"]), ("claude-opus-5-5", "completed"))
+        self.assertIn("hit your Fable limit", summary["fable_limit"]["error"])
+        task = yaml.safe_load(Path(summary["task"]).read_text())
+        self.assertIn("stopped on Fable's usage limit", task["job"]["prompt"])
 
 
 if __name__ == "__main__":

@@ -67,6 +67,11 @@ fix round changes what the PR does, update only these sections and keep every bl
 automation or a person added. Statuses and reports stay in Linear, as `$develop-please`
 says.
 
+Keep the first line of a commit and the PR title within 100 characters. The
+repository's `AGENTS.md` names 120, but commitlint, which checks every commit and the PR
+title, rejects a first line longer than 100: that is `header-max-length` of
+`@commitlint/config-conventional`.
+
 `$develop-please` asks for a compact final chat response of five handoff lines with no
 extra sections. The developer wants `$develop-task`'s Report Format there instead: the
 full report in the file, the short one in the chat, and those five lines, unchanged, in
@@ -84,7 +89,9 @@ blocker, or a decision only the developer can make. Keep `$develop-please`'s Lin
 PR closeout for whichever stop comes first.
 
 `$develop-task`'s Final Review runs right after `$develop-please`'s commit and PR
-step, while GitHub checks and the preview are still going. Its fix round goes to the same
+step, while GitHub checks and the preview are still going, and right after
+`$develop-please`'s Base Branch Sync: run that sync before each final review, not only
+before the handoff, as Final Review says. Its fix round goes to the same
 PR as new commits, and the second review runs on the new head. Do not close out as Ready
 before the Final Review has run to its end; the timebox does not cut it short.
 

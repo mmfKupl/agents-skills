@@ -83,7 +83,8 @@ the effort level unchanged (`low`, `medium`, `high`, `xhigh`, `max`):
 | `gpt-6.2-astra`, `gpt-6-astra`, Astra | `fable` | `claude-fable-5-2` |
 
 One exception: a `gpt-6.2-sol` xhigh route runs on Claude as `fable` high when the ceiling
-allows it, and a refused Fable job reruns on `opus` xhigh. See `references/routing.md`,
+allows it, and a Fable job that a refusal or Fable's own usage limit stops reruns on
+`opus` xhigh. See `references/routing.md`,
 Fable on Claude.
 
 Jobs on Codex keep the GPT model and run through the runner. In `subagents` mode,

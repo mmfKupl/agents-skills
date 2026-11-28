@@ -25,17 +25,19 @@ prompt = sys.stdin.read()
 with open(log, "a") as handle:
     handle.write(json.dumps({{"argv": sys.argv[1:], "cwd": os.getcwd(), "prompt": prompt}}) + "\\n")
 mode = os.environ.get("FAKE_MODE", "ok")
+if mode == "fable_limit":
+    mode = "fable" if sys.argv[sys.argv.index("--model") + 1].startswith("claude-fable-") else "ok"
 if mode == "slow":
     time.sleep(30)
 if mode == "crash":
     sys.stderr.write("boom: no credentials\\n")
     sys.exit(3)
 # As Claude Code ends a turn that the usage limit stopped: an error, though `subtype` says success.
-limited = "You've hit your weekly limit \u00b7 resets Nov 29, 6am (UTC)"
+limited = "You've hit your " + ("Fable" if mode == "fable" else "weekly") + " limit \u00b7 resets Nov 29, 6am (UTC)"
 print(json.dumps({{
     "type": "result", "subtype": "error_during_execution" if mode == "error" else "success",
-    "is_error": mode in ("error", "limit"),
-    "result": "it broke" if mode == "error" else limited if mode == "limit" else "sent" if mode == "sent" else "answer to: " + prompt,
+    "is_error": mode in ("error", "limit", "fable"),
+    "result": "it broke" if mode == "error" else limited if mode in ("limit", "fable") else "sent" if mode == "sent" else "answer to: " + prompt,
     "session_id": "claude-session-1", "total_cost_usd": 0.25,
     "usage": {{"input_tokens": 10, "cache_read_input_tokens": 600, "cache_creation_input_tokens": 90,
               "output_tokens": 40}},
@@ -215,6 +217,27 @@ class RunChatTests(unittest.TestCase):
         with patch.dict(os.environ, {"FAKE_MODE": "error"}):
             code, summary = self.start(model="gpt-6.2-sol", run_dir=str(codex))
         self.assertEqual((code, summary["status"], summary["error"]), (1, "failed", "usage limit reached"))
+
+    def test_a_chat_that_fable_limit_stops_starts_over_on_opus(self) -> None:
+        with patch.dict(os.environ, {"FAKE_MODE": "fable_limit"}):
+            code, summary = self.start(model="fable", worktree="uib-1-review")
+            self.assertEqual((code, summary["model"], summary["effort"], summary["turn"]),
+                             (0, "claude-opus-5-5", "xhigh", 2))
+            self.assertIn("hit your Fable limit", summary["fable_limit"]["error"])
+            fable, opus = self.calls()
+            # The same skill command, as the first message of a new session in the same working copy.
+            self.assertEqual(opus["argv"][:3], ["-p", "--worktree", "uib-1-review"])
+            self.assertEqual((opus["prompt"], opus["cwd"]), (fable["prompt"], str(self.workspace)))
+
+            # A later turn goes on in its session.
+            other = self.root / "chat-later"
+            self.start(model="opus", run_dir=str(other))
+            record = yaml.safe_load((other / "chat.yaml").read_text())
+            record["model"] = "claude-fable-5-2"
+            (other / "chat.yaml").write_text(yaml.safe_dump(record))
+            code, output = run_chat.resume(run_dir=str(other), prompt_file=self.prompt("go on", "answer.md"))
+        self.assertEqual((code, yaml.safe_load(output)["model"]), (0, "claude-opus-5-5"))
+        self.assertEqual(self.calls()[-1]["argv"][:3], ["-p", "--resume", "claude-session-1"])
 
     def test_a_turn_that_runs_too_long_is_stopped(self) -> None:
         with patch.dict(os.environ, {"FAKE_MODE": "slow"}):

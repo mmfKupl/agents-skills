@@ -61,7 +61,8 @@ model, applies the run's ceiling, builds the task from the canonical role file
 permissions and context budgets for the role and profile, registers the job, runs it,
 reconciles the manifest, and prints the job, route, model, status, summary, result path,
 and the full role report. When a safety refusal stops a routed Fable job, it reruns the
-job on Opus xhigh and prints the rerun, with the refused job under `refused`. `agent-run-manifest route` takes the role, profile, and routing
+job on Opus xhigh and prints the rerun, with the refused job under `refused`; Fable's own
+usage limit reruns it the same way, under `fable_limit`. `agent-run-manifest route` takes the role, profile, and routing
 flags (and `--ceiling`) and prints the route without running anything.
 
 - `--role`: `preflight-review`, `implementation-worker`, `postflight-review`,
@@ -184,6 +185,8 @@ agent-run-manifest chat --workspace /absolute/repository --model <postflight mod
   working copy beside it at the review's head; `<n>` is 1 or 2.
 - The answer prints the chat's folder, its status, and `report`: the review report.
   `status: failed` or `timed_out` means no report: see Final Review for what follows.
+  A review that Fable's usage limit stopped has already run again on Opus by itself, and
+  its answer names the stopped turn under `fable_limit`; say so in the report.
 - Clean up after each review: it commits nothing, so remove its working copy and its
   branch. For Claude Code they are `.claude/worktrees/<name>` and `worktree-<name>`;
   for Codex, the copy the answer's chat record names under `cwd`:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -89,8 +90,11 @@ GPT_PEER.update({"gpt-6-sol": "claude-opus-5-5", "gpt-6.1-sol": "claude-opus-5-5
 # refusal stops reruns on the strongest Opus route.
 CLAUDE_UPGRADES = {("gpt-6.2-sol", "xhigh"): ("claude-fable-5-2", "high")}
 REFUSAL_ROUTE = ("gpt-6.2-sol", "xhigh")
-REFUSAL_RETRY = """\
-A previous job for this packet ran on Claude Fable and stopped on a safety refusal.
+# Fable has a usage limit of its own, while Opus still runs: "You've hit your Fable
+# limit · resets Nov 29, 6am (UTC)". A job stopped by it reruns on the same Opus route.
+FABLE_LIMIT = re.compile(r"hit your Fable limit", re.IGNORECASE)
+RETRY = """\
+A previous job for this packet ran on Claude Fable and stopped on {why}.
 This is the rerun on Claude Opus. The worktree may hold that job's partial edits:
 check `git status` before you start.
 
@@ -459,22 +463,24 @@ def dispatch(
         if role == "project-check":
             # The watching script branches on this, so it does not parse the report.
             summary["check_outcome"] = check_outcome(outcome.get("report"))
-    refused = (summary.get("error") or {}).get("type") == "refusal"
-    if refused and not model and str(summary.get("model")).startswith("claude-fable-"):
+    error = summary.get("error") or {}
+    limited = bool(FABLE_LIMIT.search(str(error.get("message") or "")))
+    if (error.get("type") == "refusal" or limited) and not model and str(summary.get("model")).startswith("claude-fable-"):
+        why, key = ("Fable's usage limit", "fable_limit") if limited else ("a safety refusal", "refused")
         with tempfile.TemporaryDirectory() as retry_dir:
             retry_prompt = Path(retry_dir) / "packet.md"
-            retry_prompt.write_text(REFUSAL_RETRY + prompt, encoding="utf-8")
+            retry_prompt.write_text(RETRY.format(why=why) + prompt, encoding="utf-8")
             code, output = dispatch(
                 role=role, profile=profile, prompt_file=str(retry_prompt),
                 run_manifest=run_manifest, workspace=workspace, ceiling=ceiling,
                 contract_revision=contract_revision, approved_by_preflight=approved_by_preflight,
                 slice_kind=slice_kind, gate=gate, lookup=lookup, vendor=vendor,
                 model=REFUSAL_ROUTE[0], effort=REFUSAL_ROUTE[1],
-                reason=f"{job_id} on {requested} was refused", unrestricted=unrestricted,
+                reason=f"{job_id} on {requested} stopped on {why}", unrestricted=unrestricted,
                 runner=runner, read_dirs=read_dirs,
             )
         retry = yaml.safe_load(output)
-        retry["refused"] = {"job": job_id, "model": requested, "error": summary["error"]["message"]}
+        retry[key] = {"job": job_id, "model": requested, "error": error["message"]}
         return code, yaml.safe_dump(retry, sort_keys=False, allow_unicode=True)
     return code, yaml.safe_dump(summary, sort_keys=False, allow_unicode=True)
 

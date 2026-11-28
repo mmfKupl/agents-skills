@@ -585,6 +585,22 @@ session that knows nothing of this run:
 - Model: the profile's postflight model and effort, under the run's ceiling.
 - Add its usage to the Agent Usage table as a row of its own.
 
+**Up to date with the base.** Right before each final review, whoever owns commits and
+push fetches the base and checks whether the branch is behind it
+(`git merge-base --is-ancestor origin/<base> HEAD` fails). When it is, they merge the
+base, push, and the review starts on that head. The merge that a ready handoff needs
+then comes before the reviews instead of after them, when it would need one more review.
+
+When the base has to be merged again after a review, repeat that review only when the
+merge changed what it read: a conflict was resolved, or the merge brought changes to a
+file that the pull request also changes. The files the merge brought are
+`git diff --name-only <reviewed head> HEAD`; the files of the pull request are
+`git diff --name-only origin/<base>...HEAD`. When it changed what the review read, repeat
+the review on the new head with its report, so that it looks at what the merge changed.
+Otherwise rerun only the checks the merge invalidates, and say in the report that the
+review was not repeated because the merge touched no file of the change. A review costs
+far more than this check, and one on code it already read finds nothing new.
+
 **What gets fixed.** Read the report and sort every finding of `Findings`, of any
 priority, and every item of `Simpler code and tests`:
 

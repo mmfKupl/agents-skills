@@ -25,6 +25,9 @@ import run_dispatch
 import run_manifest as manifest
 
 EFFORTS = ("low", "medium", "high", "xhigh")
+# Fable high stands in for Opus xhigh, so a chat that Fable's own usage limit stopped
+# goes on Opus one effort higher.
+OPUS_EFFORT = {"low": "medium", "medium": "high", "high": "xhigh", "xhigh": "xhigh"}
 BINARIES = {"claude": "AGENT_RUNNER_CLAUDE_BIN", "codex": "AGENT_RUNNER_CODEX_BIN"}
 DEFAULT_TIMEOUT_MINUTES = 180.0
 
@@ -246,6 +249,27 @@ def _turn(run_dir: Path, record: dict[str, Any], prompt: str, timeout_minutes: f
     return (0 if status == "completed" else 1), yaml.safe_dump(summary, sort_keys=False, allow_unicode=True)
 
 
+def _turn_on_opus_past_fable_limit(run_dir: Path, record: dict[str, Any], prompt: str,
+                                   timeout_minutes: float) -> tuple[int, str]:
+    """Run one turn; when Fable's own usage limit stops it, send the same message again on
+    Opus. A stopped first turn starts over in the same working copy: its message may be a
+    skill's command, which must stay the first thing a session gets."""
+    code, output = _turn(run_dir, record, prompt, timeout_minutes)
+    last = record["turns"][-1]
+    if not (record["vendor"] == "claude" and record["model"].startswith("claude-fable-")
+            and last["status"] == "failed" and run_dispatch.FABLE_LIMIT.search(str(last.get("error") or ""))):
+        return code, output
+    stopped = {"turn": last["number"], "model": record["model"], "error": last["error"]}
+    record.update(model=chat_route("opus", "claude")[1], effort=OPUS_EFFORT[record["effort"]],
+                  fable_limit=stopped)
+    if len(record["turns"]) == 1:
+        record.update(session=None, cwd=record["workspace"])
+    code, output = _turn(run_dir, record, prompt, timeout_minutes)
+    summary = yaml.safe_load(output)
+    summary["fable_limit"] = stopped
+    return code, yaml.safe_dump(summary, sort_keys=False, allow_unicode=True)
+
+
 def start(
     *, workspace: str, model: str, effort: str, prompt_file: str, vendor: str = "auto",
     run_dir: str | None = None, name: str | None = None, worktree: str | None = None,
@@ -270,7 +294,7 @@ def start(
         "name": name, "unrestricted": unrestricted, "session": None, "status": "running",
         "created": _now(), "turns": [],
     }
-    return _turn(target, record, prompt, timeout_minutes)
+    return _turn_on_opus_past_fable_limit(target, record, prompt, timeout_minutes)
 
 
 def resume(*, run_dir: str, prompt_file: str, timeout_minutes: float = DEFAULT_TIMEOUT_MINUTES) -> tuple[int, str]:
@@ -283,4 +307,4 @@ def resume(*, run_dir: str, prompt_file: str, timeout_minutes: float = DEFAULT_T
         raise manifest.ManifestError(f"{target / 'chat.yaml'} is not a chat record")
     if not record.get("session"):
         raise manifest.ManifestError("this chat has no session to continue: its first turn did not start one")
-    return _turn(target, record, prompt, timeout_minutes)
+    return _turn_on_opus_past_fable_limit(target, record, prompt, timeout_minutes)

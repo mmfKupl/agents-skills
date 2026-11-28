@@ -439,3 +439,21 @@ replace that rule with a description in English: `Closes`, What changes, Why, Ho
 check ("ок") After hearing that this goes against the team's rule: "Да окей, делаем против
 правила".
 
+
+From the next Suggestions, about the length of a commit title: the repository's
+`AGENTS.md` names 120 characters, and commitlint rejects more than 100. The developer
+chose a note of our own over a pull request to the team's file ("хотя да, лучше заметку
+нам"): the UI Bakery notes keep the first line within 100.
+
+From the same Suggestions the developer took two more ("делай 1 и 3"):
+
+- a Final Review on Fable stopped on Fable's own usage limit ("You've hit your Fable
+  limit · resets Nov 29, 6am (UTC)", UIB-6769 and UIB-6765 on 2026-11-28) and left no
+  report. `dispatch` reran a Fable job only after a safety refusal and `chat` never. Now
+  both go on on Opus: a job on Opus xhigh, a chat on Opus one effort higher with the
+  same message;
+- the base branch is merged before each final review, not after it. The developer
+  added: "но еще и стоит как-то проверять что поменялось после слияния, ведь можно
+  лишний раз запустить ревью которое ничего нового не найдет а юзедж и время потратит".
+  So a merge after a review repeats it only when a conflict was resolved or the merge
+  changed a file of the pull request; otherwise only the checks run again.

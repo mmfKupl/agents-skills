@@ -1107,3 +1107,18 @@ stand per machine" and a 32 GB machine, and asked instead: "чтобы аген�
   `exec` with no stand, take the stand only for the check, and remove it right after.
 - A pull request to UI Bakery makes the Angular heap of a stand configurable.
 
+
+## Reports on the phone and the review verdict (2026-11-28)
+
+A report link in the news is a path on the VM: it opened on the computer, and on the
+phone the app said the file is not on this device. `SendUserFile` in a Remote Control
+chat answers "this session is not on a project thread, so it has nowhere to place a
+file". The project chat has the `Artifact` tool, a headless run has not. Of publishing
+every report as a private page or only when asked, the developer chose "По просьбе
+лучше": the project chat publishes a report only when asked, as it is.
+
+The developer did not know whether `ready` in the news meant that the review was done
+or that it found nothing ("я не понимаю это готово ревью или ревью не нашло проблем").
+Of three variants they chose B ("давай б вариант"): the line says what the review found
+by priority and what to do with the change: `review: 2 P2, fix first`, `review: 1 P3,
+can merge`, `review: 1 P1, do not merge`, `review: nothing found`, `review: no verdict`.

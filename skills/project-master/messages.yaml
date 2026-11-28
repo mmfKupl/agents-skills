@@ -139,6 +139,16 @@ status_checking: "comment check running"
 status_failed: "{step} failed, {note}"
 status_no_report: "{step} ended without a report"
 status_done: "{step} done"
+# Вердикт обзора: что нашёл, по приоритетам, и что делать с изменением,
+# например "review: 2 P2, fix first". Не переводится, как и статусы.
+verdict_line: "{step}: {verdict}"
+verdict_count: "{count} {priority}"
+verdict_found: "{found}, {advice}"
+verdict_nothing: "nothing found"
+verdict_ready: "can merge"
+verdict_ready_after_fixes: "fix first"
+verdict_not_ready: "do not merge"
+verdict_cannot_tell: "no verdict"
 # Отчёт без вопросов: его вердикт или status_done, ссылкой на отчёт.
 status_report: "[{status}]({link})"
 status_nothing: "nothing to start ({outcome})"

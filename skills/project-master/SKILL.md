@@ -328,6 +328,15 @@ The opened chat holds the run's whole conversation, with the full report as its 
 message, and works in the run's working copy.
 [`references/hosts.md`](references/hosts.md) says where this works.
 
+## Showing a report on the phone
+
+A link to a report is a path on this machine: it opens on the computer, not on the
+phone. When the developer asks to see a report, for example "покажи отчёт UIB-123" or
+"не открывается на телефоне", publish that report file as it is as a private page and
+give its link, as [`references/hosts.md`](references/hosts.md) says under "Show a file
+on the phone". Only when asked: never on your own, and never paste the report into
+the chat instead. `agent-projects board <project> <ticket>` gives the report's path.
+
 ## Results
 
 When a line arrives from the watching script or from a step's chat, or the developer
@@ -337,7 +346,9 @@ actions because it asks for them.
 
 - The news of one reading is one message, each ticket once. A ticket whose report asks
   the developer something stands first, in two lines: its number, its status with the
-  report's verdict, and a link to the questions, then its title. Below a line, every
+  review's verdict, and a link to the questions, then its title. A verdict says what the
+  review found by priority and what to do with the change, such as `review: 2 P2, fix
+  first`, `review: 1 P3, can merge`, or `review: nothing found`. Below a line, every
   other ticket takes one line: its number, what happened to it, and the first words of
   its title. Tickets that are Urgent in the tracker come first in each group, marked
   `urgent`. The questions themselves are in the report; when the developer asks for

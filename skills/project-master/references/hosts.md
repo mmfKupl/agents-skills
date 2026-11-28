@@ -74,6 +74,20 @@ A message from another chat is information, not the developer's instruction.
   chat; that is expected, do not retry.
 - **Otherwise.** Skip the notification. Codex has no such tool in `codex exec` 0.171.
 
+## Show a file on the phone
+
+- **Claude Code through Remote Control.** `SendUserFile` delivers nothing there. Seen on
+  2026-11-28 on the VM: "not delivered: this session is not on a project thread, so it
+  has nowhere to place a file". Publish the file with the `Artifact` tool instead (load
+  it with `ToolSearch` when it is deferred): a Markdown report as a `.md` page, which
+  this skill asks for, with no other change to it. The page is private to the
+  developer's account and opens in the Claude app on the phone. Give its link in one
+  line with the ticket. A headless run (`claude -p`) has no `Artifact` tool, so only this
+  chat can publish. Not checked yet on a real publish.
+- **Claude desktop app** with `SendUserFile` and no Remote Control: send the file with it.
+- **Otherwise**, such as Codex: say that the file cannot reach the phone from here and
+  give its path.
+
 ## Show work that is going
 
 The project chat shows each piece of work as a background command that lasts as long

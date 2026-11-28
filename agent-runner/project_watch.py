@@ -1803,7 +1803,20 @@ def _verdict(path: str, kind: str, run: dict[str, Any] | None, triggers: dict[st
     outcome = next((found for found in (_section(text, name) for name in messages.texts()["outcome_sections"])
                     if _says_something(found)), "")
     verdict = next((word for word in VERDICTS if re.match(rf"[\s*_`<]*{word}\b", outcome, re.IGNORECASE)), None)
-    return verdict or say("status_done", step=_status_step(run, triggers, kind))
+    step = _status_step(run, triggers, kind)
+    if not verdict:
+        return say("status_done", step=step)
+    # The bare verdict read as "the review is ready", so the line says what was found
+    # and what to do with the change: "review: 2 P2, fix first".
+    found = re.findall(r"^#{2,6}\s*[*_`]*(P[0-3])\b", _section(text, "Findings"), re.MULTILINE)
+    counts = say("status_join").join(say("verdict_count", count=found.count(priority), priority=priority)
+                                     for priority in ("P0", "P1", "P2", "P3") if priority in found)
+    advice = say(f"verdict_{verdict.replace(' ', '_')}")
+    if verdict == "ready" and not found:
+        advice = say("verdict_nothing")
+    elif counts and verdict != "cannot tell":
+        advice = say("verdict_found", found=counts, advice=advice)
+    return say("verdict_line", step=step, verdict=advice)
 
 
 def _standing(state: dict[str, Any], root: Path, name: str, ticket: str,

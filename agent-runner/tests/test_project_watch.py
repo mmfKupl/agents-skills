@@ -1377,22 +1377,24 @@ run:
             self.assertEqual(self.news()[:2], [
                 "[`UIB-2`](https://linear.app/x/UIB-2) _urgent_ — new, review running — _Parallel chat requests spend more…_",
                 "[`UIB-1`](https://linear.app/x/UIB-1) — new, review running — _Title of UIB-1_"])
-            written = "### Verdict\nnot ready: it breaks.\n\n### Needs from you\n1. One?\n2. Two?\n"
+            written = ("### Verdict\nnot ready: it breaks.\n\n### Needs from you\n1. One?\n2. Two?\n\n### Findings\n"
+                       "#### P1 — It breaks\n- x\n#### P2 — Slow\n- y\n#### P2 — Odd\n- z\n")
+            minor = "### Verdict\nready\n\n### Findings\n#### P3 — A name\n- x\n"
             for ticket in ("UIB-1", "UIB-2"):
-                with patch.object(sys, "stdin", io.StringIO(written if ticket == "UIB-1" else "### Verdict\nready\n")):
+                with patch.object(sys, "stdin", io.StringIO(written if ticket == "UIB-1" else minor)):
                     self.ok("report", "add", "--project", "billing", "--ticket", ticket, "--kind", "review")
             shown = self.news()
             self.wait_for_runs()
         day = project_watch._stamp()[:10]
         # A report with questions takes two lines over a rule; one without them is a link in the line below it.
         self.assertEqual(shown[:5], [
-            f"**[`UIB-1`](https://linear.app/x/UIB-1)** — **not ready** — [2 questions](.agent-reports/{day}-UIB-1-review.md)",
+            f"**[`UIB-1`](https://linear.app/x/UIB-1)** — **review: 1 P1, 2 P2, do not merge** — [2 questions](.agent-reports/{day}-UIB-1-review.md)",
             "_Title of UIB-1_",
             "",
             "---",
             "",
         ])
-        self.assertEqual(shown[5], f"[`UIB-2`](https://linear.app/x/UIB-2) _urgent_ — [ready](.agent-reports/{day}-UIB-2-review.md)"
+        self.assertEqual(shown[5], f"[`UIB-2`](https://linear.app/x/UIB-2) _urgent_ — [review: 1 P3, can merge](.agent-reports/{day}-UIB-2-review.md)"
                                    " — _Parallel chat requests spend more…_")
 
     def test_ticket_that_leaves_a_trigger_is_told_once_with_what_stays_under_it(self) -> None:
@@ -1499,7 +1501,7 @@ run:
         opening = '- to open the chat of UIB-7 when the developer asks: agent-projects watch open 1 --title "<title>"'
         # The news says only where it stands: the verdict and a link to the questions, then the title.
         self.assertEqual(self.news(), [
-            f"**[`UIB-7`](https://linear.app/x/issue/UIB-7)** — **ready after fixes** — [1 question](.agent-reports/{name})",
+            f"**[`UIB-7`](https://linear.app/x/issue/UIB-7)** — **review: 1 P2, fix first** — [1 question](.agent-reports/{name})",
             "_Limits_",
             "",
             project_watch.CHAT_PART,
@@ -1511,7 +1513,7 @@ run:
         self.assertEqual(self.command("board", "billing", "UIB-7")[1].rstrip("\n").splitlines(), [*card, opening])
         self.assertEqual(self.command("board", "billing", "UIB-9")[1].strip(), "UIB-9 has no record on this machine.")
         # The board says that this report still waits for an answer, until a decision is on record.
-        waits = (f"**[`UIB-7`](https://linear.app/x/issue/UIB-7)** — **ready after fixes** — [1 question](.agent-reports/{name})"
+        waits = (f"**[`UIB-7`](https://linear.app/x/issue/UIB-7)** — **review: 1 P2, fix first** — [1 question](.agent-reports/{name})"
                  "\n_Limits_")
         self.assertIn(waits, self.command("board", "billing")[1])
         time.sleep(1.1)
@@ -1617,7 +1619,7 @@ run:
             project_watch.cycle(read_tracker=False)
         shown = self.command("board", "billing")[1]
         name = f"{project_watch._stamp()[:10]}-UIB-1-review.md"
-        self.assertIn(f"\n\n[`UIB-1`](https://linear.app/x/UIB-1) — [ready](.agent-reports/{name}) — _Title of UIB-1_\n\n", shown)
+        self.assertIn(f"\n\n[`UIB-1`](https://linear.app/x/UIB-1) — [review: nothing found](.agent-reports/{name}) — _Title of UIB-1_\n\n", shown)
         self.assertNotIn("\n\n\n", shown)
 
         own = self.root / "messages.yaml"

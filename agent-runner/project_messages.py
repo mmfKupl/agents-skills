@@ -126,6 +126,15 @@ DEFAULTS: dict[str, Any] = {
     "status_failed": "{step} failed, {note}",
     "status_no_report": "{step} ended without a report",
     "status_done": "{step} done",
+    # A review's verdict: what it found, by priority, and what to do with the change.
+    "verdict_line": "{step}: {verdict}",
+    "verdict_count": "{count} {priority}",
+    "verdict_found": "{found}, {advice}",
+    "verdict_nothing": "nothing found",
+    "verdict_ready": "can merge",
+    "verdict_ready_after_fixes": "fix first",
+    "verdict_not_ready": "do not merge",
+    "verdict_cannot_tell": "no verdict",
     # A report that asks nothing: its verdict, or `status_done`, as a link to it.
     "status_report": "[{status}]({link})",
     "status_nothing": "nothing to start ({outcome})",

@@ -417,3 +417,25 @@ The developer passed on a run's Suggestions ("во смотри что еще") 
 - `review-task`: a repeat review after a round of fixes sends its candidates to
   verifiers like any review. A second review had skipped them.
 
+### 2026-11-28: five more from a run's Suggestions, and pull request descriptions
+
+From the next Suggestions the developer took four ("ок") and turned down choosing the
+base of a pull request by the neighbouring ones ("не надо"):
+
+- the stand registry counts 7 GB for `automation`, which runs with a 16 GB heap and took
+  6.4 GB; `earlyoom` then killed the stand's backend. The stand skill of UI Bakery gets a
+  table of what each service takes in uibakery/uibakery#7711;
+- the UI Bakery notes give the recipe for one `bakery-cloud` test: `bakery` sets
+  `failIfNoTests`, so `-Dtest` also names a `bakery` test;
+- exit code 143 is `earlyoom`'s SIGTERM (its journal showed `java` killed at 22:47, 22:56,
+  and 23:06 on 2026-11-27), not parallel database runs: read the free memory first and
+  run heavy runs one after another;
+- the Final Review's second review targets the new pull request when it changed.
+
+The developer also asked why the latest pull requests had no description ("еще почему-то
+последние пры все без описания"). `$develop-please` forbids one, and since develop-task
+always runs with it in UI Bakery (2026-11-27) none got one. The UI Bakery notes now
+replace that rule with a description in English: `Closes`, What changes, Why, How to
+check ("ок") After hearing that this goes against the team's rule: "Да окей, делаем против
+правила".
+

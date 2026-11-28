@@ -46,6 +46,27 @@ and its review check for missing screenshots. Its separate Storybook comment is 
 the Linear closeout, not an extra report that `$develop-please`'s comment rules would fold
 into the final one. Do not close out as Ready while a defect from its inspection is open.
 
+`$develop-please` forbids a pull request description. The developer wants one: when its
+PR step creates the PR, give it this description, in English, with `--body-file`:
+
+```markdown
+Closes UIB-123
+
+## What changes
+<what a user or caller sees: how it was and how it is now, with one real example>
+
+## Why
+<the problem behind it>
+
+## How to check
+<the checks that ran, and the steps to see it on the preview>
+```
+
+Keep the block the runtime adds, such as the Claude Code attribution, at the end. When a
+fix round changes what the PR does, update only these sections and keep every block that
+automation or a person added. Statuses and reports stay in Linear, as `$develop-please`
+says.
+
 `$develop-please` asks for a compact final chat response of five handoff lines with no
 extra sections. The developer wants `$develop-task`'s Report Format there instead: the
 full report in the file, the short one in the chat, and those five lines, unchanged, in
@@ -114,7 +135,16 @@ Choose the narrowest check that proves the changed behavior:
 - Docker sandbox changes: run focused tests in
   `front/projects/docker-sandbox`.
 - Java backend changes: run a narrow Maven test from `back/projects`, or a
-  compile check when Testcontainers or Docker blocks integration tests.
+  compile check when Testcontainers or Docker blocks integration tests. The `bakery`
+  module sets `<failIfNoTests>true</failIfNoTests>`, which `-D` flags do not override,
+  so a `-Dtest` that names only a `bakery-cloud` test fails in `bakery` with "No tests
+  were executed!". Name one fast `bakery` test in the same `-Dtest` too.
+- A test run that ends with exit code 143 got SIGTERM: on the shared machine that is
+  `earlyoom`, which kills the largest process when memory runs out, not a failing test.
+  `sudo journalctl -u earlyoom --since -1h` shows it. Before a heavy run, such as Maven
+  with Testcontainers or `ng test`, read the free memory in `agent-projects stand list`,
+  run heavy runs of one chat one after another, never at once, and run a killed run
+  again when memory is free.
 - Duplication-sensitive broad frontend changes: consider
   `cd front && npm run jscpd`.
 - User-visible UI changes: consider a screenshot, browser smoke, or focused

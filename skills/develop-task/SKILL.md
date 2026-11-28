@@ -609,7 +609,9 @@ fix round and no second review.
 
 **The second review.** After the fix round, run the full review once more, the same
 way, on the new head, and give it the first report so that it says for each earlier
-finding whether it is fixed. Nothing is fixed after the second review, whatever it
+finding whether it is fixed. When the pull request changed between the reviews, such as
+a new one opened against another base, the second review targets the new pull request,
+and its prompt names the old one with the first report. Nothing is fixed after the second review, whatever it
 finds: its findings and items go to the report as they are, each as a question under
 Needs from you or as a line under Accepted risks.
 

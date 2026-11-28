@@ -27,7 +27,8 @@ STANDS_FILE = "stands.yaml"
 SCRIPT = Path(".codex/skills/run-bakery-dev-in-docker/scripts/bakery-dev-docker.sh")
 # What each service takes, in gigabytes, once it has run for a while: measured on the
 # UI Bakery VM on 2026-11-27, with the heap of an Angular dev server capped at `HEAP_MB`.
-SERVICE_GB = {"bakery": 4.5, "workbench": 4.5, "back": 1.5, "datasource": 0.5, "chat": 1.0, "automation": 1.5}
+# `automation` runs with a 16 GB heap of its own and took 6.4 GB; `chat` was not measured.
+SERVICE_GB = {"bakery": 4.5, "workbench": 4.5, "back": 1.5, "datasource": 0.5, "chat": 1.0, "automation": 7.0}
 DATABASES_GB = 0.5
 # Memory left free after a stand starts, for the chats, tests, and the system.
 RESERVE_GB = 2.0
